@@ -1,0 +1,238 @@
+---
+
+description: "Task list for User Registration, Login & Role-Based Access"
+---
+
+# Tasks: User Registration, Login & Role-Based Access
+
+**Input**: Design documents from `/specs/001-user-auth/`
+
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md (all present)
+
+**Tests**: Included and REQUIRED — the project constitution (Principle I, NON-NEGOTIABLE) mandates tests written before implementation for every feature, and the Development Workflow section requires every protected endpoint's authorization logic to be covered by an integration test for both the allowed and denied path. Test tasks below MUST be completed, and MUST fail, before their corresponding implementation tasks.
+
+**Organization**: Tasks are grouped by user story (from spec.md) to enable independent implementation and testing of each story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (US1, US2, US3, US4)
+- File paths are exact, per `plan.md`'s Project Structure
+
+## Path Conventions
+
+Web application split per `plan.md`: `backend/TaskFlow.Api/` (+ `backend/TaskFlow.Api.Tests/`) and `frontend/src/app/`.
+
+<!-- Sample tasks from the template have been replaced with the actual tasks for this feature. -->
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Scaffold both projects from scratch (repo currently has no `backend/` or `frontend/`)
+
+- [ ] T001 Create the backend solution: `dotnet new webapi -o backend/TaskFlow.Api` (.NET 10), `dotnet new xunit -o backend/TaskFlow.Api.Tests`, a `TaskFlow.sln` referencing both, and a project reference from the test project to `TaskFlow.Api`
+- [ ] T002 [P] Add NuGet packages to `backend/TaskFlow.Api/TaskFlow.Api.csproj`: `Microsoft.EntityFrameworkCore.SqlServer`, `Microsoft.EntityFrameworkCore.Design`, `Microsoft.AspNetCore.Authentication.JwtBearer`, `Microsoft.AspNetCore.Identity`
+- [ ] T003 [P] Create the Angular 22 workspace in `frontend/` (standalone APIs, zoneless, signals) via `ng new frontend --standalone --style=css --routing`, then add Angular Material and Angular CDK (`ng add @angular/material`)
+- [ ] T004 [P] Enable `<Nullable>enable</Nullable>` and `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `backend/TaskFlow.Api/TaskFlow.Api.csproj`; enable `"strict": true` in `frontend/tsconfig.json`
+- [ ] T005 [P] Run `dotnet user-secrets init --project backend/TaskFlow.Api` and document the required configuration keys (`Admin:Email`, `Admin:Password`, `Jwt:SigningKey`, `Jwt:Issuer`, `Jwt:Audience`) as placeholder entries in `backend/TaskFlow.Api/appsettings.Development.json` (values left empty, real values only ever in user-secrets/env vars — never committed)
+
+**Checkpoint**: Both projects build (even if empty) before foundational work begins.
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Shared infrastructure every user story depends on — the `User` entity/table, JWT auth wiring, error handling, and the frontend auth-state skeleton
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+- [ ] T006 Create the `User` entity with a `Role` enum (`Developer`, `Manager`, `Admin`) in `backend/TaskFlow.Api/Data/Entities/User.cs` per `data-model.md` (Id, FullName, Email, PasswordHash, Role, CreatedAt) — include a one-line comment on the enum explaining why `Role` is a fixed enum, not a table (Clarity Over Cleverness)
+- [ ] T007 Create `AppDbContext` in `backend/TaskFlow.Api/Data/AppDbContext.cs` with a `Users` `DbSet<User>`, a unique index on `Email`, and `Role` configured via `HasConversion<string>()` — include a short comment on what `DbSet`/change tracking is (constitution Principle VI)
+- [ ] T008 [P] Generate the initial EF Core migration `AddUsersTable` in `backend/TaskFlow.Api/Data/Migrations/` via `dotnet ef migrations add AddUsersTable --project backend/TaskFlow.Api`
+- [ ] T009 [P] Configure JWT bearer authentication and authorization services in `backend/TaskFlow.Api/Program.cs` (signing key/issuer/audience from configuration, `ValidateLifetime = true`), with a short comment on why the middleware order matters
+- [ ] T010 [P] Configure global `ProblemDetails` error handling (`AddProblemDetails()` + exception-handling middleware) in `backend/TaskFlow.Api/Program.cs` so every error response shares one shape (FR-020)
+- [ ] T011 [P] Implement the fail-fast `AdminSeeder` in `backend/TaskFlow.Api/Startup/AdminSeeder.cs`, invoked from `Program.cs` before `app.Run()`: if no `Admin` user exists and `Admin:Email`/`Admin:Password` are missing or empty, throw immediately with a clear message (FR-018a); otherwise seed the Admin using `PasswordHasher<User>` (FR-018)
+- [ ] T012 [P] Create shared DTOs `AuthResponse` and `PagedResult<T>` in `backend/TaskFlow.Api/Dtos/`
+- [ ] T013 [P] Create the Angular `AuthService` skeleton in `frontend/src/app/auth/auth.service.ts`: a root-provided `signal<AuthState | null>`, `computed` signals (`isAuthenticated`, `currentRole`), and `localStorage` read/write for persistence across refresh (no register/login calls yet — those land in US1/US2)
+- [ ] T014 [P] Create `frontend/src/app/auth/auth.interceptor.ts` (attaches `Authorization: Bearer <token>` from `AuthService`, and on a `401` response clears state) and register it in `frontend/src/app/app.config.ts`
+
+**Checkpoint**: Foundation ready — `AppDbContext`/`User` exist, auth middleware is wired, frontend has a working (if empty) auth-state layer. User story implementation can now begin.
+
+---
+
+## Phase 3: User Story 1 - Register for a TaskFlow Account (Priority: P1) 🎯 MVP
+
+**Goal**: A visitor can register with full name, email, and password, and is immediately signed in as a Developer.
+
+**Independent Test**: Submit the registration form with valid, unique details and confirm the visitor lands on the home page, signed in with the Developer role.
+
+### Tests for User Story 1 ⚠️
+
+> Write these tests FIRST; confirm they FAIL before implementation (constitution Principle I)
+
+- [ ] T015 [P] [US1] Unit tests for `AuthService.RegisterAsync` in `backend/TaskFlow.Api.Tests/Services/AuthServiceTests.cs`: creates account with Developer role by default, rejects duplicate (case-insensitive) email, hashes the password via `PasswordHasher`, rejects a password that fails the rules
+- [ ] T016 [P] [US1] Integration tests for `POST /api/auth/register` in `backend/TaskFlow.Api.Tests/Integration/AuthEndpointsTests.cs`: `201` on success with token+Developer role, `409` on duplicate email, `400` on invalid name/email/password (allowed + denied paths)
+- [ ] T017 [P] [US1] Vitest tests for the registration flow in `frontend/src/app/auth/register/register.component.spec.ts`: password rules shown before submit, duplicate-email error displayed, successful submit redirects home
+
+### Implementation for User Story 1
+
+- [ ] T018 [US1] Create `RegisterRequest` DTO with data-annotation validation (FullName 2-100 chars, valid email, password ≥8 chars/1 letter/1 digit) in `backend/TaskFlow.Api/Dtos/RegisterRequest.cs`
+- [ ] T019 [US1] Implement `AuthService.RegisterAsync` in `backend/TaskFlow.Api/Services/AuthService.cs` (uniqueness check, `PasswordHasher`, default `Developer` role, JWT issuance with 8h `exp`) — depends on T006-T012, T018
+- [ ] T020 [US1] Implement `AuthController.Register` (`POST /api/auth/register`) in `backend/TaskFlow.Api/Controllers/AuthController.cs` — depends on T019
+- [ ] T021 [US1] Build the Angular registration page (`frontend/src/app/auth/register/register.component.ts` + template) showing password rules before submission and inline validation errors — depends on T013
+- [ ] T022 [US1] Add `AuthService.register()` calling `POST /api/auth/register`, storing token/state on success, and navigating to the home route — depends on T013, T020, T021
+
+**Checkpoint**: User Story 1 is fully functional and independently testable — a visitor can register and land on the home page as a Developer.
+
+---
+
+## Phase 4: User Story 2 - Log In and Stay Signed In (Priority: P1)
+
+**Goal**: A returning user can sign in, stay signed in across refreshes for 8 hours, sign out, be redirected back to their originally requested page, and be rate-limited after repeated failures.
+
+**Independent Test**: Sign in with a known account's credentials, refresh the browser to confirm persistence, and sign out to confirm the session ends.
+
+### Tests for User Story 2 ⚠️
+
+- [ ] T023 [P] [US2] Unit tests for `AuthService.LoginAsync` and `LoginAttemptTracker` in `backend/TaskFlow.Api.Tests/Services/AuthServiceTests.cs` and `backend/TaskFlow.Api.Tests/Services/LoginAttemptTrackerTests.cs`: same generic error for wrong email vs. wrong password, 8h token expiry set correctly, 6th attempt within 15 minutes blocked, counter clears on success
+- [ ] T024 [P] [US2] Integration tests for `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` in `backend/TaskFlow.Api.Tests/Integration/AuthEndpointsTests.cs`: `200` on success, `401` generic message for bad credentials, `429` after rate limit, `me` returns `401` for missing/expired token and `200` for a valid one (allowed + denied paths)
+- [ ] T025 [P] [US2] Vitest tests for the login component and route guard in `frontend/src/app/auth/login/login.component.spec.ts` and `frontend/src/app/auth/auth.guard.spec.ts`: generic error message rendering, guard redirects unauthenticated access to `/login?returnUrl=...` and returns there post-login
+
+### Implementation for User Story 2
+
+- [ ] T026 [US2] Implement `LoginAttemptTracker` (`IMemoryCache`-backed, per-email 15-minute window) in `backend/TaskFlow.Api/Services/LoginAttemptTracker.cs`
+- [ ] T027 [US2] Create `LoginRequest` DTO in `backend/TaskFlow.Api/Dtos/LoginRequest.cs`
+- [ ] T028 [US2] Implement `AuthService.LoginAsync` (rate-limit check via T026, generic invalid-credentials error, JWT issuance) in `backend/TaskFlow.Api/Services/AuthService.cs` — depends on T026, T027
+- [ ] T029 [US2] Implement `AuthController.Login`, `Logout`, `Me` actions in `backend/TaskFlow.Api/Controllers/AuthController.cs` — depends on T028
+- [ ] T030 [US2] Build the Angular login page (`frontend/src/app/auth/login/login.component.ts` + template) with inline validation and the generic error message — depends on T013
+- [ ] T031 [US2] Implement `frontend/src/app/auth/auth.guard.ts` (functional `CanActivateFn`, redirect to `/login?returnUrl=`) and apply it to protected routes in `frontend/src/app/app.routes.ts` — depends on T013
+- [ ] T032 [US2] Wire session-expiry handling: interceptor/guard react to an expired token by clearing `AuthService` state and redirecting to login with "Your session has expired.", and add the logout call/state-clear to `AuthService` — depends on T013, T014, T029
+
+**Checkpoint**: User Stories 1 AND 2 both work independently — the full register → login → persist → expire/logout loop is functional.
+
+---
+
+## Phase 5: User Story 3 - See My Identity in the App (Priority: P2)
+
+**Goal**: A signed-in person sees their name and role in the header on every page, with logout available from there.
+
+**Independent Test**: Sign in and confirm name/role are visible in the header on multiple pages, with a working logout control.
+
+### Tests for User Story 3 ⚠️
+
+- [ ] T033 [P] [US3] Vitest tests for the header component in `frontend/src/app/shared/header/header.component.spec.ts`: displays the signed-in name and role from `AuthService`, logout button ends the session
+
+### Implementation for User Story 3
+
+- [ ] T034 [US3] Build the `header` component reading `AuthService` signals for name/role, with a logout button, in `frontend/src/app/shared/header/header.component.ts` (+ template) — depends on T013, T032
+- [ ] T035 [US3] Add the header to the app's shell/layout so it renders on every authenticated page in `frontend/src/app/app.ts` (or the equivalent root layout component) — depends on T034
+
+**Checkpoint**: User Stories 1, 2, AND 3 all work independently — identity is visible everywhere a signed-in person goes.
+
+---
+
+## Phase 6: User Story 4 - Admin Manages User Roles (Priority: P3)
+
+**Goal**: An Admin can list every user and change roles, guarded against locking out the last Admin; non-Admins are refused by any route.
+
+**Independent Test**: Sign in as an Admin, open the Users page, change another person's role, and confirm the change takes effect.
+
+### Tests for User Story 4 ⚠️
+
+- [ ] T036 [P] [US4] Unit tests for `UserService` in `backend/TaskFlow.Api.Tests/Services/UserServiceTests.cs`: pagination shape, role change takes effect, last-remaining-Admin self-demotion is rejected
+- [ ] T037 [P] [US4] Integration tests for `GET /api/users` and `PUT /api/users/{id}/role` in `backend/TaskFlow.Api.Tests/Integration/UsersEndpointsTests.cs`: `200` + paginated list and successful role change for an Admin caller, `403` for a non-Admin caller on both endpoints, `400` for the last-Admin guard, `404` for an unknown user id (allowed + denied paths)
+- [ ] T038 [P] [US4] Vitest tests for the users-list component in `frontend/src/app/users/users-list/users-list.component.spec.ts`: renders the paginated list, triggers a role change, is not reachable/rendered for a non-Admin
+
+### Implementation for User Story 4
+
+- [ ] T039 [US4] Create `UserListItemDto` and `ChangeRoleRequest` DTOs in `backend/TaskFlow.Api/Dtos/`
+- [ ] T040 [US4] Implement `UserService` (paginated list, role change with the last-Admin guard evaluated immediately before commit) in `backend/TaskFlow.Api/Services/UserService.cs` — depends on T006, T007, T039
+- [ ] T041 [US4] Implement `UsersController` (`GET /api/users`, `PUT /api/users/{id}/role`) with `[Authorize(Roles = "Admin")]` on both actions in `backend/TaskFlow.Api/Controllers/UsersController.cs` — depends on T040
+- [ ] T042 [US4] Build `frontend/src/app/users/users.service.ts` calling the Users API — depends on T014
+- [ ] T043 [US4] Build the `users-list` component (paginated table, role-change control) in `frontend/src/app/users/users-list/` (+ template) — depends on T042
+- [ ] T044 [US4] Add an Admin-only route guard (extend/compose with `auth.guard.ts`) for the Users route in `frontend/src/app/app.routes.ts`, and add the "Users" navigation entry only for Admins in the header — depends on T031, T034, T043
+
+**Checkpoint**: All four user stories are independently functional — the feature described in `spec.md` is complete end-to-end.
+
+---
+
+## Phase 7: Polish & Cross-Cutting Concerns
+
+**Purpose**: Feature-wide verification against the constitution's Definition of Done
+
+- [ ] T045 [P] Verify `dotnet ef database update` applies cleanly to a fresh database and the app fails to start (per T011) when `Admin:Password` is unset — validates quickstart.md scenario 7
+- [ ] T046 [P] Review all new C# files for the constitution's required educational comments (DI lifetimes, async/await, DbContext/change tracking, middleware order, DTOs vs. entities — see plan.md "Concepts You Will Learn")
+- [ ] T047 Add a "What I learned" entry for this feature to the project `README.md` (constitution Definition of Done item 5) — create `README.md` if it does not yet exist
+- [ ] T048 Run all `quickstart.md` validation scenarios end-to-end manually
+- [ ] T049 Confirm zero build warnings (`dotnet build`) and all tests pass (`dotnet test`, and the frontend Vitest suite)
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies — start immediately
+- **Foundational (Phase 2)**: Depends on Setup — BLOCKS all user stories
+- **User Story 1 (Phase 3)**: Depends only on Foundational
+- **User Story 2 (Phase 4)**: Depends only on Foundational (not on US1's registration code, though it shares `AuthService`/`AuthController` files — see note below)
+- **User Story 3 (Phase 5)**: Depends on Foundational; its "logged-in" precondition is easiest to exercise once US2 exists, but the header component itself only reads `AuthService` state
+- **User Story 4 (Phase 6)**: Depends on Foundational; easiest to exercise once US1/US2 exist (need a way to sign in as Admin), but its DTOs/service/controller/component files are independent of US1-3's files
+- **Polish (Phase 7)**: Depends on all four user stories being complete
+
+**Note on shared files**: US1 and US2 both add methods to `AuthService.cs` and `AuthController.cs` (Register in US1; Login/Logout/Me in US2). These are different methods in the same file, so US1 and US2 are functionally independent (each can be demoed on its own once its methods exist) but not strictly parallel-safe at the file level — sequence T019→T028 and T020→T029 rather than editing both simultaneously.
+
+### Within Each User Story
+
+- Tests are written and confirmed failing before implementation tasks (constitution Principle I)
+- DTOs/entities before services; services before controllers/components; core logic before UI wiring
+
+### Parallel Opportunities
+
+- Setup: T002, T003, T004, T005 in parallel after T001
+- Foundational: T008-T014 in parallel after T006-T007
+- Tests within a story (e.g., T015-T017, T023-T025, T036-T038) in parallel
+- Once Foundational is done, US1 and US2 backend/frontend work can proceed in parallel by different developers (mind the shared-file note above); US3 and US4 similarly once their dependencies land
+
+---
+
+## Parallel Example: User Story 1
+
+```bash
+# Tests for User Story 1 together:
+Task: "Unit tests for AuthService.RegisterAsync in backend/TaskFlow.Api.Tests/Services/AuthServiceTests.cs"
+Task: "Integration tests for POST /api/auth/register in backend/TaskFlow.Api.Tests/Integration/AuthEndpointsTests.cs"
+Task: "Vitest tests for registration flow in frontend/src/app/auth/register/register.component.spec.ts"
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1 Only)
+
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational
+3. Complete Phase 3: User Story 1
+4. **STOP and VALIDATE**: register a visitor, confirm Developer role + home page
+5. Per constitution Principle VIII (Human in the Loop): pause here for maintainer review before continuing
+
+### Incremental Delivery
+
+1. Setup + Foundational → foundation ready
+2. User Story 1 → validate → review checkpoint (MVP)
+3. User Story 2 → validate → review checkpoint (full auth loop)
+4. User Story 3 → validate → review checkpoint (identity visible everywhere)
+5. User Story 4 → validate → review checkpoint (admin role management)
+6. Polish (Phase 7)
+
+**Note on feature size**: this feature's total new/changed file count (~30 across backend + frontend + tests) exceeds the constitution's "~15 files, readable in one sitting" guideline for a single slice (Principle VII). The feature was scoped as one unit in `spec.md` because registration, login, and role-based access are inseparable as a first feature. To keep each increment reviewable, treat each user-story checkpoint above (not just the final one) as a natural pause-and-review point, per Principle VIII.
+
+---
+
+## Notes
+
+- [P] tasks = different files, no dependencies
+- [Story] label maps each task to its user story for traceability
+- Tests MUST be written first and MUST fail before their implementation tasks (constitution Principle I — not optional for this project)
+- Commit after each task or logical group
+- Stop at any checkpoint to validate a story independently, per the constitution's Human-in-the-Loop principle
