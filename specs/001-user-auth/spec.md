@@ -205,7 +205,13 @@ takes effect — delivers complete role-management capability on its own.
   attempted (navigation, direct link, or direct request).
 - **FR-018**: System MUST ensure at least one Admin account exists from first
   startup, without requiring manual, direct creation in the underlying data
-  store.
+  store, by seeding it from an Admin email and password supplied through
+  configuration (user-secrets in development, environment variables in other
+  environments).
+- **FR-018a**: System MUST fail to start — rather than starting without an
+  Admin or silently applying any default credentials — if no Admin account
+  exists yet and the configured seed Admin email or password is missing or
+  empty, and MUST report a clear error explaining what must be configured.
 - **FR-019**: System MUST block further sign-in attempts for a given email
   for 15 minutes after 5 failed attempts within a 15-minute window, showing
   the message "Too many attempts, try again later."
