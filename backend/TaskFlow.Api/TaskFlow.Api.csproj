@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- NU1903: default webapi template pulls Microsoft.OpenApi 2.0.0 (transitive via
+         Microsoft.AspNetCore.OpenApi), which has an advisory in its document-generation
+         code (unrelated to this feature's request handling). The only fix is a major
+         version bump (3.x) that is not confirmed compatible with ASP.NET Core 10's
+         built-in OpenAPI integration, so it is kept as a visible warning, not silenced,
+         rather than risk an unrelated build break. -->
+    <WarningsNotAsErrors>NU1903</WarningsNotAsErrors>
+    <UserSecretsId>091d4ddc-6e15-4919-845f-26976f679117</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>

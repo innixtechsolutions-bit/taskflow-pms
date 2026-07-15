@@ -1,0 +1,24 @@
+# .NET (backend/)
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# Never commit real secrets — appsettings.*.json in the repo must only
+# contain empty placeholder values; real values live in user-secrets
+# (dev) or environment variables (other environments).
+appsettings.Local.json
+appsettings.*.Local.json
+*.pfx
+
+# Node/Angular (frontend/) — frontend/.gitignore covers most of this;
+# these entries guard against stray node_modules/dist elsewhere.
+node_modules/
+dist/
+
+# IDEs and OS
+.idea/
+.DS_Store
+Thumbs.db
