@@ -100,10 +100,10 @@ users per organization), not internet-scale. This feature: 1 entity (`User`
 | IV. Consistent Code Quality & Review Gates | **PASS** | DTOs for all I/O, no AutoMapper (manual mapping), `ProblemDetails` for all errors, nullable reference types + warnings-as-errors, file-scoped namespaces; Angular strict TypeScript, signals, Angular style guide. |
 | V. API Contract Stability & Versioning | **PASS** | Greenfield feature — no existing contract to break. Migrations will be named descriptively (e.g. `AddUsersTable`) and committed to git. |
 | VI. Teach While Building | **PASS** | "Concepts You Will Learn" section above; inline comments required in generated C# per the concept list. |
-| VII. Incremental, Feature-by-Feature Delivery | **PASS** | Single feature, single branch; estimated file count (below, Project Structure) stays under the ~15-file guideline per logical slice group; no scaffolding for future features (projects/sprints/boards) included. |
+| VII. Incremental, Feature-by-Feature Delivery | **ACCEPTED DEVIATION** | Single feature, single branch; no scaffolding for future features (projects/sprints/boards) included — but the feature's total new/changed file count (~32, see `tasks.md`) exceeds Principle VII's "~15 files, one sitting" target. Registration, login, session handling, and role-based access are inseparable as a first feature (nothing else in TaskFlow is reachable without auth), so the feature was intentionally scoped as one unit rather than split. Mitigation: `tasks.md` treats each user-story checkpoint (not just the final one) as a review pause, per Principle VIII. |
 | VIII. Human in the Loop | **PASS** | No further `[NEEDS CLARIFICATION]` markers remain in the spec; plan does not chain into implementation or the next feature automatically. |
 
-**Result**: No violations. Complexity Tracking table below is not needed.
+**Result**: No NON-NEGOTIABLE principle violations. One accepted deviation from a non-mandatory target (Principle VII, above). Complexity Tracking table below is not required — that table is reserved for violations of a MUST-level principle (e.g., introducing a disallowed design pattern), and Principle VII's file-count guidance is a target, not a MUST.
 
 ## Project Structure
 
