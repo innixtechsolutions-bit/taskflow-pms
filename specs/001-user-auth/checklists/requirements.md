@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -31,7 +31,6 @@
 
 ## Notes
 
-- One [NEEDS CLARIFICATION] marker remains (initial Admin credential
-  provisioning mechanism) — presented to the user as Question 1 below.
-  Items marked incomplete require spec updates before `/speckit-clarify` or
-  `/speckit-plan`.
+- All checklist items pass. The one [NEEDS CLARIFICATION] marker (initial
+  Admin credential provisioning mechanism) was resolved via a clarification
+  exchange and is captured in spec.md's Assumptions section and FR-018/FR-018a.
