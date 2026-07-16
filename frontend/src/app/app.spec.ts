@@ -1,23 +1,27 @@
 import { TestBed } from '@angular/core/testing';
-import { App } from './app';
+import { provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { vi } from 'vitest';
+import { routes } from './app.routes';
+import { AuthService } from './auth/auth.service';
+import { RegisterComponent } from './auth/register/register.component';
 
 describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [App],
-    }).compileComponents();
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideRouter(routes), { provide: AuthService, useValue: { register: vi.fn() } }],
+    });
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
+  it('should create the app', async () => {
+    const harness = await RouterTestingHarness.create();
+    const registerComponent = await harness.navigateByUrl('/register', RegisterComponent);
+    expect(registerComponent).toBeTruthy();
   });
 
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, frontend');
+  it('redirects the empty path to the register page', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/');
+    expect(harness.routeNativeElement?.querySelector('form')).toBeTruthy();
   });
 });

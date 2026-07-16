@@ -12,6 +12,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+// The Angular dev server (localhost:4300) and the API (a different port) are
+// different origins, so the browser blocks the register/login fetch calls
+// unless the API explicitly allows that origin. No credentials mode needed —
+// the JWT travels in an Authorization header, not a cookie.
+const string FrontendDevCorsPolicy = "FrontendDev";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(FrontendDevCorsPolicy, policy =>
+        policy.WithOrigins("http://localhost:4300")
+            .AllowAnyHeader()
+            .AllowAnyMethod());
+});
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -79,6 +92,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
+
+// CORS must run before authentication/authorization: the browser's preflight
+// OPTIONS request carries no Authorization header, so if UseCors ran later,
+// the preflight itself would be rejected before ever reaching this policy.
+app.UseCors(FrontendDevCorsPolicy);
 
 // Order matters: authentication must run before authorization (you can't check
 // what role a request has until you know who's making it), and both must run
