@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using TaskFlow.Api.Data;
 using TaskFlow.Api.Services;
 using TaskFlow.Api.Startup;
@@ -66,7 +67,14 @@ using (var startupScope = app.Services.CreateScope())
 
 if (app.Environment.IsDevelopment())
 {
+    // Two different things: MapOpenApi() serves the *document* — a machine-readable
+    // JSON description of every endpoint, generated from the controllers/DTOs, at
+    // /openapi/v1.json. MapScalarApiReference() serves a *UI* — an interactive,
+    // human-browsable page (at /scalar) that reads that same JSON document and
+    // renders it as a browsable, "try it out" API explorer. Dev-only: this isn't
+    // something an end user of TaskFlow should ever see.
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 app.UseExceptionHandler();
