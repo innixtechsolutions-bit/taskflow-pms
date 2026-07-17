@@ -1,0 +1,282 @@
+---
+
+description: "Task list for Projects & Work Items"
+---
+
+# Tasks: Projects & Work Items
+
+**Input**: Design documents from `/specs/002-projects-work-items/`
+
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md (all present)
+
+**Tests**: Included and REQUIRED — the project constitution (Principle I, NON-NEGOTIABLE) mandates tests written before implementation for every feature, and the Development Workflow section requires every protected endpoint's authorization logic to be covered by an integration test for both the allowed and denied path. Test tasks below MUST be completed, and MUST fail, before their corresponding implementation tasks.
+
+**Organization**: Tasks are grouped by user story (from spec.md) to enable independent implementation and testing of each story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (US1-US6)
+- File paths are exact, per `plan.md`'s Project Structure
+
+## Path Conventions
+
+Web application, same split as Feature 001: `backend/TaskFlow.Api/`
+(+ `backend/TaskFlow.Api.Tests/`) and `frontend/src/app/`.
+
+---
+
+## Phase 1: Foundational (Blocking Prerequisites)
+
+**Purpose**: The `Project`/`WorkItem` schema every user story depends on. No separate Setup phase — this feature adds to Feature 001's existing backend/frontend projects rather than scaffolding new ones.
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+- [ ] T001 Create the `Project` entity in `backend/TaskFlow.Api/Data/Entities/Project.cs` per `data-model.md` (Id, Name, Description, CreatedByUserId, CreatedAt)
+- [ ] T002 [P] Create the `WorkItem` entity and its `WorkItemType`/`WorkItemPriority`/`WorkItemStatus` enums in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs` per `data-model.md` (colocated with the entity, matching how `Role` lives in `User.cs` per Feature 001's precedent)
+- [ ] T003 Update `backend/TaskFlow.Api/Data/AppDbContext.cs`: add `Projects`/`WorkItems` `DbSet`s, configure `Project`→`WorkItem` as `DeleteBehavior.Cascade`, every foreign key pointing at `User` as `DeleteBehavior.Restrict` (research.md §2 — required to avoid SQL Server's multiple-cascade-paths error), a unique index on `Project.Name`, an index on `WorkItem.ProjectId`, and `HasConversion<string>()` for the three new enums — depends on T001, T002
+- [ ] T004 Generate the EF Core migration `AddProjectsAndWorkItems` in `backend/TaskFlow.Api/Data/Migrations/` via `dotnet ef migrations add AddProjectsAndWorkItems --project backend/TaskFlow.Api`, and apply it to the real local dev database via `dotnet ef database update` — depends on T003
+
+**Checkpoint**: `Projects` and `WorkItems` tables exist — user story implementation can now begin.
+
+---
+
+## Phase 2: User Story 1 - Create a Project (Priority: P1) 🎯 MVP
+
+**Goal**: A Manager or Admin can create a project with a name and description.
+
+**Independent Test**: Sign in as a Manager, submit a unique project name and description, and confirm it appears in the project list showing name, creator, and created date.
+
+### Tests for User Story 1 ⚠️
+
+> Write these tests FIRST; confirm they FAIL before implementation (constitution Principle I)
+
+- [ ] T005 [P] [US1] Unit tests for `ProjectService.CreateAsync` in `backend/TaskFlow.Api.Tests/Services/ProjectServiceTests.cs`: creates a project recording creator and timestamp, rejects a duplicate name case-insensitively
+- [ ] T006 [P] [US1] Integration tests for `POST /api/projects` in `backend/TaskFlow.Api.Tests/Integration/ProjectsEndpointsTests.cs`: `201` on success, `409` on duplicate name, `400` on invalid name/description, `403` for a non-Manager/Admin caller (allowed + denied paths)
+- [ ] T007 [P] [US1] Vitest tests for the project-create flow in `frontend/src/app/projects/project-form/project-form.component.spec.ts`: valid submit navigates to the new project, duplicate-name error displayed
+
+### Implementation for User Story 1
+
+- [ ] T008 [US1] Create `ProjectRequest` DTO with data-annotation validation (Name 3-100 chars, Description optional ≤2000 chars) in `backend/TaskFlow.Api/Dtos/ProjectRequest.cs` — shared by create and edit (research.md, plan.md Dtos note)
+- [ ] T009 [US1] Create `ProjectDetailDto` in `backend/TaskFlow.Api/Dtos/ProjectDetailDto.cs` (Id, Name, Description, CreatedByName, CreatedAt, TotalWorkItemCount)
+- [ ] T010 [US1] Implement `ProjectService.CreateAsync` in `backend/TaskFlow.Api/Services/ProjectService.cs` (case-insensitive uniqueness check, records creator/timestamp) — depends on T008, T009; register `ProjectService` as Scoped in `Program.cs`
+- [ ] T011 [US1] Implement `ProjectsController.Create` (`POST /api/projects`) with `[Authorize(Roles = "Manager,Admin")]` in `backend/TaskFlow.Api/Controllers/ProjectsController.cs` — depends on T010
+- [ ] T012 [US1] Build the Angular `project-form` component (create mode) in `frontend/src/app/projects/project-form/` (+ template) — depends on T007
+- [ ] T013 [US1] Add `projects.service.ts` (`frontend/src/app/projects/projects.service.ts`) with a `createProject()` method; wire the form's submit to call it and navigate to the new project's detail page on success — depends on T012
+
+**Checkpoint**: User Story 1 is independently testable — a Manager can create a project.
+
+---
+
+## Phase 3: User Story 2 - View Projects and Their Work Items (Priority: P1)
+
+**Goal**: Any signed-in user can see the project list and open a project to view its (possibly empty) work items.
+
+**Independent Test**: Sign in as any role, view the project list, and open a project to see its work-item area (empty state if none exist yet).
+
+### Tests for User Story 2 ⚠️
+
+- [ ] T014 [P] [US2] Unit tests for `ProjectService.GetProjectsAsync`/`GetProjectByIdAsync` in `backend/TaskFlow.Api.Tests/Services/ProjectServiceTests.cs`: paginated shape sorted newest-first, `openWorkItemCount` excludes Done items, detail includes `totalWorkItemCount`, throws for an unknown id
+- [ ] T015 [P] [US2] Integration tests for `GET /api/projects` and `GET /api/projects/{id}` in `backend/TaskFlow.Api.Tests/Integration/ProjectsEndpointsTests.cs`: `200` + paginated list for any authenticated caller, `200` detail, `404` unknown id, `401` with no token (allowed + denied paths)
+- [ ] T016 [P] [US2] Vitest tests for `frontend/src/app/projects/projects-list/projects-list.component.spec.ts` (renders paginated list with open-item counts) and `frontend/src/app/projects/project-detail/project-detail.component.spec.ts` (renders project header info; shows "No work items yet" when empty)
+
+### Implementation for User Story 2
+
+- [ ] T017 [US2] Create `ProjectListItemDto` in `backend/TaskFlow.Api/Dtos/ProjectListItemDto.cs` (Id, Name, CreatedByName, CreatedAt, OpenWorkItemCount)
+- [ ] T018 [US2] Implement `ProjectService.GetProjectsAsync` (paginated, sorted by `CreatedAt` desc, `openWorkItemCount` via a `COUNT` of not-Done work items) and `GetProjectByIdAsync` (`totalWorkItemCount`, throws `ProjectNotFoundException`) in `backend/TaskFlow.Api/Services/ProjectService.cs` — depends on T017
+- [ ] T019 [US2] Implement `ProjectsController.GetProjects` (`GET /api/projects`) and `GetProject` (`GET /api/projects/{id}`) in `backend/TaskFlow.Api/Controllers/ProjectsController.cs` — depends on T018
+- [ ] T020 [US2] Build the `projects-list` component in `frontend/src/app/projects/projects-list/` (+ template) — depends on T016
+- [ ] T021 [US2] Build the `project-detail` component (project header info + "No work items yet" empty state; the work-item list itself is built out in US3) in `frontend/src/app/projects/project-detail/` (+ template) — depends on T016
+- [ ] T022 [US2] Add `getProjects()`/`getProject()` to `projects.service.ts`; wire `projects-list`/`project-detail` to call them; add `/projects` and `/projects/:id` routes (guarded by the existing `authGuard`, any role) to `frontend/src/app/app.routes.ts` — depends on T020, T021
+
+**Checkpoint**: User Stories 1 AND 2 both work — a project can be created and viewed.
+
+---
+
+## Phase 4: User Story 3 - Create a Work Item (Priority: P1)
+
+**Goal**: Any signed-in user can create a work item inside a project.
+
+**Independent Test**: Open an existing project and create a work item with a title and type; confirm it appears in that project's item list immediately.
+
+### Tests for User Story 3 ⚠️
+
+- [ ] T023 [P] [US3] Unit tests for `WorkItemService.CreateAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: applies default priority/status when omitted, rejects an assignee id that isn't an existing user, accepts a past due date, records creator/timestamps
+- [ ] T024 [P] [US3] Unit tests for `UserService.GetAssignableUsersAsync` in `backend/TaskFlow.Api.Tests/Services/UserServiceTests.cs`: returns every user's id and full name only (research.md §9)
+- [ ] T025 [P] [US3] Integration tests for `POST /api/projects/{projectId}/work-items` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `201` on success, `400` invalid title/unknown assignee, `404` unknown project, `401` with no token
+- [ ] T026 [P] [US3] Integration test for `GET /api/users/lookup` in `backend/TaskFlow.Api.Tests/Integration/UsersEndpointsTests.cs`: `200` for a non-Admin caller (unlike the existing `GET /api/users`/`PUT .../role`, which must still both return `403` for non-Admins — a regression check on the attribute-relocation in T030)
+- [ ] T027 [P] [US3] Vitest tests for the work-item-create flow in `frontend/src/app/projects/work-item-form/work-item-form.component.spec.ts`: submits with title + type, defaults shown before submit; assignee/type/priority/status `<select>` elements correctly pre-select their bound value on initial render (guards against the Feature 001 Phase 7 bug — research.md §6)
+
+### Implementation for User Story 3
+
+- [ ] T028 [US3] Create `WorkItemRequest` DTO with data-annotation validation (Title 3-200 chars, Description optional ≤5000 chars) in `backend/TaskFlow.Api/Dtos/WorkItemRequest.cs` — shared by create and edit
+- [ ] T029 [US3] Create `WorkItemDto` in `backend/TaskFlow.Api/Dtos/WorkItemDto.cs` (Id, ProjectId, Type, Title, Description, Priority, Status, AssigneeUserId, AssigneeName, DueDate, CreatedByUserId, CreatedByName, CreatedAt, UpdatedAt)
+- [ ] T030 [US3] Add `UserLookupItemDto` (`backend/TaskFlow.Api/Dtos/UserLookupItemDto.cs`) and `UserService.GetAssignableUsersAsync` (`backend/TaskFlow.Api/Services/UserService.cs`); in `backend/TaskFlow.Api/Controllers/UsersController.cs`, move the class-level `[Authorize(Roles = "Admin")]` down onto the two existing actions individually and add a new `GetLookup` action (`GET /api/users/lookup`) with plain `[Authorize]` (research.md §9) — depends on T024, T026
+- [ ] T031 [US3] Implement `WorkItemService.CreateAsync` in `backend/TaskFlow.Api/Services/WorkItemService.cs` (default Medium/ToDo, assignee-exists check, project-exists check) — depends on T028, T029; register `WorkItemService` as Scoped in `Program.cs`
+- [ ] T032 [US3] Implement `WorkItemsController.Create` (`POST /api/projects/{projectId}/work-items`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T031
+- [ ] T033 [US3] Build the `work-item-form` component (create mode) in `frontend/src/app/projects/work-item-form/` (+ template), using `[selected]` on each `<option>` for every dropdown from the start (research.md §6) — depends on T027
+- [ ] T034 [US3] Add `work-items.service.ts` (`frontend/src/app/projects/work-items.service.ts`) with `createWorkItem()` and `getAssignableUsers()`; wire `project-detail`'s "New work item" control to open the form and refresh the item list on success — depends on T030, T033
+
+**Checkpoint**: User Stories 1-3 work — a project can be created, viewed, and populated with work items.
+
+---
+
+## Phase 5: User Story 4 - Edit a Work Item and Update Its Status (Priority: P2)
+
+**Goal**: A work item's creator, current assignee, or a Manager/Admin can edit its fields, including status.
+
+**Independent Test**: As an item's creator, change its status to Done via the edit form and confirm the change is reflected in the list.
+
+### Tests for User Story 4 ⚠️
+
+- [ ] T035 [P] [US4] Unit tests for `WorkItemService.UpdateAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: creator/current assignee/Manager/Admin can update any field including status and `UpdatedAt` advances; any other caller is rejected; nothing can change `ProjectId`
+- [ ] T036 [P] [US4] Integration tests for `PUT /api/work-items/{id}` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` for creator/assignee/Manager/Admin, `403` for an unrelated caller, `400` invalid input, `404` unknown id
+- [ ] T037 [P] [US4] Vitest tests for edit mode in `frontend/src/app/projects/work-item-form/work-item-form.component.spec.ts`: pre-fills existing values (including each `<select>` correctly pre-selecting its current value), submits changes
+- [ ] T038 [P] [US4] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: edit/delete controls are shown for a work item's creator/assignee/Manager/Admin and hidden for an unrelated viewer
+
+### Implementation for User Story 4
+
+- [ ] T039 [US4] Add `Id` to `AuthResponse` (`backend/TaskFlow.Api/Dtos/AuthResponse.cs`) and `MeResponse` (`backend/TaskFlow.Api/Dtos/MeResponse.cs`), update `AuthService.IssueToken` and `AuthController.Me` to populate it (research.md §8); add `id: number` to `AuthState`/the internal API-response interface in `frontend/src/app/auth/auth.service.ts`, and update the existing `AuthState` object literals in `auth.service.spec.ts`, `app.spec.ts`, `shared/header/header.component.spec.ts`, `auth/auth.guard.spec.ts`, and `auth/admin.guard.spec.ts` accordingly
+- [ ] T040 [US4] Implement `WorkItemService.UpdateAsync` (creator/assignee/role check, full-field replace, advances `UpdatedAt`) in `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T031
+- [ ] T041 [US4] Implement `WorkItemsController.Update` (`PUT /api/work-items/{id}`) and `Get` (`GET /api/work-items/{id}`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T040
+- [ ] T042 [US4] Extend the `work-item-form` component to support edit mode (pre-fill from an existing item) — depends on T037, T033
+- [ ] T043 [US4] Add `getWorkItem()`/`updateWorkItem()` to `work-items.service.ts`; show/hide each item's edit (and, per US5, delete) controls in `project-detail` by comparing `AuthService`'s current user id/role against the item's creator/assignee — depends on T038, T039, T041, T042
+
+**Checkpoint**: User Stories 1-4 work — the full create/view/edit loop is functional.
+
+---
+
+## Phase 6: User Story 5 - Edit or Delete a Project (Priority: P2)
+
+**Goal**: A Manager or Admin can edit a project, or delete it (and all its work items) after an explicit, item-count-aware confirmation.
+
+**Independent Test**: As a Manager, delete a project containing several work items, confirm the count shown matches, and verify both the project and its items are gone afterward.
+
+### Tests for User Story 5 ⚠️
+
+- [ ] T044 [P] [US5] Unit tests for `ProjectService.UpdateAsync`/`DeleteAsync` in `backend/TaskFlow.Api.Tests/Services/ProjectServiceTests.cs`: edit updates fields and rejects a name that duplicates a *different* project (not itself); delete removes the project and, via cascade, all of its work items
+- [ ] T045 [P] [US5] Integration tests for `PUT /api/projects/{id}` and `DELETE /api/projects/{id}` in `backend/TaskFlow.Api.Tests/Integration/ProjectsEndpointsTests.cs`: `200`/`204` for Manager/Admin, `403` for a Developer, `404` unknown id, `409` on a duplicate name
+- [ ] T046 [P] [US5] Vitest tests for edit mode in `project-form.component.spec.ts`, and for `project-detail`'s delete confirmation in `project-detail.component.spec.ts`: confirmation states the exact work-item count from `totalWorkItemCount`; edit/delete controls hidden for a non-Manager/Admin
+
+### Implementation for User Story 5
+
+- [ ] T047 [US5] Implement `ProjectService.UpdateAsync` and `DeleteAsync` (duplicate-name check excludes the project being edited) in `backend/TaskFlow.Api/Services/ProjectService.cs` — depends on T018
+- [ ] T048 [US5] Implement `ProjectsController.Update` (`PUT`) and `Delete` (`DELETE`) with `[Authorize(Roles = "Manager,Admin")]` in `backend/TaskFlow.Api/Controllers/ProjectsController.cs` — depends on T047
+- [ ] T049 [US5] Extend `project-form` to support edit mode; add a delete control and confirmation dialog (using the already-fetched `totalWorkItemCount`) to `project-detail` — depends on T046, T012, T021
+- [ ] T050 [US5] Add `updateProject()`/`deleteProject()` to `projects.service.ts`; show "Edit"/"Delete" controls in `project-detail` and `projects-list` only when `currentRole()` is Manager or Admin — depends on T049
+
+**Checkpoint**: User Stories 1-5 work — full project and work-item lifecycle management.
+
+---
+
+## Phase 7: User Story 6 - Filter, Search, and Page Through Work Items (Priority: P3)
+
+**Goal**: Any signed-in user can filter and search a project's work items and page through long lists.
+
+**Independent Test**: In a project with items of mixed priority, filter to "High" and confirm only High-priority items appear; search a title substring and confirm only matches appear.
+
+### Tests for User Story 6 ⚠️
+
+- [ ] T051 [P] [US6] Unit tests for `WorkItemService.GetWorkItemsAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: paginated shape, each filter individually and in combination, case-insensitive title search, default sort by `UpdatedAt` descending, `pageSize` beyond 100 is clamped rather than rejected
+- [ ] T052 [P] [US6] Integration tests for `GET /api/projects/{projectId}/work-items` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: filters/search/pagination combinations, `404` unknown project
+- [ ] T053 [P] [US6] Vitest tests added to `project-detail.component.spec.ts`: applying filters/search narrows the shown items; "No work items yet" (no filters, project genuinely empty) vs. "No items match your filters." (filters applied, no match) are distinguished; pagination controls page correctly
+
+### Implementation for User Story 6
+
+- [ ] T054 [US6] Implement `WorkItemService.GetWorkItemsAsync` (conditionally appended `.Where()` per supplied filter, case-insensitive title search, `pageSize` clamped to 100) in `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T031
+- [ ] T055 [US6] Implement `WorkItemsController.GetWorkItems` (`GET /api/projects/{projectId}/work-items`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T054
+- [ ] T056 [US6] Build the work-item list, filter/search bar, and pagination controls within `project-detail` (+ template) — depends on T053
+- [ ] T057 [US6] Add `getWorkItems()` (with filter/search/page params) to `work-items.service.ts`; wire `project-detail`'s filter bar and pagination to it — depends on T056
+
+**Checkpoint**: All six user stories are independently functional — the feature described in `spec.md` is complete end-to-end.
+
+---
+
+## Phase 8: Polish & Cross-Cutting Concerns
+
+**Purpose**: Feature-wide verification against the constitution's Definition of Done
+
+- [ ] T058 [P] Add a "Projects" navigation entry to the header, visible to every signed-in user (unlike "Users", which stays Admin-only), in `frontend/src/app/shared/header/`
+- [ ] T059 [P] Review all new and changed C# files for the constitution's required educational comments — especially the cascade-path rule (research.md §2), combined role-and-ownership authorization, and conditional `IQueryable` filtering (plan.md "Concepts You Will Learn")
+- [ ] T060 Verify `dotnet ef database update` applies this feature's migration cleanly to a fresh database, extending Feature 001's equivalent check
+- [ ] T061 Add a "What I learned" entry for this feature to the project `README.md`
+- [ ] T062 Run all `quickstart.md` validation scenarios end-to-end manually
+- [ ] T063 Confirm zero build warnings (`dotnet build`) and all tests pass (`dotnet test`, and the frontend Vitest suite)
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Foundational (Phase 1)**: No dependencies — start immediately. BLOCKS all user stories.
+- **User Story 1 (Phase 2)**: Depends only on Foundational.
+- **User Story 2 (Phase 3)**: Depends only on Foundational (not on US1's create code, though it shares `ProjectService.cs`/`ProjectsController.cs` files — see note below).
+- **User Story 3 (Phase 4)**: Depends on Foundational; easiest to exercise once US1/US2 exist (need a project to create items in), but its own files are independent.
+- **User Story 4 (Phase 5)**: Depends on Foundational and on US3's work-item files existing (shares `WorkItemService.cs`/`WorkItemsController.cs`/`work-item-form`). Also touches Feature 001's auth files (T039) — do this before T043, which consumes it.
+- **User Story 5 (Phase 6)**: Depends on Foundational and on US1/US2's project files existing (shares `ProjectService.cs`/`ProjectsController.cs`/`project-form`/`project-detail`).
+- **User Story 6 (Phase 7)**: Depends on Foundational and on US3's work-item files existing (shares `WorkItemService.cs`/`WorkItemsController.cs`/`project-detail`).
+- **Polish (Phase 8)**: Depends on all six user stories being complete.
+
+**Note on shared files**: Several stories add methods to the same files rather than creating new ones (`ProjectService.cs`/`ProjectsController.cs` across US1/US2/US5; `WorkItemService.cs`/`WorkItemsController.cs` across US3/US4/US6; `project-form`/`project-detail`/`work-item-form` similarly). Each story only adds *new* methods/modes to these files, so stories remain functionally independent once their prerequisites exist, but sequence same-file tasks rather than editing them simultaneously.
+
+### Within Each User Story
+
+- Tests are written and confirmed failing before implementation tasks (constitution Principle I).
+- DTOs before services; services before controllers/components; core logic before UI wiring.
+
+### Parallel Opportunities
+
+- Foundational: T001, T002 in parallel; T003 follows both; T004 follows T003.
+- Tests within a story: e.g. T005-T007 (US1), T023-T027 (US3), T035-T038 (US4) in parallel — different files.
+- Once Foundational is done, US1 and US2 can proceed in parallel by different developers (mind the shared-file note); once US3 exists, US4 and US6 can similarly proceed in parallel; US5 can proceed in parallel with US3/US4/US6 once US1/US2 exist.
+
+---
+
+## Parallel Example: User Story 3
+
+```bash
+# Tests for User Story 3 together:
+Task: "Unit tests for WorkItemService.CreateAsync in backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs"
+Task: "Unit tests for UserService.GetAssignableUsersAsync in backend/TaskFlow.Api.Tests/Services/UserServiceTests.cs"
+Task: "Integration tests for POST /api/projects/{projectId}/work-items in backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs"
+Task: "Integration test for GET /api/users/lookup in backend/TaskFlow.Api.Tests/Integration/UsersEndpointsTests.cs"
+Task: "Vitest tests for the work-item-create flow in frontend/src/app/projects/work-item-form/work-item-form.component.spec.ts"
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Stories 1-3 Only)
+
+1. Complete Phase 1: Foundational
+2. Complete Phase 2: User Story 1 (create a project)
+3. Complete Phase 3: User Story 2 (view projects/items)
+4. Complete Phase 4: User Story 3 (create a work item)
+5. **STOP and VALIDATE**: a Manager creates a project, any user opens it and adds a work item, sees it in the list
+6. Per constitution Principle VIII (Human in the Loop): pause here for maintainer review before continuing
+
+### Incremental Delivery
+
+1. Foundational → foundation ready
+2. User Story 1 → validate → review checkpoint
+3. User Story 2 → validate → review checkpoint (MVP: create + view)
+4. User Story 3 → validate → review checkpoint (MVP: + create work items)
+5. User Story 4 → validate → review checkpoint (+ edit/status)
+6. User Story 5 → validate → review checkpoint (+ project lifecycle)
+7. User Story 6 → validate → review checkpoint (+ filter/search/page)
+8. Polish (Phase 8)
+
+**Note on feature size**: this feature's total new/changed file count (~50 across backend + frontend + tests, see plan.md's Constitution Check) again exceeds the constitution's "~15 files, readable in one sitting" guideline (Principle VII — a target, not NON-NEGOTIABLE), for the same reason accepted for Feature 001 (Projects and Work Items are inseparable as a first slice of TaskFlow's actual product) plus two small, additive touches to Feature 001's own files (T039, T030) that turned out to be genuine prerequisites rather than avoidable scope. Treat each user-story checkpoint above as a review pause, per Principle VIII.
+
+---
+
+## Notes
+
+- [P] tasks = different files, no dependencies
+- [Story] label maps each task to its user story for traceability
+- Tests MUST be written first and MUST fail before their implementation tasks (constitution Principle I)
+- T039 and T030 touch Feature 001 files directly (`AuthResponse`/`MeResponse`/`AuthService`/`AuthController`/`auth.service.ts` and their existing specs; `UsersController`/`UserService`/`UsersEndpointsTests`) — review these two tasks' diffs with particular care, since regressions here would affect the already-shipped Feature 001, not just this feature
+- Commit after each task or logical group
+- Stop at any checkpoint to validate a story independently, per the constitution's Human-in-the-Loop principle

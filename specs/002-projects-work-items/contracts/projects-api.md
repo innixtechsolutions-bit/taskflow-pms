@@ -14,9 +14,10 @@ established shape). Every endpoint requires a valid bearer token.
 ```
 
 **Responses**:
-- `201 Created` →
+- `201 Created` → same shape as `GET /api/projects/{id}` (below) —
+  `totalWorkItemCount` is trivially `0` for a just-created project:
   ```json
-  { "id": 1, "name": "string", "description": "string|null", "createdByName": "string", "createdAt": "ISO-8601 datetime", "openWorkItemCount": 0 }
+  { "id": 1, "name": "string", "description": "string|null", "createdByName": "string", "createdAt": "ISO-8601 datetime", "totalWorkItemCount": 0 }
   ```
 - `400 Bad Request` (`ValidationProblemDetails`) — name/description fail
   validation (FR-001).

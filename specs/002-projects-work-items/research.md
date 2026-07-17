@@ -166,3 +166,62 @@ by its own id once you have it.
 project (`GET/PUT/DELETE /api/projects/{projectId}/work-items/{id}`) —
 rejected as redundant, since `projectId` never changes and never
 disambiguates anything once the work item's own id is known.
+
+## 8. Exposing the caller's own user id (a small, additive Feature 001 change)
+
+**Decision**: `AuthResponse` and `MeResponse` (both from Feature 001) each
+gain an `Id` field carrying the signed-in user's own id; the Angular
+`AuthState` gains a matching `id: number`. This is purely additive — every
+existing consumer keyed on the fields that already exist keeps working
+unchanged.
+
+**Rationale**: FR-016 requires hiding/disabling a work item's edit controls
+for anyone who isn't its creator, current assignee, or a Manager/Admin —
+which means the frontend has to compare "who am I" against
+`WorkItem.createdByUserId`/`assigneeUserId`. Feature 001 never needed the
+frontend to know its own numeric id (only its name and role), so
+`AuthState` never carried one. The backend itself doesn't need this change
+— every controller action already reads the caller's id straight from the
+JWT's claims — this is purely to let the *frontend* make the same
+comparison for UI purposes (a UX nicety per FR-021/025; the server-side
+check in `WorkItemService` is the actual enforcement).
+
+**Alternatives considered**: Decoding the JWT client-side to read its
+`nameidentifier` claim directly, instead of a dedicated response field —
+rejected as needlessly indirect (parsing a JWT payload just to read a
+value the server can hand over directly in the response body it's already
+returning) and it would leave the *shape* of "what identity info the
+client has" split across two different mechanisms (decoded claims vs.
+`AuthState` fields) for no benefit.
+
+## 9. A non-Admin-accessible user lookup for assignment
+
+**Decision**: A new endpoint, `GET /api/users/lookup`, returns every
+registered user's `id` and `fullName` only (not email, role, or
+registration date) to *any* authenticated caller — distinct from Feature
+001's existing `GET /api/users`, which stays Admin-only and keeps
+returning the fuller `UserListItemDto`. `UsersController`'s class-level
+`[Authorize(Roles = "Admin")]` moves down to its two existing actions
+individually, making room for this one action to allow any role.
+
+**Rationale**: FR-010 lets *any* signed-in user set a work item's assignee
+to *any* existing user — which means the work-item form's assignee picker
+needs a list of users, but the only endpoint that currently lists users
+(`GET /api/users`) is deliberately Admin-only (Feature 001 FR-017), and
+returns more than a non-Admin should necessarily see (email, role,
+registration date) just to populate a dropdown. A separate, deliberately
+minimal endpoint — least privilege, not a relaxed version of the
+management endpoint — is the simpler and safer option. It intentionally
+returns a flat (non-paginated) list rather than reusing `PagedResult<T>`:
+this is a reference lookup for a dropdown, not a browsable list view with
+its own pagination UI, and at this project's internal-tool scale (tens to
+low hundreds of users) a flat list is simpler and sufficient (YAGNI).
+
+**Alternatives considered**: Relaxing `GET /api/users` itself to allow any
+role — rejected; it would either leak email/role/registration-date to
+every user (a real over-exposure) or require a second, role-conditional
+response shape from the same endpoint, which is more complexity than a
+second, purpose-built endpoint. Requiring a free-text email entry instead
+of a picker — rejected; spec.md's "optional assignee (any user)" framing
+implies selecting from a known list, and a picker is the better user
+experience besides.

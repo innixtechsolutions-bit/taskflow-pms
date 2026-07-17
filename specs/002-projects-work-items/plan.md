@@ -109,7 +109,7 @@ hundreds of users per organization). This feature: 2 new entities (`Project`,
 | IV. Consistent Code Quality & Review Gates | **PASS** | DTOs for all I/O, no AutoMapper, `ProblemDetails` for all errors, nullable reference types + warnings-as-errors, file-scoped namespaces; Angular strict TypeScript, signals, Angular style guide — all continuing Feature 001's established conventions. |
 | V. API Contract Stability & Versioning | **PASS** | All new endpoints — no existing contract changes. Migration named descriptively (`AddProjectsAndWorkItems`) and committed to git. |
 | VI. Teach While Building | **PASS** | "Concepts You Will Learn" section above; inline comments required in generated C# per the concept list, especially the cascade-path gotcha. |
-| VII. Incremental, Feature-by-Feature Delivery | **ACCEPTED DEVIATION** | Estimated ~19 new/changed backend files + ~19 new/changed frontend files (~38 total, see Project Structure below) — exceeds the "~15 files, one sitting" target, same as Feature 001. Projects and Work Items are scoped together deliberately (per the source feature description): a project with nothing to put in it, or work items with no container, are not independently meaningful slices. Mitigation: `tasks.md` will again treat each user-story checkpoint as its own review pause (Principle VIII), not just the final one. |
+| VII. Incremental, Feature-by-Feature Delivery | **ACCEPTED DEVIATION** | Estimated ~25 new/changed backend files + ~25 new/changed frontend files (~50 total, see Project Structure below) — larger than Feature 001's own deviation, for the same underlying reason plus one new one: two small, additive touches to Feature 001 files turned out to be genuine prerequisites (exposing the caller's own id per research.md §8, and a non-Admin user-lookup endpoint per §9) rather than something a tighter scope could avoid. Projects and Work Items are scoped together deliberately (per the source feature description): a project with nothing to put in it, or work items with no container, are not independently meaningful slices. Mitigation: `tasks.md` will again treat each user-story checkpoint as its own review pause (Principle VIII), not just the final one, and the two Feature-001-touching changes are called out as their own explicit tasks so they're easy to review in isolation. |
 | VIII. Human in the Loop | **PASS** | No `[NEEDS CLARIFICATION]` markers remain in the spec; this plan does not chain into `/speckit-tasks` or implementation automatically. |
 
 **Result**: No NON-NEGOTIABLE principle violations. One accepted deviation from a non-mandatory target (Principle VII, above), on the same grounds already accepted for Feature 001. Complexity Tracking table below is not required — reserved for MUST-level violations, and Principle VII's file-count guidance is a target, not a MUST.
@@ -137,10 +137,16 @@ backend/
 ├── TaskFlow.Api/
 │   ├── Controllers/
 │   │   ├── ProjectsController.cs      # create/list/get/edit/delete a project
-│   │   └── WorkItemsController.cs     # create/list (per project), get/edit/delete a work item
+│   │   ├── WorkItemsController.cs     # create/list (per project), get/edit/delete a work item
+│   │   ├── UsersController.cs         # updated (Feature 001 file): class-level [Authorize(Roles="Admin")]
+│   │   │                              #   moves to its two existing actions individually; new GetLookup
+│   │   │                              #   action allows any role (research.md §9)
+│   │   └── AuthController.cs          # updated (Feature 001 file): Me() also returns the caller's Id
 │   ├── Services/
 │   │   ├── ProjectService.cs          # CRUD + duplicate-name guard + total/open item counts
-│   │   └── WorkItemService.cs         # CRUD + creator/assignee/role authorization + filter/search
+│   │   ├── WorkItemService.cs         # CRUD + creator/assignee/role authorization + filter/search
+│   │   ├── UserService.cs             # updated (Feature 001 file): + GetAssignableUsersAsync (id+fullName only)
+│   │   └── AuthService.cs             # updated (Feature 001 file): IssueToken includes Id (research.md §8)
 │   ├── Data/
 │   │   ├── AppDbContext.cs            # updated: Projects/WorkItems DbSets, relationships, indexes
 │   │   ├── Entities/
@@ -148,24 +154,29 @@ backend/
 │   │   │   └── WorkItem.cs            # includes WorkItemType/Priority/Status enums (see data-model.md)
 │   │   └── Migrations/                # new: AddProjectsAndWorkItems
 │   ├── Dtos/
-│   │   ├── CreateProjectRequest.cs
-│   │   ├── UpdateProjectRequest.cs
+│   │   ├── ProjectRequest.cs          # POST and PUT bodies are identically shaped — one DTO, not two
 │   │   ├── ProjectListItemDto.cs      # for GET /api/projects (open item count)
-│   │   ├── ProjectDetailDto.cs        # for GET /api/projects/{id} (total item count, for delete confirm)
-│   │   ├── CreateWorkItemRequest.cs
-│   │   ├── UpdateWorkItemRequest.cs
-│   │   └── WorkItemDto.cs
+│   │   ├── ProjectDetailDto.cs        # for GET/POST/PUT .../{id} (total item count, for delete confirm)
+│   │   ├── WorkItemRequest.cs         # POST and PUT bodies are identically shaped — one DTO, not two
+│   │   ├── WorkItemDto.cs
+│   │   ├── UserLookupItemDto.cs       # id + fullName only (research.md §9)
+│   │   ├── AuthResponse.cs            # updated (Feature 001 file): + Id
+│   │   └── MeResponse.cs              # updated (Feature 001 file): + Id
 │   └── Program.cs                     # updated: register ProjectService, WorkItemService (Scoped)
 └── TaskFlow.Api.Tests/
     ├── Services/
     │   ├── ProjectServiceTests.cs
-    │   └── WorkItemServiceTests.cs
+    │   ├── WorkItemServiceTests.cs
+    │   └── UserServiceTests.cs        # updated (Feature 001 file): + GetAssignableUsersAsync tests
     └── Integration/
         ├── ProjectsEndpointsTests.cs   # covers allowed + denied paths
-        └── WorkItemsEndpointsTests.cs  # covers allowed + denied paths, incl. creator/assignee edit rules
+        ├── WorkItemsEndpointsTests.cs  # covers allowed + denied paths, incl. creator/assignee edit rules
+        └── UsersEndpointsTests.cs      # updated (Feature 001 file): + lookup-endpoint allowed-for-any-role test
 
 frontend/
 ├── src/app/
+│   ├── auth/
+│   │   └── auth.service.ts            # updated (Feature 001 file): AuthState/AuthApiResponse + id (research.md §8)
 │   ├── projects/
 │   │   ├── projects-list/             # project list + "New Project" (Manager/Admin only)
 │   │   ├── project-form/              # shared create + edit project form
