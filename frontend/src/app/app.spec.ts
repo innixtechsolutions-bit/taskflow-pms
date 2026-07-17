@@ -8,6 +8,7 @@ import { AuthService, AuthState } from './auth/auth.service';
 import { RegisterComponent } from './auth/register/register.component';
 
 const signedInState: AuthState = {
+  id: 1,
   token: 'a-token',
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
   fullName: 'Ada Lovelace',

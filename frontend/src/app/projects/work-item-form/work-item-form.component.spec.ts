@@ -75,3 +75,70 @@ describe('WorkItemFormComponent (create mode)', () => {
     expect(fixture.nativeElement.textContent).toContain('Grace Hopper');
   });
 });
+
+const existingItem = {
+  id: 7,
+  projectId: 1,
+  type: 'Story',
+  title: 'Existing item',
+  description: 'Some description',
+  priority: 'High',
+  status: 'InProgress',
+  assigneeUserId: 2,
+  assigneeName: 'Grace Hopper',
+  dueDate: '2026-08-01T00:00:00.000Z',
+  createdByUserId: 1,
+  createdByName: 'Ada Lovelace',
+  createdAt: '2026-07-01T00:00:00.000Z',
+  updatedAt: '2026-07-01T00:00:00.000Z',
+};
+
+function configureEdit(
+  getWorkItem = vi.fn().mockResolvedValue(existingItem),
+  updateWorkItem = vi.fn().mockResolvedValue(existingItem)
+) {
+  TestBed.configureTestingModule({
+    imports: [WorkItemFormComponent],
+    providers: [
+      provideRouter([]),
+      {
+        provide: WorkItemsService,
+        useValue: { getWorkItem, updateWorkItem, getAssignableUsers: vi.fn().mockResolvedValue(sampleUsers) },
+      },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '7' }) } } },
+    ],
+  });
+  return { getWorkItem, updateWorkItem };
+}
+
+describe('WorkItemFormComponent (edit mode)', () => {
+  it("pre-fills existing values, including each <select> correctly pre-selecting its current value", async () => {
+    configureEdit();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect((root.querySelector('#title') as HTMLInputElement).value).toBe('Existing item');
+    expect((root.querySelector('#type') as HTMLSelectElement).value).toBe('Story');
+    expect((root.querySelector('#priority') as HTMLSelectElement).value).toBe('High');
+    expect((root.querySelector('#status') as HTMLSelectElement).value).toBe('InProgress');
+    expect((root.querySelector('#assigneeUserId') as HTMLSelectElement).value).toBe('2');
+  });
+
+  it('submits changes via updateWorkItem rather than createWorkItem', async () => {
+    const { updateWorkItem } = configureEdit();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Updated title');
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ title: 'Updated title' }));
+  });
+});

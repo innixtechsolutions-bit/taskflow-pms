@@ -1,5 +1,5 @@
 <form (submit)="onSubmit($event)" novalidate>
-  <h1>Create a work item</h1>
+  <h1>{{ isEditMode ? 'Edit work item' : 'Create a work item' }}</h1>
 
   @if (serverError()) {
     <p class="server-error" role="alert">{{ serverError() }}</p>
@@ -46,5 +46,5 @@
   <label for="dueDate">Due date</label>
   <input id="dueDate" type="date" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
 
-  <button type="submit" [disabled]="submitting()">Create work item</button>
+  <button type="submit" [disabled]="submitting()">{{ isEditMode ? 'Save changes' : 'Create work item' }}</button>
 </form>

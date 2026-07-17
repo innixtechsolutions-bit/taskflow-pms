@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 export type UserRole = 'Developer' | 'Manager' | 'Admin';
 
 export interface AuthState {
+  id: number;
   token: string;
   expiresAt: string;
   fullName: string;
@@ -25,6 +26,7 @@ export interface LoginRequest {
 // Matches the backend's AuthResponse DTO (ASP.NET Core's default JSON naming policy
 // is camelCase, so C#'s Token/ExpiresAt/FullName/Role become these field names).
 interface AuthApiResponse {
+  id: number;
   token: string;
   expiresAt: string;
   fullName: string;

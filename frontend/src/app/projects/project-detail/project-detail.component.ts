@@ -1,6 +1,8 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
+import { WorkItem, WorkItemsService } from '../work-items.service';
+import { AuthService } from '../../auth/auth.service';
 
 @Component({
   selector: 'app-project-detail',
@@ -10,16 +12,52 @@ import { ProjectDetail, ProjectsService } from '../projects.service';
 })
 export class ProjectDetailComponent implements OnInit {
   private readonly projectsService = inject(ProjectsService);
+  private readonly workItemsService = inject(WorkItemsService);
+  private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly projectId = Number(this.route.snapshot.paramMap.get('id'));
 
   protected readonly project = signal<ProjectDetail | null>(null);
+  protected readonly workItems = signal<WorkItem[]>([]);
 
   ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    void this.load(id);
+    void this.load();
   }
 
-  private async load(id: number): Promise<void> {
-    this.project.set(await this.projectsService.getProject(id));
+  private async load(): Promise<void> {
+    this.project.set(await this.projectsService.getProject(this.projectId));
+    const page = await this.workItemsService.getWorkItems(this.projectId);
+    this.workItems.set(page.items);
+  }
+
+  // Broader than canDelete: also allows the item's current assignee (FR-016).
+  protected canEdit(item: WorkItem): boolean {
+    const userId = this.authService.currentUser()?.id;
+    if (userId === undefined) {
+      return false;
+    }
+    return item.createdByUserId === userId || item.assigneeUserId === userId || this.isManagerOrAdmin();
+  }
+
+  // Narrower than canEdit: the current assignee alone cannot delete (FR-017/FR-018).
+  protected canDelete(item: WorkItem): boolean {
+    const userId = this.authService.currentUser()?.id;
+    if (userId === undefined) {
+      return false;
+    }
+    return item.createdByUserId === userId || this.isManagerOrAdmin();
+  }
+
+  private isManagerOrAdmin(): boolean {
+    const role = this.authService.currentRole();
+    return role === 'Manager' || role === 'Admin';
+  }
+
+  protected async onDelete(item: WorkItem): Promise<void> {
+    if (!confirm(`Delete "${item.title}"? This cannot be undone.`)) {
+      return;
+    }
+    await this.workItemsService.deleteWorkItem(item.id);
+    await this.load();
   }
 }

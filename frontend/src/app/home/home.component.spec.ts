@@ -3,6 +3,7 @@ import { HomeComponent } from './home.component';
 import { AuthService, AuthState } from '../auth/auth.service';
 
 const signedInState: AuthState = {
+  id: 1,
   token: 'a-token',
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
   fullName: 'Ada Lovelace',

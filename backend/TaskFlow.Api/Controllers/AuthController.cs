@@ -60,8 +60,9 @@ public class AuthController(AuthService authService) : ControllerBase
     [HttpGet("me")]
     public ActionResult<MeResponse> Me()
     {
+        var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var fullName = User.FindFirstValue(ClaimTypes.Name)!;
         var role = User.FindFirstValue(ClaimTypes.Role)!;
-        return Ok(new MeResponse(fullName, role));
+        return Ok(new MeResponse(id, fullName, role));
     }
 }

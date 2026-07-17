@@ -107,7 +107,7 @@ public partial class AuthService(AppDbContext dbContext, IConfiguration configur
 
         var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
 
-        return new AuthResponse(tokenString, expiresAt, user.FullName, user.Role.ToString());
+        return new AuthResponse(user.Id, tokenString, expiresAt, user.FullName, user.Role.ToString());
     }
 
     [GeneratedRegex(@"^(?=.*[A-Za-z])(?=.*\d).{8,}$")]

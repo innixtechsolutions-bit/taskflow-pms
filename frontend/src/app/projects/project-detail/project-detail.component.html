@@ -7,7 +7,23 @@
 
   <h2>Work items</h2>
   <a [routerLink]="['/projects', p.id, 'work-items', 'new']">New work item</a>
-  @if (p.totalWorkItemCount === 0) {
+  @if (workItems().length === 0) {
     <p>No work items yet</p>
+  } @else {
+    <ul class="work-item-list">
+      @for (item of workItems(); track item.id) {
+        <li [id]="'work-item-' + item.id" class="work-item">
+          <span class="work-item-title">{{ item.title }}</span>
+          <span class="work-item-status">{{ item.status }}</span>
+          <span class="work-item-priority">{{ item.priority }}</span>
+          @if (canEdit(item)) {
+            <a class="edit-link" [routerLink]="['/projects', p.id, 'work-items', item.id, 'edit']">Edit</a>
+          }
+          @if (canDelete(item)) {
+            <button type="button" class="delete-button" (click)="onDelete(item)">Delete</button>
+          }
+        </li>
+      }
+    </ul>
   }
 }

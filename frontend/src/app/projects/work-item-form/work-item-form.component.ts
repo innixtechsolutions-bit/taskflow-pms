@@ -23,6 +23,12 @@ export class WorkItemFormComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly projectId = Number(this.route.snapshot.paramMap.get('projectId'));
 
+  // Presence of the route's :id param (only on the .../work-items/:id/edit route) is
+  // what distinguishes edit mode from create mode — the same component serves both.
+  private readonly workItemIdParam = this.route.snapshot.paramMap.get('id');
+  protected readonly isEditMode = this.workItemIdParam !== null;
+  private readonly workItemId = this.workItemIdParam ? Number(this.workItemIdParam) : null;
+
   protected readonly types = TYPES;
   protected readonly priorities = PRIORITIES;
   protected readonly statuses = STATUSES;
@@ -53,10 +59,25 @@ export class WorkItemFormComponent implements OnInit {
 
   ngOnInit(): void {
     void this.loadAssignableUsers();
+    if (this.isEditMode) {
+      void this.loadExistingWorkItem();
+    }
   }
 
   private async loadAssignableUsers(): Promise<void> {
     this.assignableUsers.set(await this.workItemsService.getAssignableUsers());
+  }
+
+  private async loadExistingWorkItem(): Promise<void> {
+    const item = await this.workItemsService.getWorkItem(this.workItemId!);
+    this.titleModel.set({ title: item.title });
+    this.type.set(item.type);
+    this.description.set(item.description ?? '');
+    this.priority.set(item.priority);
+    this.status.set(item.status);
+    this.assigneeUserId.set(item.assigneeUserId ? item.assigneeUserId.toString() : '');
+    // The API returns a full ISO datetime; a date <input> only accepts its date portion.
+    this.dueDate.set(item.dueDate ? item.dueDate.slice(0, 10) : '');
   }
 
   protected async onSubmit(event: Event): Promise<void> {
@@ -70,7 +91,7 @@ export class WorkItemFormComponent implements OnInit {
     this.serverError.set(null);
     this.submitting.set(true);
     try {
-      await this.workItemsService.createWorkItem(this.projectId, {
+      const request = {
         type: this.type(),
         title: this.titleModel().title,
         description: this.description() || undefined,
@@ -78,7 +99,12 @@ export class WorkItemFormComponent implements OnInit {
         status: this.status(),
         assigneeUserId: this.assigneeUserId() ? Number(this.assigneeUserId()) : undefined,
         dueDate: this.dueDate() || undefined,
-      });
+      };
+      if (this.isEditMode) {
+        await this.workItemsService.updateWorkItem(this.workItemId!, request);
+      } else {
+        await this.workItemsService.createWorkItem(this.projectId, request);
+      }
       await this.router.navigateByUrl(`/projects/${this.projectId}`);
     } catch {
       this.serverError.set('Something went wrong. Please try again.');

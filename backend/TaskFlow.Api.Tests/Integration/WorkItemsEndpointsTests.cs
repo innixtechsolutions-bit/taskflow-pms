@@ -45,6 +45,13 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         return body!.Id;
     }
 
+    private async Task<int> FindUserIdByEmailAsync(string adminToken, string email)
+    {
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/users?page=1&pageSize=200", adminToken));
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<UserListItemDto>>();
+        return body!.Items.Single(u => u.Email == email).Id;
+    }
+
     [Fact]
     public async Task Create_returns_201_on_success()
     {
@@ -113,5 +120,210 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
             $"/api/projects/{projectId}/work-items", new { type = "Task", title = "Fix the login bug" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private async Task<WorkItemDto> CreateWorkItemAsync(string token, int projectId, string title = "Fix the login bug", int? assigneeUserId = null)
+    {
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Task", title, assigneeUserId });
+        var response = await _client.SendAsync(request);
+        return (await response.Content.ReadFromJsonAsync<WorkItemDto>())!;
+    }
+
+    [Fact]
+    public async Task Update_returns_200_for_the_creator()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"editor-creator-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", creatorToken);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Updated title", status = "Done" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        Assert.Equal("Updated title", body!.Title);
+        Assert.Equal("Done", body.Status);
+    }
+
+    [Fact]
+    public async Task Update_returns_200_for_the_current_assignee()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"editor-creator2-{Guid.NewGuid():N}@example.com");
+        var assigneeEmail = $"editor-assignee-{Guid.NewGuid():N}@example.com";
+        var assigneeToken = await RegisterAndGetTokenAsync(assigneeEmail);
+        var assigneeId = await FindUserIdByEmailAsync(adminToken, assigneeEmail);
+        var item = await CreateWorkItemAsync(creatorToken, projectId, assigneeUserId: assigneeId);
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", assigneeToken);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Updated by assignee" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_403_for_an_unrelated_caller()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"editor-creator3-{Guid.NewGuid():N}@example.com");
+        var strangerToken = await RegisterAndGetTokenAsync($"editor-stranger-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", strangerToken);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Should not apply" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_400_for_invalid_input()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"editor-creator4-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", creatorToken);
+        request.Content = JsonContent.Create(new { type = "Task", title = "ab" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_404_for_an_unknown_work_item()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var request = AuthedRequest(HttpMethod.Put, "/api/work-items/999999", adminToken);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Fix the login bug" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Get_returns_200_with_the_full_item_for_any_authenticated_caller()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"getter-creator-{Guid.NewGuid():N}@example.com");
+        var viewerToken = await RegisterAndGetTokenAsync($"getter-viewer-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/work-items/{item.Id}", viewerToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        Assert.Equal(item.Id, body!.Id);
+    }
+
+    [Fact]
+    public async Task Get_returns_404_for_an_unknown_work_item()
+    {
+        var token = await RegisterAndGetTokenAsync($"getter-unknown-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/work-items/999999", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_204_for_the_creator()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"deleter-creator-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/work-items/{item.Id}", creatorToken));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_204_for_a_manager_or_admin()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"deleter-creator2-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/work-items/{item.Id}", adminToken));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_403_for_the_assignee_alone()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"deleter-creator3-{Guid.NewGuid():N}@example.com");
+        var assigneeEmail = $"deleter-assignee-{Guid.NewGuid():N}@example.com";
+        var assigneeToken = await RegisterAndGetTokenAsync(assigneeEmail);
+        var assigneeId = await FindUserIdByEmailAsync(adminToken, assigneeEmail);
+        var item = await CreateWorkItemAsync(creatorToken, projectId, assigneeUserId: assigneeId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/work-items/{item.Id}", assigneeToken));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_403_for_an_unrelated_caller()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"deleter-creator4-{Guid.NewGuid():N}@example.com");
+        var strangerToken = await RegisterAndGetTokenAsync($"deleter-stranger-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/work-items/{item.Id}", strangerToken));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_404_for_an_unknown_work_item()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, "/api/work-items/999999", adminToken));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkItems_returns_200_with_the_paginated_shape()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"lister-creator-{Guid.NewGuid():N}@example.com");
+        await CreateWorkItemAsync(creatorToken, projectId, title: "Fix the login bug");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items", creatorToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<WorkItemDto>>();
+        Assert.Equal("Fix the login bug", body!.Items.Single().Title);
+    }
+
+    [Fact]
+    public async Task GetWorkItems_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"lister-noproject-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/work-items", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

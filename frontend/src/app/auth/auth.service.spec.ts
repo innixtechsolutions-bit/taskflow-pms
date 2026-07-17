@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { AuthService, AuthState, AUTH_STORAGE_KEY } from './auth.service';
 
 const sampleState: AuthState = {
+  id: 1,
   token: 'sample-token',
   expiresAt: '2026-07-15T20:00:00.000Z',
   fullName: 'Ada Lovelace',

@@ -23,5 +23,6 @@ export const routes: Routes = [
   { path: 'projects', component: ProjectsListComponent, canActivate: [authGuard] },
   { path: 'projects/new', component: ProjectFormComponent, canActivate: [authGuard] },
   { path: 'projects/:projectId/work-items/new', component: WorkItemFormComponent, canActivate: [authGuard] },
+  { path: 'projects/:projectId/work-items/:id/edit', component: WorkItemFormComponent, canActivate: [authGuard] },
   { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
 ];
