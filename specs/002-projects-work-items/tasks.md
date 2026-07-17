@@ -51,18 +51,18 @@ Web application, same split as Feature 001: `backend/TaskFlow.Api/`
 
 > Write these tests FIRST; confirm they FAIL before implementation (constitution Principle I)
 
-- [ ] T005 [P] [US1] Unit tests for `ProjectService.CreateAsync` in `backend/TaskFlow.Api.Tests/Services/ProjectServiceTests.cs`: creates a project recording creator and timestamp, rejects a duplicate name case-insensitively
-- [ ] T006 [P] [US1] Integration tests for `POST /api/projects` in `backend/TaskFlow.Api.Tests/Integration/ProjectsEndpointsTests.cs`: `201` on success, `409` on duplicate name, `400` on invalid name/description, `403` for a non-Manager/Admin caller (allowed + denied paths)
-- [ ] T007 [P] [US1] Vitest tests for the project-create flow in `frontend/src/app/projects/project-form/project-form.component.spec.ts`: valid submit navigates to the new project, duplicate-name error displayed
+- [X] T005 [P] [US1] Unit tests for `ProjectService.CreateAsync` in `backend/TaskFlow.Api.Tests/Services/ProjectServiceTests.cs`: creates a project recording creator and timestamp, rejects a duplicate name case-insensitively. **Confirmed RED**: compile errors (`ProjectService`/`ProjectRequest` didn't exist).
+- [X] T006 [P] [US1] Integration tests for `POST /api/projects` in `backend/TaskFlow.Api.Tests/Integration/ProjectsEndpointsTests.cs`: `201` on success, `409` on duplicate name, `400` on invalid name/description, `403` for a non-Manager/Admin caller (allowed + denied paths). Promotes a fresh registrant to Manager via the seeded Admin, then re-logs-in (role only takes effect on next token, per Feature 001).
+- [X] T007 [P] [US1] Vitest tests for the project-create flow in `frontend/src/app/projects/project-form/project-form.component.spec.ts`: valid submit navigates to the new project, duplicate-name error displayed. **Confirmed RED**: `Cannot find module './project-form.component'` build error.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Create `ProjectRequest` DTO with data-annotation validation (Name 3-100 chars, Description optional ≤2000 chars) in `backend/TaskFlow.Api/Dtos/ProjectRequest.cs` — shared by create and edit (research.md, plan.md Dtos note)
-- [ ] T009 [US1] Create `ProjectDetailDto` in `backend/TaskFlow.Api/Dtos/ProjectDetailDto.cs` (Id, Name, Description, CreatedByName, CreatedAt, TotalWorkItemCount)
-- [ ] T010 [US1] Implement `ProjectService.CreateAsync` in `backend/TaskFlow.Api/Services/ProjectService.cs` (case-insensitive uniqueness check, records creator/timestamp) — depends on T008, T009; register `ProjectService` as Scoped in `Program.cs`
-- [ ] T011 [US1] Implement `ProjectsController.Create` (`POST /api/projects`) with `[Authorize(Roles = "Manager,Admin")]` in `backend/TaskFlow.Api/Controllers/ProjectsController.cs` — depends on T010
-- [ ] T012 [US1] Build the Angular `project-form` component (create mode) in `frontend/src/app/projects/project-form/` (+ template) — depends on T007
-- [ ] T013 [US1] Add `projects.service.ts` (`frontend/src/app/projects/projects.service.ts`) with a `createProject()` method; wire the form's submit to call it and navigate to the new project's detail page on success — depends on T012
+- [X] T008 [US1] Create `ProjectRequest` DTO with data-annotation validation (Name 3-100 chars, Description optional ≤2000 chars) in `backend/TaskFlow.Api/Dtos/ProjectRequest.cs` — shared by create and edit (research.md, plan.md Dtos note)
+- [X] T009 [US1] Create `ProjectDetailDto` in `backend/TaskFlow.Api/Dtos/ProjectDetailDto.cs` (Id, Name, Description, CreatedByName, CreatedAt, TotalWorkItemCount)
+- [X] T010 [US1] Implement `ProjectService.CreateAsync` in `backend/TaskFlow.Api/Services/ProjectService.cs` (case-insensitive uniqueness check, records creator/timestamp) — depends on T008, T009; register `ProjectService` as Scoped in `Program.cs`. **Confirmed GREEN**: 2/2 new `ProjectServiceTests` pass.
+- [X] T011 [US1] Implement `ProjectsController.Create` (`POST /api/projects`) with `[Authorize(Roles = "Manager,Admin")]` in `backend/TaskFlow.Api/Controllers/ProjectsController.cs` — depends on T010. **Confirmed GREEN**: 59/59 backend tests pass (was 52; +7 new, 0 regressions).
+- [X] T012 [US1] Build the Angular `project-form` component (create mode) in `frontend/src/app/projects/project-form/` (+ template) — depends on T007
+- [X] T013 [US1] Add `projects.service.ts` (`frontend/src/app/projects/projects.service.ts`) with a `createProject()` method; wire the form's submit to call it and navigate to the new project's detail page on success — depends on T012. **Confirmed GREEN**: 37/37 frontend tests pass (was 35; +2 new, 0 regressions).
 
 **Checkpoint**: User Story 1 is independently testable — a Manager can create a project.
 

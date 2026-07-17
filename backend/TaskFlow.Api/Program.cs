@@ -33,6 +33,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AdminSeeder>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<ProjectService>();
 
 // AddMemoryCache registers the shared IMemoryCache that LoginAttemptTracker wraps.
 // The tracker itself is Singleton, not Scoped: it needs to accumulate failed attempts

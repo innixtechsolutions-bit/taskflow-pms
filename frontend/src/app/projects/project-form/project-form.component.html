@@ -1,0 +1,21 @@
+<form (submit)="onSubmit($event)" novalidate>
+  <h1>Create a project</h1>
+
+  @if (serverError()) {
+    <p class="server-error" role="alert">{{ serverError() }}</p>
+  }
+
+  <label for="name">Name</label>
+  <input id="name" type="text" [formField]="projectForm.name" />
+  @if (projectForm.name().touched() && projectForm.name().errors().length > 0) {
+    <p class="field-error">{{ projectForm.name().errors()[0].message }}</p>
+  }
+
+  <label for="description">Description</label>
+  <textarea id="description" [formField]="projectForm.description"></textarea>
+  @if (projectForm.description().touched() && projectForm.description().errors().length > 0) {
+    <p class="field-error">{{ projectForm.description().errors()[0].message }}</p>
+  }
+
+  <button type="submit" [disabled]="submitting()">Create project</button>
+</form>
