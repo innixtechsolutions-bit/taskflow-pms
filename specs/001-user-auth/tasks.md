@@ -116,8 +116,6 @@ Web application split per `plan.md`: `backend/TaskFlow.Api/` (+ `backend/TaskFlo
 
 **Checkpoint**: User Stories 1 AND 2 both work independently — the full register → login → persist → expire/logout loop is functional. **Verified end-to-end in a real browser** (headless Chromium against the live API/database, not just test doubles): an unauthenticated visit to `/` redirects to `/login?returnUrl=%2F`; registering lands on `/` showing the new person's name; a page reload preserves the session; signing out (clearing storage) and signing back in returns `200` and lands on `/` again; a wrong password shows "Invalid email or password." with zero indication of which field was wrong; 5 failed attempts followed by a 6th (even with the *correct* password) returns "Too many attempts, try again later."; and `/login?expired=true` renders the FR-010 message. Zero console errors beyond the expected 401/429 network-log lines from the failure-path tests themselves.
 
-**Checkpoint**: User Stories 1 AND 2 both work independently — the full register → login → persist → expire/logout loop is functional.
-
 ---
 
 ## Phase 5: User Story 3 - See My Identity in the App (Priority: P2)
@@ -128,14 +126,14 @@ Web application split per `plan.md`: `backend/TaskFlow.Api/` (+ `backend/TaskFlo
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T036 [P] [US3] Vitest tests for the header component in `frontend/src/app/shared/header/header.component.spec.ts`: displays the signed-in name and role from `AuthService`, logout button ends the session
+- [X] T036 [P] [US3] Vitest tests for the header component in `frontend/src/app/shared/header/header.component.spec.ts`: displays the signed-in name and role from `AuthService`, logout button ends the session. **Confirmed RED**: `Cannot find module './header.component'` build error.
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Build the `header` component reading `AuthService` signals for name/role, with a logout button, in `frontend/src/app/shared/header/header.component.ts` (+ template) — depends on T015, T035
-- [ ] T038 [US3] Add the header to the app's shell/layout so it renders on every authenticated page in `frontend/src/app/app.ts` (or the equivalent root layout component) — depends on T037
+- [X] T037 [US3] Build the `header` component reading `AuthService` signals for name/role, with a logout button, in `frontend/src/app/shared/header/header.component.ts` (+ template) — depends on T015, T035. **Confirmed GREEN**: both new tests pass.
+- [X] T038 [US3] Add the header to the app's shell/layout so it renders on every authenticated page in `frontend/src/app/app.ts` (or the equivalent root layout component) — depends on T037. `App` now conditionally renders `<app-header>` above `<router-outlet>` based on `AuthService.isAuthenticated()`. Added two test-first `app.spec.ts` cases (header absent when signed out, present with the signed-in name when signed in) before wiring this in — **confirmed RED** (missing-header assertion failed), then GREEN.
 
-**Checkpoint**: User Stories 1, 2, AND 3 all work independently — identity is visible everywhere a signed-in person goes.
+**Checkpoint**: User Stories 1, 2, AND 3 all work independently — identity is visible everywhere a signed-in person goes. **Verified end-to-end in a real browser**: after registering, the header shows the person's name and role and a working "Log out" button; clicking it clears the session and redirects to `/login`. (Note: since FR-013 says "on every page" without an authenticated-pages-only carve-out, and `isAuthenticated()` reflects a real still-valid token, the header also renders if a signed-in person navigates directly to `/login` — a harmless corner case, not a bug, and not one the spec's guard/interceptor flows ever actually produce, since both of those clear state *before* redirecting to `/login`.) 26/26 frontend tests pass (was 22; +4 new, 0 regressions); backend untouched, still 35/35.
 
 ---
 
