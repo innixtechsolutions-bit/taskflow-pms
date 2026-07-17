@@ -17,6 +17,11 @@ export interface RegisterRequest {
   password: string;
 }
 
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
 // Matches the backend's AuthResponse DTO (ASP.NET Core's default JSON naming policy
 // is camelCase, so C#'s Token/ExpiresAt/FullName/Role become these field names).
 interface AuthApiResponse {
@@ -55,6 +60,24 @@ export class AuthService {
       this.http.post<AuthApiResponse>('/api/auth/register', request)
     );
     this.setAuth(response);
+  }
+
+  async login(request: LoginRequest): Promise<void> {
+    const response = await firstValueFrom(
+      this.http.post<AuthApiResponse>('/api/auth/login', request)
+    );
+    this.setAuth(response);
+  }
+
+  // The server has no session to end (see AuthController.Logout's comment on stateless
+  // JWTs) — this call exists for symmetry/future-proofing, not because skipping it and
+  // just clearing local state would behave any differently today.
+  async logout(): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post('/api/auth/logout', null));
+    } finally {
+      this.clearAuth();
+    }
   }
 }
 

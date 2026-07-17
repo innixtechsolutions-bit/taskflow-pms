@@ -33,17 +33,22 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AdminSeeder>();
 builder.Services.AddScoped<AuthService>();
 
+// AddMemoryCache registers the shared IMemoryCache that LoginAttemptTracker wraps.
+// The tracker itself is Singleton, not Scoped: it needs to accumulate failed attempts
+// across requests, and a new instance per request would never remember anything.
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ILoginAttemptTracker, LoginAttemptTracker>();
+
 // ProblemDetails (RFC 7807) gives every error response — validation failures,
 // auth failures, unhandled exceptions — the same shape (FR-020), instead of each
 // endpoint inventing its own error format.
 builder.Services.AddProblemDetails();
 
-var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
-    ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
-var jwtIssuer = builder.Configuration["Jwt:Issuer"]
-    ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
-var jwtAudience = builder.Configuration["Jwt:Audience"]
-    ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
+// Read eagerly, purely to fail fast: a real deployment missing these keys should
+// refuse to start, not serve traffic no one can ever authenticate against.
+_ = builder.Configuration["Jwt:SigningKey"] ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
+_ = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("Jwt:Issuer is not configured.");
+_ = builder.Configuration["Jwt:Audience"] ?? throw new InvalidOperationException("Jwt:Audience is not configured.");
 
 // JWT bearer auth: the token's signature and claims (identity, role, exp) are all
 // the server needs to authenticate/authorize a request — no server-side session
@@ -53,14 +58,26 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // Reads builder.Configuration fresh here, at the point this delegate actually
+        // runs — which the options framework defers until the JWT bearer handler is
+        // first resolved (the first incoming request), not when this line is reached
+        // during startup. That matters because WebApplicationFactory-based integration
+        // tests layer in configuration overrides (a different signing key) partway
+        // through host startup: capturing the value in a variable up here, before that
+        // layering is guaranteed complete, produced a handler validating against the
+        // wrong key while AuthService (a live IConfiguration read per request) issued
+        // tokens signed with the right one — "signature key was not found" on every
+        // protected endpoint. Reading here, lazily, sees the same final configuration
+        // AuthService sees.
+        var signingKey = builder.Configuration["Jwt:SigningKey"]!;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = jwtIssuer,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidateAudience = true,
-            ValidAudience = jwtAudience,
+            ValidAudience = builder.Configuration["Jwt:Audience"],
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKey)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };

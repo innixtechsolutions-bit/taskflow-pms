@@ -1,0 +1,25 @@
+<form (submit)="onSubmit($event)" novalidate>
+  <h1>Sign in to TaskFlow</h1>
+
+  @if (sessionExpired) {
+    <p class="session-expired" role="alert">Your session has expired.</p>
+  }
+
+  @if (serverError()) {
+    <p class="server-error" role="alert">{{ serverError() }}</p>
+  }
+
+  <label for="email">Email</label>
+  <input id="email" type="email" [formField]="loginForm.email" />
+  @if (loginForm.email().touched() && loginForm.email().errors().length > 0) {
+    <p class="field-error">{{ loginForm.email().errors()[0].message }}</p>
+  }
+
+  <label for="password">Password</label>
+  <input id="password" type="password" [formField]="loginForm.password" />
+  @if (loginForm.password().touched() && loginForm.password().errors().length > 0) {
+    <p class="field-error">{{ loginForm.password().errors()[0].message }}</p>
+  }
+
+  <button type="submit" [disabled]="submitting()">Sign in</button>
+</form>

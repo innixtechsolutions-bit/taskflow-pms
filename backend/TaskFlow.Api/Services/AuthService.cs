@@ -11,7 +11,7 @@ using TaskFlow.Api.Dtos;
 
 namespace TaskFlow.Api.Services;
 
-public partial class AuthService(AppDbContext dbContext, IConfiguration configuration)
+public partial class AuthService(AppDbContext dbContext, IConfiguration configuration, ILoginAttemptTracker loginAttemptTracker)
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(8);
     private static readonly PasswordHasher<User> PasswordHasher = new();
@@ -51,6 +51,31 @@ public partial class AuthService(AppDbContext dbContext, IConfiguration configur
         dbContext.Users.Add(user);
         await dbContext.SaveChangesAsync();
 
+        return IssueToken(user);
+    }
+
+    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    {
+        // Checked before touching the database or the password hasher: an email that's
+        // already blocked shouldn't pay the cost of either, and must be refused (429)
+        // even when the password given happens to be correct (FR-019).
+        if (loginAttemptTracker.IsBlocked(request.Email))
+        {
+            throw new TooManyAttemptsException();
+        }
+
+        var user = await dbContext.Users.SingleOrDefaultAsync(u => u.Email == request.Email);
+
+        // Same exception (and message) whether the email doesn't exist or the password
+        // is wrong (FR-008) — the caller must not learn which one it was.
+        if (user is null || PasswordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password)
+            == PasswordVerificationResult.Failed)
+        {
+            loginAttemptTracker.RecordFailure(request.Email);
+            throw new InvalidCredentialsException();
+        }
+
+        loginAttemptTracker.RecordSuccess(request.Email);
         return IssueToken(user);
     }
 

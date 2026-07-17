@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskFlow.Api.Dtos;
 using TaskFlow.Api.Services;
@@ -27,5 +29,39 @@ public class AuthController(AuthService authService) : ControllerBase
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+    }
+
+    [HttpPost("login")]
+    public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
+    {
+        try
+        {
+            var response = await authService.LoginAsync(request);
+            return Ok(response);
+        }
+        catch (InvalidCredentialsException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status401Unauthorized, detail: ex.Message);
+        }
+        catch (TooManyAttemptsException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status429TooManyRequests, detail: ex.Message);
+        }
+    }
+
+    // Stateless JWTs have no server-side session to end, so this is a no-op besides the
+    // [Authorize] check itself — actually discarding the token is the client's job (see
+    // research.md's stateless-token trade-off).
+    [Authorize]
+    [HttpPost("logout")]
+    public IActionResult Logout() => NoContent();
+
+    [Authorize]
+    [HttpGet("me")]
+    public ActionResult<MeResponse> Me()
+    {
+        var fullName = User.FindFirstValue(ClaimTypes.Name)!;
+        var role = User.FindFirstValue(ClaimTypes.Role)!;
+        return Ok(new MeResponse(fullName, role));
     }
 }
