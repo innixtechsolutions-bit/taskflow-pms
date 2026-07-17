@@ -37,10 +37,9 @@ using `MatCardModule`, `MatFormFieldModule`/`MatInputModule`,
 plain-HTML pattern — that decision predates this styling pass and no longer
 reflects the codebase.
 
-**Every remaining frontend task in this file** (`project-form`,
-`projects-list`, `project-detail`, `work-item-form`, and anything in Phase
-8's header-nav update) should follow the now-established patterns instead
-of plain HTML:
+**Every frontend task still to be built** (anything in US4-US6 and Phase
+8's header-nav update — i.e., new template code, not yet written) should
+follow the now-established patterns instead of plain HTML:
 - `mat-card` for page/section containers (see `home.component.html`)
 - `mat-form-field` + `matInput` for text/textarea inputs, with `mat-error`
   for field-level validation messages (see `login`/`register`)
@@ -55,6 +54,17 @@ of plain HTML:
   Feature 001 bug, and `mat-select` doesn't expose that same native
   element for tests to drive the way the existing `WorkItemsService`/
   `UsersService` component tests currently do.
+
+**Already-shipped exception, resolved**: `project-form` (T012),
+`projects-list` (T020), `project-detail` (T021), and `work-item-form`
+(T033) were all built *before* the styling pass, using plain HTML — they
+are not automatically retroactively Material-ized just because this note
+exists. **T058a** (Phase 8) schedules that retrofit explicitly, so the
+feature doesn't ship in a mixed style. Until T058a runs, US4-US6's
+*extensions* to these same files (edit mode, delete confirmation, the
+work-item list itself) may land on top of the current plain-HTML
+structure — T058a will restyle the whole file in one pass rather than
+patching it twice.
 
 ---
 
@@ -153,28 +163,35 @@ of plain HTML:
 
 ---
 
-## Phase 5: User Story 4 - Edit a Work Item and Update Its Status (Priority: P2)
+## Phase 5: User Story 4 - Edit or Delete a Work Item and Update Its Status (Priority: P2)
 
-**Goal**: A work item's creator, current assignee, or a Manager/Admin can edit its fields, including status.
+**Goal**: A work item's creator, current assignee, or a Manager/Admin can edit its fields, including status. The creator, a Manager, or an Admin can also delete it (a narrower set — the assignee alone cannot), with a simple confirmation (FR-016 edit / FR-017-018 delete).
 
-**Independent Test**: As an item's creator, change its status to Done via the edit form and confirm the change is reflected in the list.
+**Independent Test**: As an item's creator, change its status to Done via the edit form and confirm the change is reflected in the list; then, still as the creator, delete a different item and confirm it disappears from the list.
 
 ### Tests for User Story 4 ⚠️
 
 - [ ] T035 [P] [US4] Unit tests for `WorkItemService.UpdateAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: creator/current assignee/Manager/Admin can update any field including status and `UpdatedAt` advances; any other caller is rejected; nothing can change `ProjectId`
-- [ ] T036 [P] [US4] Integration tests for `PUT /api/work-items/{id}` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` for creator/assignee/Manager/Admin, `403` for an unrelated caller, `400` invalid input, `404` unknown id
+- [ ] T036 [P] [US4] Integration tests for `PUT /api/work-items/{id}` and `GET /api/work-items/{id}` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `PUT` returns `200` for creator/assignee/Manager/Admin, `403` for an unrelated caller, `400` invalid input, `404` unknown id; `GET` returns `200` with the full item for any authenticated caller and `404` for an unknown id
 - [ ] T037 [P] [US4] Vitest tests for edit mode in `frontend/src/app/projects/work-item-form/work-item-form.component.spec.ts`: pre-fills existing values (including each `<select>` correctly pre-selecting its current value), submits changes
-- [ ] T038 [P] [US4] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: edit/delete controls are shown for a work item's creator/assignee/Manager/Admin and hidden for an unrelated viewer
+- [ ] T038 [P] [US4] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: the **edit** control is shown for a work item's creator/current assignee/Manager/Admin and hidden for an unrelated viewer
+- [ ] T038a [P] [US4] Unit tests for `WorkItemService.DeleteAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: creator/Manager/Admin can delete; the current assignee alone (not also creator/Manager/Admin) is rejected; an unrelated caller is rejected; an unknown id throws not-found
+- [ ] T038b [P] [US4] Integration tests for `DELETE /api/work-items/{id}` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `204` for creator/Manager/Admin, `403` for the assignee-alone case and for an unrelated caller, `404` for an unknown id
+- [ ] T038c [P] [US4] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: the **delete** control is shown only for a work item's creator/Manager/Admin and hidden for the assignee-alone case and for an unrelated viewer — narrower than the edit control tested in T038
+- [ ] T038d [P] [US4] Integration test in `backend/TaskFlow.Api.Tests/Integration/AuthEndpointsTests.cs` asserting `POST /api/auth/login`'s `AuthResponse` and `GET /api/auth/me`'s `MeResponse` both include the caller's own `id`, matching the signed-in user's actual id — must be written and confirmed **RED** before T039 is implemented (mirrors T024/T026 preceding T030 in Feature 001)
 
 ### Implementation for User Story 4
 
-- [ ] T039 [US4] Add `Id` to `AuthResponse` (`backend/TaskFlow.Api/Dtos/AuthResponse.cs`) and `MeResponse` (`backend/TaskFlow.Api/Dtos/MeResponse.cs`), update `AuthService.IssueToken` and `AuthController.Me` to populate it (research.md §8); add `id: number` to `AuthState`/the internal API-response interface in `frontend/src/app/auth/auth.service.ts`, and update the existing `AuthState` object literals in `auth.service.spec.ts`, `app.spec.ts`, `shared/header/header.component.spec.ts`, `auth/auth.guard.spec.ts`, and `auth/admin.guard.spec.ts` accordingly
+- [ ] T039 [US4] Add `Id` to `AuthResponse` (`backend/TaskFlow.Api/Dtos/AuthResponse.cs`) and `MeResponse` (`backend/TaskFlow.Api/Dtos/MeResponse.cs`), update `AuthService.IssueToken` and `AuthController.Me` to populate it (research.md §8); add `id: number` to `AuthState`/the internal API-response interface in `frontend/src/app/auth/auth.service.ts`, and update the existing `AuthState` object literals in `auth.service.spec.ts`, `app.spec.ts`, `shared/header/header.component.spec.ts`, `auth/auth.guard.spec.ts`, and `auth/admin.guard.spec.ts` accordingly — depends on T038d (confirmed RED)
 - [ ] T040 [US4] Implement `WorkItemService.UpdateAsync` (creator/assignee/role check, full-field replace, advances `UpdatedAt`) in `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T031
 - [ ] T041 [US4] Implement `WorkItemsController.Update` (`PUT /api/work-items/{id}`) and `Get` (`GET /api/work-items/{id}`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T040
+- [ ] T041a [US4] Implement `WorkItemService.DeleteAsync` (creator/Manager/Admin check — narrower than `UpdateAsync`, no assignee-alone case) in `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T031
+- [ ] T041b [US4] Implement `WorkItemsController.Delete` (`DELETE /api/work-items/{id}`, returns `204`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T041a
 - [ ] T042 [US4] Extend the `work-item-form` component to support edit mode (pre-fill from an existing item) — depends on T037, T033
-- [ ] T043 [US4] Add `getWorkItem()`/`updateWorkItem()` to `work-items.service.ts`; show/hide each item's edit (and, per US5, delete) controls in `project-detail` by comparing `AuthService`'s current user id/role against the item's creator/assignee — depends on T038, T039, T041, T042
+- [ ] T043 [US4] Add `getWorkItem()`/`updateWorkItem()` to `work-items.service.ts`; show/hide each item's **edit** control in `project-detail` by comparing `AuthService`'s current user id/role against the item's creator/assignee (creator, current assignee, or Manager/Admin) — depends on T038, T039, T041, T042
+- [ ] T043a [US4] Add `deleteWorkItem()` to `work-items.service.ts`; show/hide each item's **delete** control in `project-detail` using the narrower creator/Manager/Admin rule (no assignee-alone), and wire a simple confirmation (research.md §5) before calling delete — depends on T038c, T039, T041b
 
-**Checkpoint**: User Stories 1-4 work — the full create/view/edit loop is functional.
+**Checkpoint**: User Stories 1-4 work — the full create/view/edit/delete loop is functional.
 
 ---
 
@@ -210,7 +227,7 @@ of plain HTML:
 ### Tests for User Story 6 ⚠️
 
 - [ ] T051 [P] [US6] Unit tests for `WorkItemService.GetWorkItemsAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: paginated shape, each filter individually and in combination, case-insensitive title search, default sort by `UpdatedAt` descending, `pageSize` beyond 100 is clamped rather than rejected
-- [ ] T052 [P] [US6] Integration tests for `GET /api/projects/{projectId}/work-items` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: filters/search/pagination combinations, `404` unknown project
+- [ ] T052 [P] [US6] Integration tests for `GET /api/projects/{projectId}/work-items` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: filters/search/pagination combinations, `404` unknown project, `400` when a `status`/`type`/`priority` query value doesn't parse as its enum (rather than the value being silently ignored)
 - [ ] T053 [P] [US6] Vitest tests added to `project-detail.component.spec.ts`: applying filters/search narrows the shown items; "No work items yet" (no filters, project genuinely empty) vs. "No items match your filters." (filters applied, no match) are distinguished; pagination controls page correctly
 
 ### Implementation for User Story 6
@@ -229,7 +246,9 @@ of plain HTML:
 **Purpose**: Feature-wide verification against the constitution's Definition of Done
 
 - [ ] T058 [P] Add a "Projects" navigation entry to the header, visible to every signed-in user (unlike "Users", which stays Admin-only), in `frontend/src/app/shared/header/`
+- [ ] T058a [P] Retrofit `project-form`, `projects-list`, `project-detail`, and `work-item-form` (all built pre-styling-pass with plain HTML) to Angular Material components (`mat-card`, `mat-form-field`/`mat-input`, `mat-table`, `mat-button`), matching Feature 001's restyled pages, so the feature doesn't ship in a mixed style — keep every native `<select>` with `[selected]`-per-`<option>` exactly as-is (research.md §6); all existing Vitest tests for these components must stay green, updating only selectors that change because of the template restructuring
 - [ ] T059 [P] Review all new and changed C# files for the constitution's required educational comments — especially the cascade-path rule (research.md §2), combined role-and-ownership authorization, and conditional `IQueryable` filtering (plan.md "Concepts You Will Learn")
+- [ ] T059a [P] Add an integration test verifying every error response (`400`/`403`/`404`/`409`) from the Projects and Work Items endpoints is a valid RFC 7807 `ProblemDetails` body, extending Feature 001's equivalent `ProblemDetails`-shape test
 - [ ] T060 Verify `dotnet ef database update` applies this feature's migration cleanly to a fresh database, extending Feature 001's equivalent check
 - [ ] T061 Add a "What I learned" entry for this feature to the project `README.md`
 - [ ] T062 Run all `quickstart.md` validation scenarios end-to-end manually
@@ -245,7 +264,7 @@ of plain HTML:
 - **User Story 1 (Phase 2)**: Depends only on Foundational.
 - **User Story 2 (Phase 3)**: Depends only on Foundational (not on US1's create code, though it shares `ProjectService.cs`/`ProjectsController.cs` files — see note below).
 - **User Story 3 (Phase 4)**: Depends on Foundational; easiest to exercise once US1/US2 exist (need a project to create items in), but its own files are independent.
-- **User Story 4 (Phase 5)**: Depends on Foundational and on US3's work-item files existing (shares `WorkItemService.cs`/`WorkItemsController.cs`/`work-item-form`). Also touches Feature 001's auth files (T039) — do this before T043, which consumes it.
+- **User Story 4 (Phase 5)**: Depends on Foundational and on US3's work-item files existing (shares `WorkItemService.cs`/`WorkItemsController.cs`/`work-item-form`). Also touches Feature 001's auth files (T039, gated by T038d being confirmed RED first) — do this before T043/T043a, which consume it.
 - **User Story 5 (Phase 6)**: Depends on Foundational and on US1/US2's project files existing (shares `ProjectService.cs`/`ProjectsController.cs`/`project-form`/`project-detail`).
 - **User Story 6 (Phase 7)**: Depends on Foundational and on US3's work-item files existing (shares `WorkItemService.cs`/`WorkItemsController.cs`/`project-detail`).
 - **Polish (Phase 8)**: Depends on all six user stories being complete.
@@ -260,7 +279,7 @@ of plain HTML:
 ### Parallel Opportunities
 
 - Foundational: T001, T002 in parallel; T003 follows both; T004 follows T003.
-- Tests within a story: e.g. T005-T007 (US1), T023-T027 (US3), T035-T038 (US4) in parallel — different files.
+- Tests within a story: e.g. T005-T007 (US1), T023-T027 (US3), T035-T038d (US4) in parallel — different files.
 - Once Foundational is done, US1 and US2 can proceed in parallel by different developers (mind the shared-file note); once US3 exists, US4 and US6 can similarly proceed in parallel; US5 can proceed in parallel with US3/US4/US6 once US1/US2 exist.
 
 ---

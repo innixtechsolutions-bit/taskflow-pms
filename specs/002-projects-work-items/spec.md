@@ -90,16 +90,20 @@ immediately.
 
 ---
 
-### User Story 4 - Edit a Work Item and Update Its Status (Priority: P2)
+### User Story 4 - Edit or Delete a Work Item and Update Its Status (Priority: P2)
 
 As the creator or current assignee of a work item, or as a Manager/Admin, I
-can edit its fields and change its status, so the item reflects reality.
+can edit its fields and change its status, so the item reflects reality. As
+the creator, a Manager, or an Admin, I can delete a work item, with a
+simple confirmation.
 
 **Why this priority**: Depends on Story 3's items existing; keeping status
 current is essential but comes after the ability to create work at all.
 
 **Independent Test**: As the item's creator, change its status from ToDo to
-Done via the edit form and confirm the change is reflected in the item list.
+Done via the edit form and confirm the change is reflected in the item
+list; then delete a different item you created and confirm it disappears
+from the list after confirming.
 
 **Acceptance Scenarios**:
 
@@ -114,6 +118,15 @@ Done via the edit form and confirm the change is reflected in the item list.
    Manager/Admin) attempts to change which project it belongs to, **Then**
    the system does not allow it — a work item's project is fixed at
    creation.
+4. **Given** a work item, **When** its creator, or a Manager/Admin, requests
+   to delete it, **Then** a simple confirmation is shown and, once
+   confirmed, the item is removed and no longer appears in the project's
+   item list.
+5. **Given** a work item, **When** its current assignee — who is not also
+   its creator, nor a Manager/Admin — attempts to delete it, by UI or
+   direct API call, **Then** the attempt is refused and no delete control is
+   shown to them: narrower than edit, where the assignee alone is
+   permitted (FR-018).
 
 ---
 
@@ -186,6 +199,10 @@ title substring and confirm only matching items appear.
 - What happens when a work item's current assignee is also its creator, and
   a third-party Manager reassigns it to someone else? The original
   creator retains edit rights (as creator); the new assignee gains them too.
+- What happens when a filter value supplied for status, type, or priority
+  doesn't match any known value (e.g., a typo or a stale link)? The request
+  is refused as invalid rather than silently ignoring the bad filter and
+  returning an unfiltered list.
 
 ## Requirements *(mandatory)*
 

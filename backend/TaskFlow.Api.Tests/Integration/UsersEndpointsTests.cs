@@ -133,4 +133,12 @@ public class UsersEndpointsTests(TaskFlowApiFactory factory) : IClassFixture<Tas
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetLookup_returns_401_without_a_token()
+    {
+        var response = await _client.GetAsync("/api/users/lookup");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

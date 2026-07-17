@@ -10,19 +10,24 @@ Add two entities to TaskFlow: **Project** (a named container of work,
 created/edited/deleted by Manager/Admin only) and **Work Item** (a flat
 unit of work — type is a label only, no parent/child hierarchy yet —
 belonging to exactly one Project, creatable by any signed-in user, editable
-by its creator/current assignee/any Manager or Admin). Backend: two new EF
-Core entities and a code-first migration on top of Feature 001's existing
-`AppDbContext`/`User`, two Controller→Service pairs following the same flat
-layering as `AuthController`/`AuthService`, reusing the existing generic
+by its creator/current assignee/any Manager or Admin, and deletable by its
+creator or any Manager/Admin — narrower than edit, since the assignee alone
+cannot delete). Backend: two new EF Core entities and a code-first
+migration on top of Feature 001's existing `AppDbContext`/`User`, two
+Controller→Service pairs following the same flat layering as
+`AuthController`/`AuthService`, reusing the existing generic
 `PagedResult<T>` for both project and work-item listing, with combined
 role-and-ownership authorization checks in the service layer (extending the
 last-admin-guard pattern from `UserService`). Frontend: Angular components
 for a project list, a shared project create/edit form, a project detail
 view (work-item list with filter/search/pagination), and a shared work-item
-create/edit form — continuing Feature 001's plain-HTML-forms pattern (no
-Angular Material components introduced) and applying the `[selected]`-per-
-`<option>` lesson from Feature 001's Phase 7 bug fix from the start for
-every dropdown.
+create/edit form — using Angular Material (`mat-card`, `mat-form-field`,
+`mat-table`, `mat-button`; see a dedicated styling-pass commit and
+`tasks.md`'s "Frontend styling" note, which supersedes this plan's original
+research.md §6 decision to stay with plain HTML) and applying the
+`[selected]`-per-`<option>` lesson from Feature 001's Phase 7 bug fix from
+the start for every native `<select>` dropdown — kept deliberately native,
+not `mat-select`, for that same reason (research.md §6).
 
 ## Technical Context
 
@@ -35,7 +40,13 @@ Controllers), EF Core 10 (SQL Server provider, code-first migrations) —
 same packages already referenced by `TaskFlow.Api`, no new package
 references needed. Angular 22 (standalone components, signals, Signal
 Forms, zoneless change detection, built-in `@if`/`@for`) — same as Feature
-001; Angular Material remains unused by choice (see research.md §6).
+001. Angular Material (`mat-card`, `mat-form-field`/`mat-input`,
+`mat-button`, `mat-toolbar`, `mat-table`) is now used throughout, per a
+dedicated styling-pass commit that superseded this plan's original
+research.md §6 decision to stay with plain HTML — see `tasks.md`'s
+"Frontend styling" note for current guidance. Native `<select>` (not
+`mat-select`) remains the deliberate choice for every dropdown, for the
+`[selected]`-per-`<option>` reason research.md §6 still documents.
 
 **Storage**: SQL Server 2022 Developer Edition via EF Core code-first
 migrations, extending the existing `TaskFlowDb` database with two new
@@ -68,7 +79,8 @@ a manual refresh (FR-027, SC-006).
 
 **Scale/Scope**: Same internal-tool scale as Feature 001 (tens to low
 hundreds of users per organization). This feature: 2 new entities (`Project`,
-`WorkItem`, plus 3 new enums), 9 new API endpoints, 6 user stories.
+`WorkItem`, plus 3 new enums), 11 new API endpoints (5 Projects + 5 Work
+Items + 1 non-Admin user-lookup, research.md §9), 6 user stories.
 
 ## Concepts You Will Learn in This Feature
 
@@ -106,7 +118,7 @@ hundreds of users per organization). This feature: 2 new entities (`Project`,
 | I. Test-First Development | **PASS** | `tasks.md` (next phase) will include xUnit service/integration tests and Vitest tests as prerequisite tasks before each implementation task, per constitution and Feature 001's precedent. |
 | II. Secure by Default | **PASS** | Every new endpoint requires `[Authorize]` at minimum; project mutation endpoints add `[Authorize(Roles = "Manager,Admin")]`; work-item edit/delete ownership checks happen server-side in the service layer regardless of UI state (contracts/). |
 | III. Clarity Over Cleverness | **PASS** | Same flat Controller → Service → `AppDbContext` layering as Feature 001; no Repository/CQRS/Unit-of-Work; work-item `Type` stays a flat enum with no hierarchy (per spec's explicit scope); reuses the existing generic `PagedResult<T>` rather than inventing a second pagination shape; delete confirmation is a client-side UX step using data already fetched via `GET`, not a dedicated preview endpoint. |
-| IV. Consistent Code Quality & Review Gates | **PASS** | DTOs for all I/O, no AutoMapper, `ProblemDetails` for all errors, nullable reference types + warnings-as-errors, file-scoped namespaces; Angular strict TypeScript, signals, Angular style guide — all continuing Feature 001's established conventions. |
+| IV. Consistent Code Quality & Review Gates | **PASS** | DTOs for all I/O, no AutoMapper, `ProblemDetails` for all errors, nullable reference types + warnings-as-errors, file-scoped namespaces; Angular strict TypeScript, signals, Angular style guide — all continuing Feature 001's established conventions. **Accepted, documented deviation**: `WorkItem.cs` colocates its class with three enums (`WorkItemType`/`Priority`/`Status`), continuing the exact pattern Feature 001 already used for `Role` alongside `User` in `User.cs` — technically more than the "one public type per file" guideline, but a consistent continuation of an existing precedent rather than a new violation, and not worth a file split for three small, tightly-coupled enums that only this entity uses. |
 | V. API Contract Stability & Versioning | **PASS** | All new endpoints — no existing contract changes. Migration named descriptively (`AddProjectsAndWorkItems`) and committed to git. |
 | VI. Teach While Building | **PASS** | "Concepts You Will Learn" section above; inline comments required in generated C# per the concept list, especially the cascade-path gotcha. |
 | VII. Incremental, Feature-by-Feature Delivery | **ACCEPTED DEVIATION** | Estimated ~25 new/changed backend files + ~25 new/changed frontend files (~50 total, see Project Structure below) — larger than Feature 001's own deviation, for the same underlying reason plus one new one: two small, additive touches to Feature 001 files turned out to be genuine prerequisites (exposing the caller's own id per research.md §8, and a non-Admin user-lookup endpoint per §9) rather than something a tighter scope could avoid. Projects and Work Items are scoped together deliberately (per the source feature description): a project with nothing to put in it, or work items with no container, are not independently meaningful slices. Mitigation: `tasks.md` will again treat each user-story checkpoint as its own review pause (Principle VIII), not just the final one, and the two Feature-001-touching changes are called out as their own explicit tasks so they're easy to review in isolation. |
