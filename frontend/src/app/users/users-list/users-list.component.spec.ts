@@ -32,6 +32,19 @@ describe('UsersListComponent', () => {
     expect(text).toContain('grace@example.com');
   });
 
+  it('pre-selects each row\'s actual role on initial render, not just the first option', async () => {
+    configure();
+    const fixture = TestBed.createComponent(UsersListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const selects = fixture.nativeElement.querySelectorAll('select');
+    // sampleUsers[1] (Grace Hopper) is 'Manager' — not <option> index 0 ('Developer'),
+    // so this only passes if the dropdown is actually reading the row's real role.
+    expect((selects[1] as HTMLSelectElement).value).toBe('Manager');
+  });
+
   it('triggers a role change when a new role is selected', async () => {
     const updated: UserListItem = { ...sampleUsers[0], role: 'Manager' };
     const { changeRole } = configure(undefined, vi.fn().mockResolvedValue(updated));
@@ -46,5 +59,22 @@ describe('UsersListComponent', () => {
     await fixture.whenStable();
 
     expect(changeRole).toHaveBeenCalledWith(1, 'Manager');
+  });
+
+  it('reverts the dropdown to the actual role when the server rejects the change', async () => {
+    configure(undefined, vi.fn().mockRejectedValue(new Error('rejected')));
+    const fixture = TestBed.createComponent(UsersListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+    select.value = 'Manager';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(select.value).toBe('Developer');
+    expect(fixture.nativeElement.querySelector('.server-error')?.textContent).toContain('Could not change role');
   });
 });

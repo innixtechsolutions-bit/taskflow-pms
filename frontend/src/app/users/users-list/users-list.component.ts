@@ -23,13 +23,20 @@ export class UsersListComponent implements OnInit {
     void this.load();
   }
 
-  protected async onRoleChange(user: UserListItem, role: string): Promise<void> {
+  protected async onRoleChange(user: UserListItem, select: HTMLSelectElement): Promise<void> {
+    const requestedRole = select.value as UserRole;
     this.errorMessage.set(null);
     try {
-      const updated = await this.usersService.changeRole(user.id, role as UserRole);
+      const updated = await this.usersService.changeRole(user.id, requestedRole);
       this.items.update((items) => items.map((u) => (u.id === updated.id ? updated : u)));
     } catch {
       this.errorMessage.set('Could not change role. Please try again.');
+      // A binding alone won't undo this: a native <select>'s DOM state changes the
+      // instant the person picks an option, but Angular only re-pushes a binding when
+      // the *bound expression* changes — and since the request failed, user.role never
+      // did. Left alone, the dropdown would show the rejected role forever, even though
+      // the database (and every other view of this user) still has the real one.
+      select.value = user.role;
     }
   }
 

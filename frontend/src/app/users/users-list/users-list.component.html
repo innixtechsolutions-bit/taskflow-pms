@@ -19,9 +19,13 @@
         <td>{{ user.fullName }}</td>
         <td>{{ user.email }}</td>
         <td>
-          <select [value]="user.role" (change)="onRoleChange(user, $any($event.target).value)">
+          <select (change)="onRoleChange(user, $any($event.target))">
             @for (role of roles; track role) {
-              <option [value]="role">{{ role }}</option>
+              <!-- [selected] on each <option>, not [value] on the <select>: Angular
+                   sets a <select>'s own [value] binding before its @for-rendered
+                   <option> children exist in the DOM, so the browser has nothing yet
+                   to match against and silently falls back to the first option. -->
+              <option [value]="role" [selected]="role === user.role">{{ role }}</option>
             }
           </select>
         </td>
