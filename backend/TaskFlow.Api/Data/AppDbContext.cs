@@ -10,6 +10,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
 
+    public DbSet<Project> Projects => Set<Project>();
+
+    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -23,6 +27,59 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // table data is self-explanatory — a small, deliberate teaching touch
             // with no added runtime complexity (constitution Principle VI).
             entity.Property(u => u.Role).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<Project>(entity =>
+        {
+            // Same case-insensitive-by-collation trick as User.Email above.
+            entity.HasIndex(p => p.Name).IsUnique();
+
+            // Restrict, not the EF Core default of Cascade for a required FK: there is
+            // no user-deletion feature yet, so this never actually fires today, but it
+            // must be Restrict regardless — see the WorkItem config below for why.
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(p => p.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WorkItem>(entity =>
+        {
+            // Every "list this project's work items" query filters on ProjectId —
+            // this is the feature's single highest-volume query path, so the index
+            // is called out explicitly even though EF Core would add one for the FK
+            // regardless.
+            entity.HasIndex(w => w.ProjectId);
+
+            // The only Cascade in this feature: deleting a Project deletes all of its
+            // WorkItems (FR-009).
+            entity.HasOne(w => w.Project)
+                .WithMany(p => p.WorkItems)
+                .HasForeignKey(w => w.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Both foreign keys pointing at User are Restrict, not Cascade. SQL Server
+            // refuses to create a schema where the same table could be cascade-deleted
+            // through two different paths — if these were Cascade, deleting a User
+            // could reach WorkItem two ways: directly (CreatedByUserId) and indirectly
+            // through their Project (Project's own Cascade to WorkItem). Restrict here
+            // avoids that "multiple cascade paths" error entirely, and is the safer
+            // default anyway since no feature can delete a User yet.
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(w => w.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(w => w.AssigneeUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Same readable-text-over-int rationale as User.Role above, for all three
+            // of this entity's enums.
+            entity.Property(w => w.Type).HasConversion<string>();
+            entity.Property(w => w.Priority).HasConversion<string>();
+            entity.Property(w => w.Status).HasConversion<string>();
         });
     }
 }

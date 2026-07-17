@@ -32,10 +32,10 @@ Web application, same split as Feature 001: `backend/TaskFlow.Api/`
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Create the `Project` entity in `backend/TaskFlow.Api/Data/Entities/Project.cs` per `data-model.md` (Id, Name, Description, CreatedByUserId, CreatedAt)
-- [ ] T002 [P] Create the `WorkItem` entity and its `WorkItemType`/`WorkItemPriority`/`WorkItemStatus` enums in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs` per `data-model.md` (colocated with the entity, matching how `Role` lives in `User.cs` per Feature 001's precedent)
-- [ ] T003 Update `backend/TaskFlow.Api/Data/AppDbContext.cs`: add `Projects`/`WorkItems` `DbSet`s, configure `Project`→`WorkItem` as `DeleteBehavior.Cascade`, every foreign key pointing at `User` as `DeleteBehavior.Restrict` (research.md §2 — required to avoid SQL Server's multiple-cascade-paths error), a unique index on `Project.Name`, an index on `WorkItem.ProjectId`, and `HasConversion<string>()` for the three new enums — depends on T001, T002
-- [ ] T004 Generate the EF Core migration `AddProjectsAndWorkItems` in `backend/TaskFlow.Api/Data/Migrations/` via `dotnet ef migrations add AddProjectsAndWorkItems --project backend/TaskFlow.Api`, and apply it to the real local dev database via `dotnet ef database update` — depends on T003
+- [X] T001 Create the `Project` entity in `backend/TaskFlow.Api/Data/Entities/Project.cs` per `data-model.md` (Id, Name, Description, CreatedByUserId, CreatedAt)
+- [X] T002 [P] Create the `WorkItem` entity and its `WorkItemType`/`WorkItemPriority`/`WorkItemStatus` enums in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs` per `data-model.md` (colocated with the entity, matching how `Role` lives in `User.cs` per Feature 001's precedent)
+- [X] T003 Update `backend/TaskFlow.Api/Data/AppDbContext.cs`: add `Projects`/`WorkItems` `DbSet`s, configure `Project`→`WorkItem` as `DeleteBehavior.Cascade`, every foreign key pointing at `User` as `DeleteBehavior.Restrict` (research.md §2 — required to avoid SQL Server's multiple-cascade-paths error), a unique index on `Project.Name`, an index on `WorkItem.ProjectId`, and `HasConversion<string>()` for the three new enums — depends on T001, T002
+- [X] T004 Generate the EF Core migration `AddProjectsAndWorkItems` in `backend/TaskFlow.Api/Data/Migrations/` via `dotnet ef migrations add AddProjectsAndWorkItems --project backend/TaskFlow.Api`, and apply it to the real local dev database via `dotnet ef database update` — depends on T003. **Confirmed clean**: migration applies with no SQL Server cascade-path error, confirming the Restrict/Cascade design from research.md §2 is correct.
 
 **Checkpoint**: `Projects` and `WorkItems` tables exist — user story implementation can now begin.
 
