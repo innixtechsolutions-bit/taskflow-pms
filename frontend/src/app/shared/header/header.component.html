@@ -1,5 +1,8 @@
 <header>
   <span class="signed-in-name">{{ authService.currentUser()?.fullName }}</span>
   <span class="signed-in-role">{{ authService.currentUser()?.role }}</span>
+  @if (authService.currentRole() === 'Admin') {
+    <a routerLink="/users">Users</a>
+  }
   <button type="button" (click)="onLogout()">Log out</button>
 </header>

@@ -32,6 +32,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Scoped, and a Scoped service can't be injected into a longer-lived Singleton.
 builder.Services.AddScoped<AdminSeeder>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<UserService>();
 
 // AddMemoryCache registers the shared IMemoryCache that LoginAttemptTracker wraps.
 // The tracker itself is Singleton, not Scoped: it needs to accumulate failed attempts

@@ -1,0 +1,35 @@
+<h1>Users</h1>
+
+@if (errorMessage()) {
+  <p class="server-error" role="alert">{{ errorMessage() }}</p>
+}
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Registered</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (user of items(); track user.id) {
+      <tr>
+        <td>{{ user.fullName }}</td>
+        <td>{{ user.email }}</td>
+        <td>
+          <select [value]="user.role" (change)="onRoleChange(user, $any($event.target).value)">
+            @for (role of roles; track role) {
+              <option [value]="role">{{ role }}</option>
+            }
+          </select>
+        </td>
+        <td>{{ user.createdAt }}</td>
+      </tr>
+    }
+  </tbody>
+</table>
+
+<button type="button" (click)="prevPage()" [disabled]="page() === 1">Previous</button>
+<button type="button" (click)="nextPage()" [disabled]="page() * pageSize >= totalCount()">Next</button>

@@ -66,7 +66,10 @@ describe('App', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
-        { provide: AuthService, useValue: { currentUser: () => signedInState, isAuthenticated: () => true, logout: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: { currentUser: () => signedInState, currentRole: () => signedInState.role, isAuthenticated: () => true, logout: vi.fn() },
+        },
       ],
     });
     const fixture = TestBed.createComponent(App);
