@@ -1,10 +1,11 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
 
 @Component({
   selector: 'app-project-detail',
   standalone: true,
+  imports: [RouterLink],
   templateUrl: './project-detail.component.html',
 })
 export class ProjectDetailComponent implements OnInit {

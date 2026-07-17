@@ -47,4 +47,13 @@ public class UserService(AppDbContext dbContext)
 
         return new UserListItemDto(target.Id, target.FullName, target.Email, target.Role.ToString(), target.CreatedAt);
     }
+
+    // Backs the work-item assignee picker (Feature 002) — any authenticated user can
+    // call this, so it returns only id + full name, never email/role/registration date
+    // the way GetUsersAsync (Admin-only) does.
+    public async Task<List<UserLookupItemDto>> GetAssignableUsersAsync() =>
+        await dbContext.Users
+            .OrderBy(u => u.FullName)
+            .Select(u => new UserLookupItemDto(u.Id, u.FullName))
+            .ToListAsync();
 }

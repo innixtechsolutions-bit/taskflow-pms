@@ -1,0 +1,89 @@
+import { Component, OnInit, inject, signal } from '@angular/core';
+import { FormField, maxLength, minLength, required, form } from '@angular/forms/signals';
+import { ActivatedRoute, Router } from '@angular/router';
+import { UserLookupItem, WorkItemsService } from '../work-items.service';
+
+interface TitleFormModel {
+  title: string;
+}
+
+const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const STATUSES = ['ToDo', 'InProgress', 'Done'];
+
+@Component({
+  selector: 'app-work-item-form',
+  standalone: true,
+  imports: [FormField],
+  templateUrl: './work-item-form.component.html',
+})
+export class WorkItemFormComponent implements OnInit {
+  private readonly workItemsService = inject(WorkItemsService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly projectId = Number(this.route.snapshot.paramMap.get('projectId'));
+
+  protected readonly types = TYPES;
+  protected readonly priorities = PRIORITIES;
+  protected readonly statuses = STATUSES;
+  protected readonly assignableUsers = signal<UserLookupItem[]>([]);
+
+  // A separate, minimal Signal Forms tree for just the title — the only field with
+  // real validation. The other fields are plain signals driven by [selected] on each
+  // <option>, not [value] on the <select> itself (research.md §6): Angular writes a
+  // <select>'s own [value] binding before its @for-rendered <option> children exist in
+  // the DOM, so the browser has nothing yet to match against and silently defaults to
+  // the first option — the same bug Feature 001's Phase 7 found and fixed.
+  protected readonly titleModel = signal<TitleFormModel>({ title: '' });
+  protected readonly titleForm = form(this.titleModel, (path) => {
+    required(path.title, { message: 'Title is required.' });
+    minLength(path.title, 3, { message: 'Title must be at least 3 characters.' });
+    maxLength(path.title, 200, { message: 'Title must be at most 200 characters.' });
+  });
+
+  protected readonly type = signal('Task');
+  protected readonly description = signal('');
+  protected readonly priority = signal('Medium');
+  protected readonly status = signal('ToDo');
+  protected readonly assigneeUserId = signal('');
+  protected readonly dueDate = signal('');
+
+  protected readonly submitting = signal(false);
+  protected readonly serverError = signal<string | null>(null);
+
+  ngOnInit(): void {
+    void this.loadAssignableUsers();
+  }
+
+  private async loadAssignableUsers(): Promise<void> {
+    this.assignableUsers.set(await this.workItemsService.getAssignableUsers());
+  }
+
+  protected async onSubmit(event: Event): Promise<void> {
+    event.preventDefault();
+
+    this.titleForm().markAsTouched();
+    if (!this.titleForm().valid()) {
+      return;
+    }
+
+    this.serverError.set(null);
+    this.submitting.set(true);
+    try {
+      await this.workItemsService.createWorkItem(this.projectId, {
+        type: this.type(),
+        title: this.titleModel().title,
+        description: this.description() || undefined,
+        priority: this.priority(),
+        status: this.status(),
+        assigneeUserId: this.assigneeUserId() ? Number(this.assigneeUserId()) : undefined,
+        dueDate: this.dueDate() || undefined,
+      });
+      await this.router.navigateByUrl(`/projects/${this.projectId}`);
+    } catch {
+      this.serverError.set('Something went wrong. Please try again.');
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+}

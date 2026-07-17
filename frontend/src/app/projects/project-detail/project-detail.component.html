@@ -6,5 +6,8 @@
   <p class="project-meta">Created by {{ p.createdByName }} on {{ p.createdAt }}</p>
 
   <h2>Work items</h2>
-  <p>No work items yet</p>
+  <a [routerLink]="['/projects', p.id, 'work-items', 'new']">New work item</a>
+  @if (p.totalWorkItemCount === 0) {
+    <p>No work items yet</p>
+  }
 }

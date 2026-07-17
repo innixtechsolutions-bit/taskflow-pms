@@ -7,6 +7,7 @@ import { HomeComponent } from './home/home.component';
 import { ProjectDetailComponent } from './projects/project-detail/project-detail.component';
 import { ProjectFormComponent } from './projects/project-form/project-form.component';
 import { ProjectsListComponent } from './projects/projects-list/projects-list.component';
+import { WorkItemFormComponent } from './projects/work-item-form/work-item-form.component';
 import { UsersListComponent } from './users/users-list/users-list.component';
 
 // No wildcard route yet: later stories will add more real destinations, and a
@@ -21,5 +22,6 @@ export const routes: Routes = [
   // order-dependent, and the parameterized route would otherwise swallow it.
   { path: 'projects', component: ProjectsListComponent, canActivate: [authGuard] },
   { path: 'projects/new', component: ProjectFormComponent, canActivate: [authGuard] },
+  { path: 'projects/:projectId/work-items/new', component: WorkItemFormComponent, canActivate: [authGuard] },
   { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
 ];

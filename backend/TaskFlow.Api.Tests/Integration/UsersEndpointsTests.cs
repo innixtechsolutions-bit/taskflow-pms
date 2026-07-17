@@ -120,4 +120,17 @@ public class UsersEndpointsTests(TaskFlowApiFactory factory) : IClassFixture<Tas
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    // Unlike GetUsers/ChangeRole above (still 403 for non-Admins — regression-checked by
+    // the two tests above, which must keep passing), this lookup endpoint is deliberately
+    // open to any authenticated role (research.md §9, Feature 002).
+    [Fact]
+    public async Task GetLookup_returns_200_for_a_non_admin_caller()
+    {
+        var token = await RegisterAndGetTokenAsync($"lookup-nonadmin-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/users/lookup", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }
