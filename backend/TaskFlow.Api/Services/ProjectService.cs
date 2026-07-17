@@ -32,4 +32,39 @@ public class ProjectService(AppDbContext dbContext)
 
         return new ProjectDetailDto(project.Id, project.Name, project.Description, creator!.FullName, project.CreatedAt, TotalWorkItemCount: 0);
     }
+
+    public async Task<PagedResult<ProjectListItemDto>> GetProjectsAsync(int page, int pageSize)
+    {
+        var query = dbContext.Projects.OrderByDescending(p => p.CreatedAt);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new ProjectListItemDto(
+                p.Id,
+                p.Name,
+                p.CreatedBy!.FullName,
+                p.CreatedAt,
+                p.WorkItems.Count(w => w.Status != WorkItemStatus.Done)))
+            .ToListAsync();
+
+        return new PagedResult<ProjectListItemDto>(items, page, pageSize, totalCount);
+    }
+
+    public async Task<ProjectDetailDto> GetProjectByIdAsync(int id)
+    {
+        var project = await dbContext.Projects
+            .Where(p => p.Id == id)
+            .Select(p => new ProjectDetailDto(
+                p.Id,
+                p.Name,
+                p.Description,
+                p.CreatedBy!.FullName,
+                p.CreatedAt,
+                p.WorkItems.Count))
+            .SingleOrDefaultAsync();
+
+        return project ?? throw new ProjectNotFoundException();
+    }
 }

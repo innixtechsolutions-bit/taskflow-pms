@@ -1,0 +1,10 @@
+@if (project(); as p) {
+  <h1>{{ p.name }}</h1>
+  @if (p.description) {
+    <p class="project-description">{{ p.description }}</p>
+  }
+  <p class="project-meta">Created by {{ p.createdByName }} on {{ p.createdAt }}</p>
+
+  <h2>Work items</h2>
+  <p>No work items yet</p>
+}

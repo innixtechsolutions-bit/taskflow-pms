@@ -50,7 +50,7 @@ namespace TaskFlow.Api.Data.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Projects");
+                    b.ToTable("Projects", (string)null);
                 });
 
             modelBuilder.Entity("TaskFlow.Api.Data.Entities.User", b =>
@@ -85,7 +85,7 @@ namespace TaskFlow.Api.Data.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("TaskFlow.Api.Data.Entities.WorkItem", b =>
@@ -141,7 +141,7 @@ namespace TaskFlow.Api.Data.Migrations
 
                     b.HasIndex("ProjectId");
 
-                    b.ToTable("WorkItems");
+                    b.ToTable("WorkItems", (string)null);
                 });
 
             modelBuilder.Entity("TaskFlow.Api.Data.Entities.Project", b =>

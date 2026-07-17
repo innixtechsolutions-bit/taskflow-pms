@@ -10,6 +10,8 @@ public class Project
 
     public int CreatedByUserId { get; set; }
 
+    public User? CreatedBy { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     // EF Core convention: a WorkItems collection navigation property alongside

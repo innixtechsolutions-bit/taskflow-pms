@@ -51,9 +51,13 @@ public class WorkItem
     // Optional: a work item need not be assigned to anyone.
     public int? AssigneeUserId { get; set; }
 
+    public User? Assignee { get; set; }
+
     public DateTime? DueDate { get; set; }
 
     public int CreatedByUserId { get; set; }
+
+    public User? CreatedBy { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

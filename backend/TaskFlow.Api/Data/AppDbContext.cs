@@ -37,7 +37,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Restrict, not the EF Core default of Cascade for a required FK: there is
             // no user-deletion feature yet, so this never actually fires today, but it
             // must be Restrict regardless — see the WorkItem config below for why.
-            entity.HasOne<User>()
+            entity.HasOne(p => p.CreatedBy)
                 .WithMany()
                 .HasForeignKey(p => p.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -65,12 +65,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // through their Project (Project's own Cascade to WorkItem). Restrict here
             // avoids that "multiple cascade paths" error entirely, and is the safer
             // default anyway since no feature can delete a User yet.
-            entity.HasOne<User>()
+            entity.HasOne(w => w.CreatedBy)
                 .WithMany()
                 .HasForeignKey(w => w.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne<User>()
+            entity.HasOne(w => w.Assignee)
                 .WithMany()
                 .HasForeignKey(w => w.AssigneeUserId)
                 .OnDelete(DeleteBehavior.Restrict);

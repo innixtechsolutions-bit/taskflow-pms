@@ -116,4 +116,56 @@ public class ProjectsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture<
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+
+    [Fact]
+    public async Task GetProjects_returns_200_with_a_paginated_list_for_any_authenticated_caller()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-list-{Guid.NewGuid():N}@example.com");
+        var name = $"Listed Project {Guid.NewGuid():N}";
+        var create = AuthedRequest(HttpMethod.Post, "/api/projects", managerToken);
+        create.Content = JsonContent.Create(new { name });
+        await _client.SendAsync(create);
+        var developerToken = await RegisterAndGetTokenAsync($"developer-list-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects?page=1&pageSize=200", developerToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<ProjectListItemDto>>();
+        Assert.Contains(body!.Items, p => p.Name == name);
+    }
+
+    [Fact]
+    public async Task GetProjects_returns_401_without_a_token()
+    {
+        var response = await _client.GetAsync("/api/projects");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProject_returns_200_with_detail_for_any_authenticated_caller()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-detail-{Guid.NewGuid():N}@example.com");
+        var name = $"Detail Project {Guid.NewGuid():N}";
+        var create = AuthedRequest(HttpMethod.Post, "/api/projects", managerToken);
+        create.Content = JsonContent.Create(new { name });
+        var created = await (await _client.SendAsync(create)).Content.ReadFromJsonAsync<ProjectDetailDto>();
+        var developerToken = await RegisterAndGetTokenAsync($"developer-detail-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{created!.Id}", developerToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProjectDetailDto>();
+        Assert.Equal(name, body!.Name);
+    }
+
+    [Fact]
+    public async Task GetProject_returns_404_for_an_unknown_id()
+    {
+        var token = await RegisterAndGetTokenAsync($"developer-notfound-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

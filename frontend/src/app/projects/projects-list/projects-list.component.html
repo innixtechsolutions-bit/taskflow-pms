@@ -1,0 +1,29 @@
+<h1>Projects</h1>
+
+@if (authService.currentRole() === 'Manager' || authService.currentRole() === 'Admin') {
+  <a routerLink="/projects/new">New Project</a>
+}
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Created by</th>
+      <th>Created</th>
+      <th>Open items</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (project of items(); track project.id) {
+      <tr>
+        <td><a [routerLink]="['/projects', project.id]">{{ project.name }}</a></td>
+        <td>{{ project.createdByName }}</td>
+        <td>{{ project.createdAt }}</td>
+        <td>{{ project.openWorkItemCount }}</td>
+      </tr>
+    }
+  </tbody>
+</table>
+
+<button type="button" (click)="prevPage()" [disabled]="page() === 1">Previous</button>
+<button type="button" (click)="nextPage()" [disabled]="page() * pageSize >= totalCount()">Next</button>
