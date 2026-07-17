@@ -24,6 +24,38 @@ description: "Task list for Projects & Work Items"
 Web application, same split as Feature 001: `backend/TaskFlow.Api/`
 (+ `backend/TaskFlow.Api.Tests/`) and `frontend/src/app/`.
 
+## ⚠️ Frontend styling: use Angular Material (superseding research.md §6)
+
+A dedicated styling pass (separate commit, after this file was originally
+written) set up Angular Material properly — `provideAnimationsAsync()` in
+`app.config.ts`, an app-wide layout shell (`app.html`/`app.css`,
+`.app-content` + `.auth-page` in `styles.css`) — and restyled every Feature
+001 page (`login`, `register`, `home`, the `header` toolbar, `users-list`)
+using `MatCardModule`, `MatFormFieldModule`/`MatInputModule`,
+`MatButtonModule`, `MatToolbarModule`, and `MatTableModule`. This
+**supersedes research.md §6**'s original decision to continue Feature 001's
+plain-HTML pattern — that decision predates this styling pass and no longer
+reflects the codebase.
+
+**Every remaining frontend task in this file** (`project-form`,
+`projects-list`, `project-detail`, `work-item-form`, and anything in Phase
+8's header-nav update) should follow the now-established patterns instead
+of plain HTML:
+- `mat-card` for page/section containers (see `home.component.html`)
+- `mat-form-field` + `matInput` for text/textarea inputs, with `mat-error`
+  for field-level validation messages (see `login`/`register`)
+- `mat-table` for the projects list and the work-item list (see
+  `users-list.component.html` for the `matColumnDef` pattern)
+- `mat-toolbar` for any additional top-level chrome
+- `mat-button`/`mat-flat-button`/`mat-stroked-button` for actions
+- **Exception, deliberately**: keep the `<select>` elements for
+  status/type/priority/assignee dropdowns as **plain native `<select>`**,
+  not `mat-select` — every dropdown in this feature already uses the
+  `[selected]`-per-`<option>` pattern (research.md §6) to sidestep a real
+  Feature 001 bug, and `mat-select` doesn't expose that same native
+  element for tests to drive the way the existing `WorkItemsService`/
+  `UsersService` component tests currently do.
+
 ---
 
 ## Phase 1: Foundational (Blocking Prerequisites)

@@ -1,6 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormField, email, maxLength, minLength, pattern, required, form } from '@angular/forms/signals';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { Router } from '@angular/router';
 import { AuthService } from '../auth.service';
 
@@ -17,7 +21,7 @@ const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [FormField],
+  imports: [FormField, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
   templateUrl: './register.component.html',
 })
 export class RegisterComponent {

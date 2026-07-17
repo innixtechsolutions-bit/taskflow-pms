@@ -1,30 +1,43 @@
-<form (submit)="onSubmit($event)" novalidate>
-  <h1>Create your TaskFlow account</h1>
+<div class="auth-page">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Create your TaskFlow account</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form (submit)="onSubmit($event)" novalidate>
+        @if (serverError()) {
+          <p class="server-error" role="alert">{{ serverError() }}</p>
+        }
 
-  @if (serverError()) {
-    <p class="server-error" role="alert">{{ serverError() }}</p>
-  }
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput id="fullName" type="text" [formField]="registerForm.fullName" />
+          @if (registerForm.fullName().touched() && registerForm.fullName().errors().length > 0) {
+            <mat-error>{{ registerForm.fullName().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
 
-  <label for="fullName">Full name</label>
-  <input id="fullName" type="text" [formField]="registerForm.fullName" />
-  @if (registerForm.fullName().touched() && registerForm.fullName().errors().length > 0) {
-    <p class="field-error">{{ registerForm.fullName().errors()[0].message }}</p>
-  }
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput id="email" type="email" [formField]="registerForm.email" />
+          @if (registerForm.email().touched() && registerForm.email().errors().length > 0) {
+            <mat-error>{{ registerForm.email().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
 
-  <label for="email">Email</label>
-  <input id="email" type="email" [formField]="registerForm.email" />
-  @if (registerForm.email().touched() && registerForm.email().errors().length > 0) {
-    <p class="field-error">{{ registerForm.email().errors()[0].message }}</p>
-  }
+        <mat-form-field appearance="outline">
+          <mat-label>Password</mat-label>
+          <input matInput id="password" type="password" [formField]="registerForm.password" />
+          <mat-hint class="password-hint">
+            Password must be at least 8 characters and include at least one letter and one number.
+          </mat-hint>
+          @if (registerForm.password().touched() && registerForm.password().errors().length > 0) {
+            <mat-error>{{ registerForm.password().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
 
-  <label for="password">Password</label>
-  <input id="password" type="password" [formField]="registerForm.password" />
-  <p class="password-hint">
-    Password must be at least 8 characters and include at least one letter and one number.
-  </p>
-  @if (registerForm.password().touched() && registerForm.password().errors().length > 0) {
-    <p class="field-error">{{ registerForm.password().errors()[0].message }}</p>
-  }
-
-  <button type="submit" [disabled]="submitting()">Register</button>
-</form>
+        <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">Register</button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

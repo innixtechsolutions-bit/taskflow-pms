@@ -1,1 +1,50 @@
 /* You can add global styles to this file, and also import other style files */
+
+/* Shared layout for the centered auth pages (login/register) — global, not
+   component-scoped, since Angular's emulated view encapsulation wouldn't let
+   a single component's stylesheet reach into a different routed component's
+   template. */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 48px;
+}
+
+.auth-page mat-card {
+  width: 100%;
+  max-width: 400px;
+}
+
+.auth-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auth-page mat-form-field {
+  width: 100%;
+}
+
+.auth-page button[type='submit'] {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+/* Shared alert-style messages, used both on auth pages and elsewhere
+   (e.g. the users list's role-change error). */
+.server-error,
+.session-expired {
+  color: var(--mat-sys-error);
+  margin: 0 0 12px;
+}
+
+/* Generic list-page pagination controls (users list, and later Projects). */
+.pagination-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+table[mat-table] {
+  width: 100%;
+}

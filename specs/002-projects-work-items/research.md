@@ -122,6 +122,14 @@ has the count without asking the server a second time.
 
 ## 6. Frontend: continuing the plain-HTML pattern, applying Feature 001's `<select>` lesson
 
+> **⚠️ Superseded**: a dedicated styling pass (separate commit, after this
+> decision was written) set up Angular Material properly and restyled every
+> Feature 001 page with it. The "no Material components" half of this
+> decision no longer holds — see `tasks.md`'s "Frontend styling" note for
+> the current guidance. The `[selected]`-per-`<option>` half **still
+> holds**: native `<select>` (not `mat-select`) remains the right choice for
+> this feature's dropdowns, for the same reason and one more (see that note).
+
 **Decision**: This feature's Angular components continue Feature 001's
 established style — native HTML forms/tables/`<select>` elements, no
 Angular Material components — for consistency, even though Angular
