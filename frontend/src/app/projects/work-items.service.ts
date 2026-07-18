@@ -41,6 +41,20 @@ export interface WorkItemLookupItem {
   title: string;
 }
 
+export interface WorkItemChild {
+  id: number;
+  title: string;
+  type: string;
+  status: string;
+  assigneeName: string | null;
+}
+
+export interface WorkItemDetail extends WorkItem {
+  parentTitle: string | null;
+  totalDescendantCount: number;
+  children: WorkItemChild[];
+}
+
 export interface WorkItemTreeNode {
   id: number;
   type: string;
@@ -97,6 +111,12 @@ export class WorkItemsService {
 
   async getWorkItem(id: number): Promise<WorkItem> {
     return firstValueFrom(this.http.get<WorkItem>(`/api/work-items/${id}`));
+  }
+
+  // Same endpoint as getWorkItem() above — the response is a superset (parent link,
+  // direct children, descendant count) that only the detail page needs.
+  async getWorkItemDetail(id: number): Promise<WorkItemDetail> {
+    return firstValueFrom(this.http.get<WorkItemDetail>(`/api/work-items/${id}`));
   }
 
   async updateWorkItem(id: number, request: WorkItemRequest): Promise<WorkItem> {

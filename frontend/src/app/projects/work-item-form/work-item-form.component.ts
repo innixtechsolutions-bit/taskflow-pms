@@ -64,6 +64,19 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly serverError = signal<string | null>(null);
 
   ngOnInit(): void {
+    if (!this.isEditMode) {
+      // Set when arriving via a work item detail view's "Add child" action (FR-019) —
+      // pre-selects both the legal child Type and this parent, rather than leaving
+      // the user to rediscover which type/parent combination they came here to create.
+      const typeParam = this.route.snapshot.queryParamMap.get('type');
+      const parentWorkItemIdParam = this.route.snapshot.queryParamMap.get('parentWorkItemId');
+      if (typeParam) {
+        this.type.set(typeParam);
+      }
+      if (parentWorkItemIdParam) {
+        this.parentWorkItemId.set(parentWorkItemIdParam);
+      }
+    }
     void this.loadAssignableUsers();
     void this.loadParentCandidates();
     if (this.isEditMode) {

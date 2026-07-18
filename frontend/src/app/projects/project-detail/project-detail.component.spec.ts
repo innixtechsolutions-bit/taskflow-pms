@@ -53,19 +53,23 @@ function configure(
   deleteWorkItem = vi.fn().mockResolvedValue(undefined),
   deleteProject = vi.fn().mockResolvedValue(undefined),
   getAssignableUsers = vi.fn().mockResolvedValue([]),
-  getWorkItemsTree = vi.fn().mockResolvedValue([])
+  getWorkItemsTree = vi.fn().mockResolvedValue([]),
+  getWorkItemDetail = vi.fn().mockResolvedValue({ totalDescendantCount: 0 })
 ) {
   TestBed.configureTestingModule({
     imports: [ProjectDetailComponent],
     providers: [
       provideRouter([]),
       { provide: ProjectsService, useValue: { getProject, deleteProject } },
-      { provide: WorkItemsService, useValue: { getWorkItems, deleteWorkItem, getAssignableUsers, getWorkItemsTree } },
+      {
+        provide: WorkItemsService,
+        useValue: { getWorkItems, deleteWorkItem, getAssignableUsers, getWorkItemsTree, getWorkItemDetail },
+      },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
     ],
   });
-  return { getProject, getWorkItems, deleteWorkItem, deleteProject, getAssignableUsers, getWorkItemsTree };
+  return { getProject, getWorkItems, deleteWorkItem, deleteProject, getAssignableUsers, getWorkItemsTree, getWorkItemDetail };
 }
 
 async function render() {
@@ -103,6 +107,14 @@ describe('ProjectDetailComponent', () => {
     const fixture = await render();
 
     expect(fixture.nativeElement.textContent).toContain('Fix the login bug');
+  });
+
+  it("links a flat-list item's title to its detail page", async () => {
+    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem({ id: 42 })])));
+    const fixture = await render();
+
+    const link = fixture.nativeElement.querySelector('.work-item-title a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/projects/1/work-items/42');
   });
 });
 
@@ -202,6 +214,29 @@ describe('ProjectDetailComponent delete control visibility (narrower than edit)'
 
     expect(deleteWorkItem).toHaveBeenCalledWith(1);
     expect(getWorkItems).toHaveBeenCalledTimes(2);
+    confirmSpy.mockRestore();
+  });
+
+  it("states the total descendant count in the flat list's delete confirmation", async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const getWorkItemDetail = vi.fn().mockResolvedValue({ totalDescendantCount: 3 });
+    configure(
+      undefined,
+      vi.fn().mockResolvedValue(pageOf([sampleItem({ id: 1, createdByUserId: 1 })])),
+      { id: 1, role: 'Developer' },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      getWorkItemDetail
+    );
+    const fixture = await render();
+
+    (deleteButton(fixture, 1) as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('3'));
     confirmSpy.mockRestore();
   });
 
@@ -440,6 +475,17 @@ describe('ProjectDetailComponent tree view', () => {
     const parentRow = fixture.nativeElement.querySelector('#tree-work-item-1') as HTMLElement;
     const childRow = fixture.nativeElement.querySelector('#tree-work-item-2') as HTMLElement;
     expect(Number(childRow.dataset['level'])).toBeGreaterThan(Number(parentRow.dataset['level']));
+  });
+
+  it("links a tree row's title to its detail page", async () => {
+    configure(undefined, undefined, undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
+    const fixture = await render();
+    (fixture.nativeElement.querySelector('.tree-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('#tree-work-item-1 .tree-item-title') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/projects/1/work-items/1');
   });
 
   it("shows a parent row's direct-children done count", async () => {

@@ -200,7 +200,15 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   protected async onDelete(item: WorkItem): Promise<void> {
-    if (!confirm(`Delete "${item.title}"? This cannot be undone.`)) {
+    // Fetched fresh, right before confirming, rather than carried on every flat-list
+    // row — the row itself doesn't need a descendant count until the moment a delete
+    // is attempted (FR-020, research.md §6).
+    const detail = await this.workItemsService.getWorkItemDetail(item.id);
+    const message =
+      detail.totalDescendantCount > 0
+        ? `Delete "${item.title}"? This will also delete ${detail.totalDescendantCount} nested item(s). This cannot be undone.`
+        : `Delete "${item.title}"? This cannot be undone.`;
+    if (!confirm(message)) {
       return;
     }
     await this.workItemsService.deleteWorkItem(item.id);

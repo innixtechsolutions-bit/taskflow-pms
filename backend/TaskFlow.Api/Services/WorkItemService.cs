@@ -125,10 +125,12 @@ public class WorkItemService(AppDbContext dbContext)
         return await ToDtoAsync(workItem.Id);
     }
 
-    public async Task<WorkItemDto> GetByIdAsync(int id) => await ToDtoAsync(id);
+    public async Task<WorkItemDetailDto> GetByIdAsync(int id) => await ToDetailDtoAsync(id);
 
     // Narrower than UpdateAsync's check: the current assignee alone cannot delete
-    // (FR-017/FR-018) — only the creator or a Manager/Admin.
+    // (FR-017/FR-018) — only the creator or a Manager/Admin. That check applies only
+    // to the item being deleted, not to each descendant (FR-022) — the subtree goes
+    // with it under this one authorization check.
     public async Task DeleteAsync(int callerId, string callerRole, int id)
     {
         var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
@@ -140,8 +142,81 @@ public class WorkItemService(AppDbContext dbContext)
             throw new NotAuthorizedToDeleteWorkItemException();
         }
 
+        // SQL Server won't cascade a self-referencing FK (research.md §1), so the
+        // subtree is collected and removed here, in application code, as one
+        // SaveChangesAsync — not a database ON DELETE CASCADE.
+        var descendantIds = await CollectDescendantIdsAsync(id);
+        if (descendantIds.Count > 0)
+        {
+            var descendants = await dbContext.WorkItems.Where(w => descendantIds.Contains(w.Id)).ToListAsync();
+            dbContext.WorkItems.RemoveRange(descendants);
+        }
+
         dbContext.WorkItems.Remove(workItem);
         await dbContext.SaveChangesAsync();
+    }
+
+    // Breadth-first collection of every descendant id, not just direct children —
+    // used both for the cascade delete above and the detail view's
+    // TotalDescendantCount below. A handful of small queries (one per tree level) is
+    // simpler than a recursive SQL CTE (which would need justification for raw SQL
+    // per the constitution) and is cheap at this feature's scale — a hierarchy is at
+    // most 3 levels deep beneath any item.
+    private async Task<List<int>> CollectDescendantIdsAsync(int id)
+    {
+        var descendantIds = new List<int>();
+        var frontier = new List<int> { id };
+        while (frontier.Count > 0)
+        {
+            var childIds = await dbContext.WorkItems
+                .Where(w => w.ParentWorkItemId != null && frontier.Contains(w.ParentWorkItemId.Value))
+                .Select(w => w.Id)
+                .ToListAsync();
+            descendantIds.AddRange(childIds);
+            frontier = childIds;
+        }
+        return descendantIds;
+    }
+
+    private async Task<WorkItemDetailDto> ToDetailDtoAsync(int id)
+    {
+        var workItem = await dbContext.WorkItems
+            .Where(w => w.Id == id)
+            .Select(w => new
+            {
+                w.Id,
+                w.ProjectId,
+                Type = w.Type.ToString(),
+                w.Title,
+                w.Description,
+                Priority = w.Priority.ToString(),
+                Status = w.Status.ToString(),
+                w.AssigneeUserId,
+                AssigneeName = w.Assignee != null ? w.Assignee.FullName : null,
+                w.DueDate,
+                w.CreatedByUserId,
+                CreatedByName = w.CreatedBy!.FullName,
+                w.CreatedAt,
+                w.UpdatedAt,
+                w.ParentWorkItemId,
+                ParentTitle = w.ParentWorkItem != null ? w.ParentWorkItem.Title : null
+            })
+            .SingleOrDefaultAsync() ?? throw new WorkItemNotFoundException();
+
+        var children = await dbContext.WorkItems
+            .Where(w => w.ParentWorkItemId == id)
+            .OrderByDescending(w => w.UpdatedAt)
+            .Select(w => new WorkItemChildDto(
+                w.Id, w.Title, w.Type.ToString(), w.Status.ToString(), w.Assignee != null ? w.Assignee.FullName : null))
+            .ToListAsync();
+
+        var descendantIds = await CollectDescendantIdsAsync(id);
+
+        return new WorkItemDetailDto(
+            workItem.Id, workItem.ProjectId, workItem.Type, workItem.Title, workItem.Description,
+            workItem.Priority, workItem.Status, workItem.AssigneeUserId, workItem.AssigneeName,
+            workItem.DueDate, workItem.CreatedByUserId, workItem.CreatedByName, workItem.CreatedAt, workItem.UpdatedAt,
+            workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children);
     }
 
     // Bare-minimum listing (pulled forward into US4 since edit/delete controls need

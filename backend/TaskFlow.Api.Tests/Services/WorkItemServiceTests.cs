@@ -326,6 +326,125 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetTreeAsync(999999));
     }
 
+    private WorkItem AddChildWorkItem(int projectId, int parentId, int creatorId, WorkItemType type, string title, WorkItemStatus status = WorkItemStatus.ToDo, int? assigneeUserId = null)
+    {
+        var workItem = new WorkItem
+        {
+            ProjectId = projectId, Type = type, Title = title, CreatedByUserId = creatorId,
+            CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = parentId,
+            Status = status, AssigneeUserId = assigneeUserId
+        };
+        Db.WorkItems.Add(workItem);
+        Db.SaveChanges();
+        return workItem;
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_returns_null_parent_fields_when_the_item_has_no_parent()
+    {
+        var user = AddUser("detail-noparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id, title: "Standalone");
+        var sut = CreateSut();
+
+        var result = await sut.GetByIdAsync(item.Id);
+
+        Assert.Null(result.ParentWorkItemId);
+        Assert.Null(result.ParentTitle);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_populates_parent_fields_when_a_parent_exists()
+    {
+        var user = AddUser("detail-parent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic parent");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story child");
+        var sut = CreateSut();
+
+        var result = await sut.GetByIdAsync(story.Id);
+
+        Assert.Equal(epic.Id, result.ParentWorkItemId);
+        Assert.Equal("Epic parent", result.ParentTitle);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_lists_only_direct_children()
+    {
+        var user = AddUser("detail-children@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Grandchild task");
+        var sut = CreateSut();
+
+        var result = await sut.GetByIdAsync(epic.Id);
+
+        var child = Assert.Single(result.Children);
+        Assert.Equal(story.Id, child.Id);
+        Assert.Equal("Story", child.Title);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_totalDescendantCount_sums_every_level()
+    {
+        var user = AddUser("detail-descendants@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task");
+        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "SubTask");
+        var sut = CreateSut();
+
+        var result = await sut.GetByIdAsync(epic.Id);
+
+        Assert.Equal(3, result.TotalDescendantCount);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_removes_the_entire_subtree_in_one_call()
+    {
+        var user = AddUser("delete-cascade@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var siblingEpic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Untouched sibling");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task");
+        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "SubTask");
+        var sut = CreateSut();
+
+        await sut.DeleteAsync(user.Id, "Developer", epic.Id);
+
+        Assert.False(Db.WorkItems.Any(w => w.Id == epic.Id));
+        Assert.False(Db.WorkItems.Any(w => w.Id == story.Id));
+        Assert.False(Db.WorkItems.Any(w => w.Id == task.Id));
+        Assert.True(Db.WorkItems.Any(w => w.Id == siblingEpic.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_authorization_check_applies_only_to_the_item_being_deleted()
+    {
+        var creator = AddUser("delete-cascade-auth@example.com");
+        var stranger = AddUser("delete-cascade-stranger@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        // The child is created by a different user than the parent, but only the
+        // parent's own creator/role is checked (FR-022) — the child's own creator is
+        // irrelevant to whether the cascade is allowed.
+        var epic = AddWorkItem(project.Id, creator.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = new WorkItem
+        {
+            ProjectId = project.Id, Type = WorkItemType.Story, Title = "Story", CreatedByUserId = stranger.Id,
+            CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id
+        };
+        Db.WorkItems.Add(story);
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        await sut.DeleteAsync(creator.Id, "Developer", epic.Id);
+
+        Assert.False(Db.WorkItems.Any(w => w.Id == story.Id));
+    }
+
     [Fact]
     public async Task CreateAsync_applies_default_priority_and_status_when_omitted()
     {

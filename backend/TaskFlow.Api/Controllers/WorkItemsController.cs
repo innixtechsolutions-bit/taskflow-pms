@@ -123,7 +123,7 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
     }
 
     [HttpGet("api/work-items/{id}")]
-    public async Task<ActionResult<WorkItemDto>> Get(int id)
+    public async Task<ActionResult<WorkItemDetailDto>> Get(int id)
     {
         try
         {

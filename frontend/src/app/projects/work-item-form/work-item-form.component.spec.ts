@@ -29,7 +29,12 @@ function configure(
     providers: [
       provideRouter([]),
       { provide: WorkItemsService, useValue: { createWorkItem, getAssignableUsers, getParentCandidates } },
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1' }) } } },
+      {
+        provide: ActivatedRoute,
+        useValue: {
+          snapshot: { paramMap: convertToParamMap({ projectId: '1' }), queryParamMap: convertToParamMap({}) },
+        },
+      },
     ],
   });
   return { createWorkItem, getAssignableUsers, getParentCandidates };

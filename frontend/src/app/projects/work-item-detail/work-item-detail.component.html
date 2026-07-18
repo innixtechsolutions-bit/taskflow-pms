@@ -1,0 +1,64 @@
+@if (item(); as i) {
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>{{ i.title }}</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="work-item-type">{{ i.type }}</p>
+      <p class="work-item-status">{{ i.status }}</p>
+      <p class="work-item-priority">{{ i.priority }}</p>
+      @if (i.assigneeName) {
+        <p class="work-item-assignee">{{ i.assigneeName }}</p>
+      }
+      @if (i.description) {
+        <p class="work-item-description">{{ i.description }}</p>
+      }
+
+      @if (i.parentTitle && i.parentWorkItemId) {
+        <p class="work-item-parent">
+          Parent:
+          <a class="parent-link" [routerLink]="['/projects', projectId, 'work-items', i.parentWorkItemId]">{{
+            i.parentTitle
+          }}</a>
+        </p>
+      }
+
+      <h3>Children</h3>
+      @if (i.children.length === 0) {
+        <p>No children yet</p>
+      } @else {
+        <ul class="child-list">
+          @for (child of i.children; track child.id) {
+            <li>
+              <a class="child-link" [routerLink]="['/projects', projectId, 'work-items', child.id]">{{
+                child.title
+              }}</a>
+              — {{ child.type }} — {{ child.status }}
+              @if (child.assigneeName) {
+                — {{ child.assigneeName }}
+              }
+            </li>
+          }
+        </ul>
+      }
+
+      @if (canCreateChild()) {
+        <a
+          mat-button
+          class="create-child-link"
+          [routerLink]="['/projects', projectId, 'work-items', 'new']"
+          [queryParams]="{ parentWorkItemId: i.id, type: childType() }"
+        >
+          Add child
+        </a>
+      }
+
+      @if (canEdit()) {
+        <a mat-button class="edit-link" [routerLink]="['/projects', projectId, 'work-items', i.id, 'edit']">Edit</a>
+      }
+      @if (canDelete()) {
+        <button mat-button type="button" class="delete-button" (click)="onDelete()">Delete</button>
+      }
+    </mat-card-content>
+  </mat-card>
+}

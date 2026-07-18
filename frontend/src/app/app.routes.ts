@@ -7,6 +7,7 @@ import { HomeComponent } from './home/home.component';
 import { ProjectDetailComponent } from './projects/project-detail/project-detail.component';
 import { ProjectFormComponent } from './projects/project-form/project-form.component';
 import { ProjectsListComponent } from './projects/projects-list/projects-list.component';
+import { WorkItemDetailComponent } from './projects/work-item-detail/work-item-detail.component';
 import { WorkItemFormComponent } from './projects/work-item-form/work-item-form.component';
 import { UsersListComponent } from './users/users-list/users-list.component';
 
@@ -24,6 +25,7 @@ export const routes: Routes = [
   { path: 'projects/new', component: ProjectFormComponent, canActivate: [authGuard] },
   { path: 'projects/:projectId/work-items/new', component: WorkItemFormComponent, canActivate: [authGuard] },
   { path: 'projects/:projectId/work-items/:id/edit', component: WorkItemFormComponent, canActivate: [authGuard] },
+  { path: 'projects/:projectId/work-items/:id', component: WorkItemDetailComponent, canActivate: [authGuard] },
   { path: 'projects/:id/edit', component: ProjectFormComponent, canActivate: [authGuard] },
   { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
 ];

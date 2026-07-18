@@ -318,6 +318,41 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Get_returns_the_enriched_detail_shape()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"detail-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var storyId = await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "Story");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/work-items/{storyId}", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDetailDto>();
+        Assert.Equal(epicId, body!.ParentWorkItemId);
+        Assert.Equal("Epic", body.ParentTitle);
+        Assert.Empty(body.Children);
+        Assert.Equal(0, body.TotalDescendantCount);
+    }
+
+    [Fact]
+    public async Task Delete_removes_the_entire_subtree()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"cascadedelete-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var storyId = await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "Story");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/work-items/{epicId}", token));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var storyResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/work-items/{storyId}", token));
+        Assert.Equal(HttpStatusCode.NotFound, storyResponse.StatusCode);
+    }
+
     private async Task<WorkItemDto> CreateWorkItemAsync(string token, int projectId, string title = "Fix the login bug", int? assigneeUserId = null)
     {
         var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
