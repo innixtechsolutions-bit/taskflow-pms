@@ -48,4 +48,12 @@ export class ProjectsService {
   async getProject(id: number): Promise<ProjectDetail> {
     return firstValueFrom(this.http.get<ProjectDetail>(`/api/projects/${id}`));
   }
+
+  async updateProject(id: number, request: ProjectRequest): Promise<ProjectDetail> {
+    return firstValueFrom(this.http.put<ProjectDetail>(`/api/projects/${id}`, request));
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    await firstValueFrom(this.http.delete<void>(`/api/projects/${id}`));
+  }
 }

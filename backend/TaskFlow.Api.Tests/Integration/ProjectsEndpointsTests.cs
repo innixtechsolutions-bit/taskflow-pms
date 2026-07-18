@@ -168,4 +168,117 @@ public class ProjectsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture<
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    private async Task<int> CreateProjectAsync(string managerToken, string name)
+    {
+        var request = AuthedRequest(HttpMethod.Post, "/api/projects", managerToken);
+        request.Content = JsonContent.Create(new { name });
+        var response = await _client.SendAsync(request);
+        var body = await response.Content.ReadFromJsonAsync<ProjectDetailDto>();
+        return body!.Id;
+    }
+
+    [Fact]
+    public async Task Update_returns_200_for_a_manager_or_admin()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-update-{Guid.NewGuid():N}@example.com");
+        var projectId = await CreateProjectAsync(managerToken, $"Original {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}", managerToken);
+        request.Content = JsonContent.Create(new { name = "Renamed Project" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProjectDetailDto>();
+        Assert.Equal("Renamed Project", body!.Name);
+    }
+
+    [Fact]
+    public async Task Update_returns_403_for_a_developer_caller()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-update2-{Guid.NewGuid():N}@example.com");
+        var projectId = await CreateProjectAsync(managerToken, $"Guarded {Guid.NewGuid():N}");
+        var developerToken = await RegisterAndGetTokenAsync($"developer-update-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}", developerToken);
+        request.Content = JsonContent.Create(new { name = "Should not apply" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_409_when_the_new_name_duplicates_a_different_project()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-update3-{Guid.NewGuid():N}@example.com");
+        var takenName = $"Taken {Guid.NewGuid():N}";
+        await CreateProjectAsync(managerToken, takenName);
+        var projectId = await CreateProjectAsync(managerToken, $"Other {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}", managerToken);
+        request.Content = JsonContent.Create(new { name = takenName });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_400_on_invalid_name()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-update4-{Guid.NewGuid():N}@example.com");
+        var projectId = await CreateProjectAsync(managerToken, $"Invalidatable {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}", managerToken);
+        request.Content = JsonContent.Create(new { name = "ab" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_404_for_an_unknown_id()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-update5-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Put, "/api/projects/999999", managerToken);
+        request.Content = JsonContent.Create(new { name = "Does not matter" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_204_for_a_manager_or_admin_and_removes_the_project()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-delete-{Guid.NewGuid():N}@example.com");
+        var projectId = await CreateProjectAsync(managerToken, $"Doomed {Guid.NewGuid():N}");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}", managerToken));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}", managerToken));
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_403_for_a_developer_caller()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-delete2-{Guid.NewGuid():N}@example.com");
+        var projectId = await CreateProjectAsync(managerToken, $"Guarded2 {Guid.NewGuid():N}");
+        var developerToken = await RegisterAndGetTokenAsync($"developer-delete-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}", developerToken));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_returns_404_for_an_unknown_id()
+    {
+        var managerToken = await RegisterManagerAndGetTokenAsync($"manager-delete3-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, "/api/projects/999999", managerToken));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

@@ -141,4 +141,73 @@ public class ProjectServiceTests : SqlServerTestDatabase
 
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetProjectByIdAsync(999999));
     }
+
+    [Fact]
+    public async Task UpdateAsync_updates_the_name_and_description()
+    {
+        var manager = AddUser("manager2@example.com", Role.Manager);
+        var project = AddProject("Old Name", manager.Id);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(project.Id, new ProjectRequest { Name = "New Name", Description = "New description" });
+
+        Assert.Equal("New Name", result.Name);
+        Assert.Equal("New description", result.Description);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_allows_keeping_its_own_unchanged_name()
+    {
+        var manager = AddUser("manager3@example.com", Role.Manager);
+        var project = AddProject("Same Name", manager.Id);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(project.Id, new ProjectRequest { Name = "Same Name" });
+
+        Assert.Equal("Same Name", result.Name);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_a_name_that_duplicates_a_different_project()
+    {
+        var manager = AddUser("manager4@example.com", Role.Manager);
+        AddProject("Taken Name", manager.Id);
+        var project = AddProject("Other Name", manager.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<DuplicateProjectNameException>(
+            () => sut.UpdateAsync(project.Id, new ProjectRequest { Name = "Taken Name" }));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_for_an_unknown_id()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(
+            () => sut.UpdateAsync(999999, new ProjectRequest { Name = "Whatever" }));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_removes_the_project_and_cascades_to_its_work_items()
+    {
+        var manager = AddUser("manager5@example.com", Role.Manager);
+        var project = AddProject("Doomed", manager.Id);
+        AddWorkItem(project.Id, manager.Id);
+        AddWorkItem(project.Id, manager.Id);
+        var sut = CreateSut();
+
+        await sut.DeleteAsync(project.Id);
+
+        Assert.Empty(Db.Projects);
+        Assert.Empty(Db.WorkItems);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_throws_for_an_unknown_id()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.DeleteAsync(999999));
+    }
 }

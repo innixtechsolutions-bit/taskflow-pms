@@ -11,6 +11,7 @@
       <th>Created by</th>
       <th>Created</th>
       <th>Open items</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
@@ -20,6 +21,11 @@
         <td>{{ project.createdByName }}</td>
         <td>{{ project.createdAt }}</td>
         <td>{{ project.openWorkItemCount }}</td>
+        <td>
+          @if (authService.currentRole() === 'Manager' || authService.currentRole() === 'Admin') {
+            <a class="project-edit-link" [routerLink]="['/projects', project.id, 'edit']">Edit</a>
+          }
+        </td>
       </tr>
     }
   </tbody>

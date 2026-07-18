@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
 import { WorkItem, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
@@ -15,6 +15,7 @@ export class ProjectDetailComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
   private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly projectId = Number(this.route.snapshot.paramMap.get('id'));
 
   protected readonly project = signal<ProjectDetail | null>(null);
@@ -59,5 +60,28 @@ export class ProjectDetailComponent implements OnInit {
     }
     await this.workItemsService.deleteWorkItem(item.id);
     await this.load();
+  }
+
+  // Project edit/delete is a simple role check — no ownership dimension, unlike
+  // work-item edit/delete (research.md §1).
+  protected canManageProject(): boolean {
+    return this.isManagerOrAdmin();
+  }
+
+  protected async onDeleteProject(): Promise<void> {
+    const project = this.project();
+    if (!project) {
+      return;
+    }
+    // Uses totalWorkItemCount already fetched to render this page, rather than a
+    // second dedicated endpoint (research.md §5).
+    const confirmed = confirm(
+      `Delete "${project.name}"? This will also delete ${project.totalWorkItemCount} work item(s). This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    await this.projectsService.deleteProject(project.id);
+    await this.router.navigateByUrl('/projects');
   }
 }

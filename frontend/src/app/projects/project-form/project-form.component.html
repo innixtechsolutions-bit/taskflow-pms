@@ -1,5 +1,5 @@
 <form (submit)="onSubmit($event)" novalidate>
-  <h1>Create a project</h1>
+  <h1>{{ isEditMode ? 'Edit project' : 'Create a project' }}</h1>
 
   @if (serverError()) {
     <p class="server-error" role="alert">{{ serverError() }}</p>
@@ -17,5 +17,5 @@
     <p class="field-error">{{ projectForm.description().errors()[0].message }}</p>
   }
 
-  <button type="submit" [disabled]="submitting()">Create project</button>
+  <button type="submit" [disabled]="submitting()">{{ isEditMode ? 'Save changes' : 'Create project' }}</button>
 </form>

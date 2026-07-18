@@ -67,4 +67,37 @@ public class ProjectService(AppDbContext dbContext)
 
         return project ?? throw new ProjectNotFoundException();
     }
+
+    public async Task<ProjectDetailDto> UpdateAsync(int id, ProjectRequest request)
+    {
+        var project = await dbContext.Projects.FindAsync(id) ?? throw new ProjectNotFoundException();
+
+        // Excludes the project being edited itself — renaming a project to the name it
+        // already has must not be treated as a duplicate.
+        var nameExists = await dbContext.Projects.AnyAsync(p => p.Id != id && p.Name == request.Name);
+        if (nameExists)
+        {
+            throw new DuplicateProjectNameException();
+        }
+
+        project.Name = request.Name;
+        project.Description = request.Description;
+        await dbContext.SaveChangesAsync();
+
+        return new ProjectDetailDto(
+            project.Id, project.Name, project.Description,
+            (await dbContext.Users.FindAsync(project.CreatedByUserId))!.FullName,
+            project.CreatedAt,
+            await dbContext.WorkItems.CountAsync(w => w.ProjectId == id));
+    }
+
+    // Deleting the project cascades to its work items (DeleteBehavior.Cascade,
+    // research.md §2, FR-009) — no separate cleanup of WorkItems needed here.
+    public async Task DeleteAsync(int id)
+    {
+        var project = await dbContext.Projects.FindAsync(id) ?? throw new ProjectNotFoundException();
+
+        dbContext.Projects.Remove(project);
+        await dbContext.SaveChangesAsync();
+    }
 }

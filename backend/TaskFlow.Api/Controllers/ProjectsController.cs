@@ -53,4 +53,38 @@ public class ProjectsController(ProjectService projectService) : ControllerBase
             return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
         }
     }
+
+    [Authorize(Roles = "Manager,Admin")]
+    [HttpPut("{id}")]
+    public async Task<ActionResult<ProjectDetailDto>> Update(int id, ProjectRequest request)
+    {
+        try
+        {
+            var updated = await projectService.UpdateAsync(id, request);
+            return Ok(updated);
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (DuplicateProjectNameException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
+        }
+    }
+
+    [Authorize(Roles = "Manager,Admin")]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            await projectService.DeleteAsync(id);
+            return NoContent();
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+    }
 }

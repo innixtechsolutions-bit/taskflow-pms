@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { vi } from 'vitest';
 import { ProjectFormComponent } from './project-form.component';
@@ -49,5 +49,57 @@ describe('ProjectFormComponent (create mode)', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.server-error')?.textContent).toContain('already exists');
+  });
+});
+
+const existingProject = {
+  id: 7,
+  name: 'Existing Project',
+  description: 'Existing description',
+  createdByName: 'Ada Lovelace',
+  createdAt: '2026-01-01T00:00:00Z',
+  totalWorkItemCount: 0,
+};
+
+function configureEdit(
+  getProject = vi.fn().mockResolvedValue(existingProject),
+  updateProject = vi.fn().mockResolvedValue(existingProject)
+) {
+  TestBed.configureTestingModule({
+    imports: [ProjectFormComponent],
+    providers: [
+      provideRouter([]),
+      { provide: ProjectsService, useValue: { getProject, updateProject } },
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '7' }) } } },
+    ],
+  });
+  return { getProject, updateProject };
+}
+
+describe('ProjectFormComponent (edit mode)', () => {
+  it('pre-fills the existing name and description', async () => {
+    configureEdit();
+    const fixture = TestBed.createComponent(ProjectFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect((root.querySelector('#name') as HTMLInputElement).value).toBe('Existing Project');
+    expect((root.querySelector('#description') as HTMLTextAreaElement).value).toBe('Existing description');
+  });
+
+  it('submits changes via updateProject rather than createProject', async () => {
+    const { updateProject } = configureEdit();
+    const fixture = TestBed.createComponent(ProjectFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    setInputValue(fixture.nativeElement.querySelector('#name')!, 'Renamed Project');
+    fixture.nativeElement.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(updateProject).toHaveBeenCalledWith(7, expect.objectContaining({ name: 'Renamed Project' }));
   });
 });

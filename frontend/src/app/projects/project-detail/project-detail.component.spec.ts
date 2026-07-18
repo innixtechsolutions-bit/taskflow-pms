@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { ProjectDetailComponent } from './project-detail.component';
 import { ProjectsService } from '../projects.service';
@@ -14,6 +14,8 @@ const sampleProject = {
   createdAt: '2026-01-01T00:00:00Z',
   totalWorkItemCount: 0,
 };
+
+const sampleProjectWithItems = { ...sampleProject, totalWorkItemCount: 12 };
 
 function emptyPage() {
   return { items: [] as WorkItem[], page: 1, pageSize: 20, totalCount: 0 };
@@ -47,19 +49,20 @@ function configure(
   getProject = vi.fn().mockResolvedValue(sampleProject),
   getWorkItems = vi.fn().mockResolvedValue(emptyPage()),
   authState: { id: number; role: string } | null = { id: 1, role: 'Developer' },
-  deleteWorkItem = vi.fn().mockResolvedValue(undefined)
+  deleteWorkItem = vi.fn().mockResolvedValue(undefined),
+  deleteProject = vi.fn().mockResolvedValue(undefined)
 ) {
   TestBed.configureTestingModule({
     imports: [ProjectDetailComponent],
     providers: [
       provideRouter([]),
-      { provide: ProjectsService, useValue: { getProject } },
+      { provide: ProjectsService, useValue: { getProject, deleteProject } },
       { provide: WorkItemsService, useValue: { getWorkItems, deleteWorkItem } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
     ],
   });
-  return { getProject, getWorkItems, deleteWorkItem };
+  return { getProject, getWorkItems, deleteWorkItem, deleteProject };
 }
 
 async function render() {
@@ -208,6 +211,71 @@ describe('ProjectDetailComponent delete control visibility (narrower than edit)'
     await fixture.whenStable();
 
     expect(deleteWorkItem).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+});
+
+describe('ProjectDetailComponent project-level edit/delete controls', () => {
+  it('shows the project edit/delete controls for a Manager', async () => {
+    configure(undefined, undefined, { id: 1, role: 'Manager' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.project-edit-link')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.project-delete-button')).toBeTruthy();
+  });
+
+  it('shows the project edit/delete controls for an Admin', async () => {
+    configure(undefined, undefined, { id: 1, role: 'Admin' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.project-edit-link')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.project-delete-button')).toBeTruthy();
+  });
+
+  it('hides the project edit/delete controls for a Developer', async () => {
+    configure(undefined, undefined, { id: 1, role: 'Developer' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.project-edit-link')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.project-delete-button')).toBeNull();
+  });
+
+  it('states the exact work-item count (from totalWorkItemCount) in the delete confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    configure(vi.fn().mockResolvedValue(sampleProjectWithItems), undefined, { id: 1, role: 'Manager' });
+    const fixture = await render();
+
+    fixture.nativeElement.querySelector('.project-delete-button').click();
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('12'));
+    confirmSpy.mockRestore();
+  });
+
+  it('calls deleteProject when the confirmation is accepted', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { deleteProject } = configure(vi.fn().mockResolvedValue(sampleProjectWithItems), undefined, { id: 1, role: 'Manager' });
+    const fixture = await render();
+    // provideRouter([]) has no registered routes, so the real navigateByUrl('/projects')
+    // this triggers would reject with "cannot match any routes" — irrelevant to what
+    // this test checks, so it's stubbed out rather than exercised.
+    vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+    fixture.nativeElement.querySelector('.project-delete-button').click();
+    await fixture.whenStable();
+
+    expect(deleteProject).toHaveBeenCalledWith(1);
+    confirmSpy.mockRestore();
+  });
+
+  it('does not call deleteProject when the confirmation is declined', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { deleteProject } = configure(vi.fn().mockResolvedValue(sampleProjectWithItems), undefined, { id: 1, role: 'Manager' });
+    const fixture = await render();
+
+    fixture.nativeElement.querySelector('.project-delete-button').click();
+    await fixture.whenStable();
+
+    expect(deleteProject).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 });
