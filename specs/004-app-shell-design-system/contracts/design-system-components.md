@@ -81,9 +81,21 @@ routes only; never rendered on `/login` or `/register`.
 - **Inputs**:
   - `icon: string` (Material icon name)
   - `message: string`
-- **Content projection**: an `action` slot for an optional primary-action
-  button (e.g. "Add work item"); omitted entirely when there is nothing
-  actionable (e.g. a filtered-to-nothing state).
+- **Content projection**: an `empty-state-action` slot (attribute selector,
+  e.g. `<a empty-state-action ...>`) for an optional primary-action button
+  (e.g. "Add work item"); omitted entirely when there is nothing actionable
+  (e.g. a filtered-to-nothing state).
+
+> **Content-projection gotcha (found during implementation, applies to this
+> and `<app-page-header>`'s `page-header-actions` slot too)**: Angular's
+> NG8011 diagnostic fires — and the content silently fails to project — if
+> the projected attribute-selected element sits inside an `@if` block that
+> has *more than one root node*. Two sibling buttons inside one `@if` won't
+> project; wrap them in a single `<ng-container empty-state-action>` (or
+> `page-header-actions`) instead. A single node inside the `@if` is fine.
+> Also: these attribute selectors are deliberately kebab-case, not
+> camelCase — HTML lowercases attribute names, so `select="[fooBar]"` never
+> matches a template-authored `fooBar` attribute once it's parsed as HTML.
 
 ## `NotificationService` — `shared/notification.service.ts`
 

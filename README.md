@@ -158,3 +158,52 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   database, and running many of them in parallel intermittently exhausted
   something at the database-server level. Telling that apart from a real
   regression meant re-running before trusting either number.
+
+### Feature 004: App Shell & Design System
+
+- **A DTO's actual shape beats a plan's assumption about it, every time.**
+  research.md's original plan hashed a user's avatar color off their
+  numeric id — safer than a name, in theory, since two people can share a
+  display name but never an id. Implementation found that
+  `WorkItemTreeNodeDto` (the tree view's data source) only returns
+  `AssigneeName`, no id, while the flat-list/detail DTOs do have one.
+  Hashing on whichever key happened to be available per view would have
+  made the same assignee render two *different* avatar colors depending on
+  which screen they were seen on — a visible, directly-testable failure of
+  the feature's own "same user, same color, everywhere" requirement, and a
+  worse outcome than the name-collision risk the id was chosen to avoid.
+  The fix was to hash on `fullName` everywhere, accepting the (much
+  smaller, cosmetic-only) risk instead. The lesson isn't "the plan was
+  wrong" — it's that a plan's data assumptions need checking against the
+  actual API responses before code gets written against them, not after.
+- **Angular's content projection has a sharp edge around control flow.**
+  `<ng-content select="[foo]">` silently fails to project an element that
+  matches `[foo]` if that element sits inside an `@if` block with more
+  than one root node — Angular's own NG8011 diagnostic names this exactly,
+  but only as a build warning, not an error, so it's easy to miss. Two
+  sibling buttons (Edit/Delete) inside one `@if` inside `<app-page-header>`
+  rendered as a completely empty actions slot, with no runtime error at
+  all — five component-spec assertions just started reporting `null` where
+  they expected a button, and the actual cause only showed up on close
+  reading of the build's warning output, not the test failures themselves.
+  The fix (wrap multi-node conditional content in a single `<ng-container
+  foo>`) is simple once you know to look for it.
+- **HTML lowercases attribute names before Angular ever sees them.**
+  `<ng-content select="[pageHeaderActions]">` paired with a
+  template-authored `<a pageHeaderActions>` looks like it should match —
+  the strings are identical in the source. It doesn't, because the browser
+  (and jsdom, in tests) parses HTML attribute names as case-insensitive and
+  normalizes them to lowercase before Angular's selector matching ever
+  runs; `pageHeaderActions` becomes `pageheaderactions` on the DOM, and
+  `[pageHeaderActions]` as a selector never matches that. Kebab-case
+  (`page-header-actions`) sidesteps the whole problem by construction, and
+  is what every custom attribute selector in this codebase uses now.
+- **A design system's promise ("identical everywhere") is a testable
+  claim, not just an aesthetic one.** Because `StatusChipComponent` and
+  `PriorityChipComponent` are each the *only* place a status/priority
+  value maps to a color, "the same status renders the same color in the
+  tree, the flat list, and the detail page" isn't something that needed
+  its own cross-view integration test — it's true by construction, and
+  each component's own unit test (one assertion per enum value) is
+  sufficient. Centralizing a mapping is a way of making a consistency
+  requirement literally impossible to violate, not just less likely.
