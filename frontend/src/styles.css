@@ -48,3 +48,54 @@
 table[mat-table] {
   width: 100%;
 }
+
+/* Same centered, narrow single-form layout as .auth-page, for Feature 002's
+   project/work-item create-or-edit forms — kept separate rather than reusing
+   .auth-page so the class name doesn't misleadingly imply authentication. */
+.form-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 48px;
+}
+
+.form-page mat-card {
+  width: 100%;
+  max-width: 500px;
+}
+
+.form-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-page mat-form-field {
+  width: 100%;
+}
+
+.form-page button[type='submit'] {
+  margin-top: 8px;
+  align-self: flex-start;
+}
+
+/* Spacing for the per-row Edit/Delete pair in project-detail's work-item table and
+   projects-list's actions column — without this, the link and button sit flush
+   against each other. */
+.edit-link {
+  margin-right: 8px;
+}
+
+/* Native <select>s deliberately used for Feature 002's filters (research.md §6) sit
+   next to Material's search field/button — a little vertical alignment and spacing
+   keeps the row from looking cramped, without pretending they're the same control. */
+.work-item-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.work-item-filters .search-field {
+  width: 200px;
+}

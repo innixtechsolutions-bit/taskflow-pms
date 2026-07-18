@@ -1,4 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
 import { UserLookupItem, WorkItem, WorkItemsFilter, WorkItemsService } from '../work-items.service';
@@ -11,7 +16,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule, MatTableModule],
   templateUrl: './project-detail.component.html',
 })
 export class ProjectDetailComponent implements OnInit {
@@ -21,6 +26,9 @@ export class ProjectDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly projectId = Number(this.route.snapshot.paramMap.get('id'));
+
+  // Column order for mat-table's structural directives.
+  protected readonly displayedColumns = ['title', 'status', 'priority', 'actions'];
 
   protected readonly project = signal<ProjectDetail | null>(null);
   protected readonly workItems = signal<WorkItem[]>([]);

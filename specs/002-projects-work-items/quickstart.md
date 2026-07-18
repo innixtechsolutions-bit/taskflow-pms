@@ -42,11 +42,16 @@ shapes are documented in `contracts/`; entity shape in `data-model.md`.
    immediately, with priority defaulted to Medium and status to ToDo. Set
    an assignee and a due date in the past → both accepted.
 
-4. **Edit a work item** (User Story 4): As the item's creator, change its
-   status to Done via the edit form — confirm the change is reflected in
-   the list right away. Sign in as a user who is neither its creator,
-   assignee, nor a Manager/Admin → confirm edit controls are hidden, and a
-   direct API call to update it is refused.
+4. **Edit or delete a work item** (User Story 4): As the item's creator,
+   change its status to Done via the edit form — confirm the change is
+   reflected in the list right away. Sign in as a user who is neither its
+   creator, assignee, nor a Manager/Admin → confirm edit controls are
+   hidden, and a direct API call to update it is refused. As the item's
+   creator, delete a different item — expect a simple confirmation, and
+   the item gone from the list once confirmed. Sign in as that item's
+   current assignee (who is not also its creator, nor a Manager/Admin) →
+   confirm the delete control is hidden (narrower than edit, FR-018), and a
+   direct API call to delete it is refused.
 
 5. **Edit or delete a project** (User Story 5): As a Manager, open a
    project containing several work items and request to delete it —

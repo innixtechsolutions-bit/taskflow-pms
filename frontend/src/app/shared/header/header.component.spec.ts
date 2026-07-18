@@ -65,4 +65,16 @@ describe('HeaderComponent', () => {
 
     expect(fixture.nativeElement.querySelector('a[href="/users"]')).toBeNull();
   });
+
+  it.each(['Developer', 'Manager', 'Admin'] as const)(
+    'shows a Projects navigation link for a %s',
+    (role) => {
+      configure(role);
+      const fixture = TestBed.createComponent(HeaderComponent);
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('a[href="/projects"]')).toBeTruthy();
+    }
+  );
 });

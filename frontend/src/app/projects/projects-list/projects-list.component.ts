@@ -1,4 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { ProjectListItem, ProjectsService } from '../projects.service';
@@ -6,12 +8,15 @@ import { ProjectListItem, ProjectsService } from '../projects.service';
 @Component({
   selector: 'app-projects-list',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, MatButtonModule, MatTableModule],
   templateUrl: './projects-list.component.html',
 })
 export class ProjectsListComponent implements OnInit {
   private readonly projectsService = inject(ProjectsService);
   protected readonly authService = inject(AuthService);
+
+  // Column order for mat-table's structural directives.
+  protected readonly displayedColumns = ['name', 'createdByName', 'createdAt', 'openWorkItemCount', 'actions'];
 
   protected readonly items = signal<ProjectListItem[]>([]);
   protected readonly page = signal(1);

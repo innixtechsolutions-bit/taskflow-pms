@@ -1,50 +1,65 @@
-<form (submit)="onSubmit($event)" novalidate>
-  <h1>{{ isEditMode ? 'Edit work item' : 'Create a work item' }}</h1>
+<div class="form-page">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>{{ isEditMode ? 'Edit work item' : 'Create a work item' }}</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form (submit)="onSubmit($event)" novalidate>
+        @if (serverError()) {
+          <p class="server-error" role="alert">{{ serverError() }}</p>
+        }
 
-  @if (serverError()) {
-    <p class="server-error" role="alert">{{ serverError() }}</p>
-  }
+        <label for="type">Type</label>
+        <select id="type" (change)="type.set($any($event.target).value)">
+          @for (t of types; track t) {
+            <option [value]="t" [selected]="t === type()">{{ t }}</option>
+          }
+        </select>
 
-  <label for="type">Type</label>
-  <select id="type" (change)="type.set($any($event.target).value)">
-    @for (t of types; track t) {
-      <option [value]="t" [selected]="t === type()">{{ t }}</option>
-    }
-  </select>
+        <mat-form-field appearance="outline">
+          <mat-label>Title</mat-label>
+          <input matInput id="title" type="text" [formField]="titleForm.title" />
+          @if (titleForm.title().touched() && titleForm.title().errors().length > 0) {
+            <mat-error>{{ titleForm.title().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
 
-  <label for="title">Title</label>
-  <input id="title" type="text" [formField]="titleForm.title" />
-  @if (titleForm.title().touched() && titleForm.title().errors().length > 0) {
-    <p class="field-error">{{ titleForm.title().errors()[0].message }}</p>
-  }
+        <mat-form-field appearance="outline">
+          <mat-label>Description</mat-label>
+          <textarea matInput id="description" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+        </mat-form-field>
 
-  <label for="description">Description</label>
-  <textarea id="description" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
+        <label for="priority">Priority</label>
+        <select id="priority" (change)="priority.set($any($event.target).value)">
+          @for (p of priorities; track p) {
+            <option [value]="p" [selected]="p === priority()">{{ p }}</option>
+          }
+        </select>
 
-  <label for="priority">Priority</label>
-  <select id="priority" (change)="priority.set($any($event.target).value)">
-    @for (p of priorities; track p) {
-      <option [value]="p" [selected]="p === priority()">{{ p }}</option>
-    }
-  </select>
+        <label for="status">Status</label>
+        <select id="status" (change)="status.set($any($event.target).value)">
+          @for (s of statuses; track s) {
+            <option [value]="s" [selected]="s === status()">{{ s }}</option>
+          }
+        </select>
 
-  <label for="status">Status</label>
-  <select id="status" (change)="status.set($any($event.target).value)">
-    @for (s of statuses; track s) {
-      <option [value]="s" [selected]="s === status()">{{ s }}</option>
-    }
-  </select>
+        <label for="assigneeUserId">Assignee</label>
+        <select id="assigneeUserId" (change)="assigneeUserId.set($any($event.target).value)">
+          <option value="" [selected]="assigneeUserId() === ''">Unassigned</option>
+          @for (u of assignableUsers(); track u.id) {
+            <option [value]="u.id" [selected]="assigneeUserId() === u.id.toString()">{{ u.fullName }}</option>
+          }
+        </select>
 
-  <label for="assigneeUserId">Assignee</label>
-  <select id="assigneeUserId" (change)="assigneeUserId.set($any($event.target).value)">
-    <option value="" [selected]="assigneeUserId() === ''">Unassigned</option>
-    @for (u of assignableUsers(); track u.id) {
-      <option [value]="u.id" [selected]="assigneeUserId() === u.id.toString()">{{ u.fullName }}</option>
-    }
-  </select>
+        <mat-form-field appearance="outline">
+          <mat-label>Due date</mat-label>
+          <input matInput id="dueDate" type="date" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+        </mat-form-field>
 
-  <label for="dueDate">Due date</label>
-  <input id="dueDate" type="date" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
-
-  <button type="submit" [disabled]="submitting()">{{ isEditMode ? 'Save changes' : 'Create work item' }}</button>
-</form>
+        <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
+          {{ isEditMode ? 'Save changes' : 'Create work item' }}
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

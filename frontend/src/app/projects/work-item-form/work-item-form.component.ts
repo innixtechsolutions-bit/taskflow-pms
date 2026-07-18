@@ -1,5 +1,9 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormField, maxLength, minLength, required, form } from '@angular/forms/signals';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserLookupItem, WorkItemsService } from '../work-items.service';
 
@@ -14,7 +18,7 @@ const STATUSES = ['ToDo', 'InProgress', 'Done'];
 @Component({
   selector: 'app-work-item-form',
   standalone: true,
-  imports: [FormField],
+  imports: [FormField, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
   templateUrl: './work-item-form.component.html',
 })
 export class WorkItemFormComponent implements OnInit {
