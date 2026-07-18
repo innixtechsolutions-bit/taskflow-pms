@@ -3,12 +3,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
+import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 import { ProjectListItem, ProjectsService } from '../projects.service';
 
 @Component({
   selector: 'app-projects-list',
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatTableModule],
+  imports: [RouterLink, MatButtonModule, MatTableModule, PageHeaderComponent],
   templateUrl: './projects-list.component.html',
 })
 export class ProjectsListComponent implements OnInit {

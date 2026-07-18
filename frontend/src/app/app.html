@@ -1,6 +1,9 @@
 @if (authService.isAuthenticated()) {
-  <app-header />
+  <app-shell>
+    <router-outlet />
+  </app-shell>
+} @else {
+  <main class="auth-layout">
+    <router-outlet />
+  </main>
 }
-<main class="app-content">
-  <router-outlet />
-</main>

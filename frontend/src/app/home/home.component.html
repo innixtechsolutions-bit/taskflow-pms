@@ -1,6 +1,10 @@
+<app-page-header
+  title="Dashboard"
+  [subtitle]="'Welcome back, ' + (authService.currentUser()?.fullName ?? '') + '.'"
+/>
 <mat-card appearance="outlined">
   <mat-card-content>
-    <h1>Welcome, {{ authService.currentUser()?.fullName }}</h1>
     <p>You are signed in as {{ authService.currentUser()?.role }}.</p>
+    <p>The real dashboard (KPIs, charts) is coming in a later feature.</p>
   </mat-card-content>
 </mat-card>

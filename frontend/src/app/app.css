@@ -1,6 +1,9 @@
-.app-content {
-  max-width: 960px;
-  margin: 0 auto;
+/* Feature 004: the old global 960px cap that applied to every authenticated
+   page (list pages included) is gone — the shell now owns content width via
+   --content-max-width (design-tokens.scss). This rule only wraps the
+   unauthenticated login/register pages, which center themselves via
+   .auth-page in styles.css; it just gives the viewport edge some padding. */
+.auth-layout {
   padding: 24px;
   box-sizing: border-box;
 }

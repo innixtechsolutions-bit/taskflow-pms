@@ -90,7 +90,7 @@ describe('App', () => {
     expect(TestBed.inject(Router).url).toBe('/projects');
   });
 
-  it('does not show the header when not signed in', () => {
+  it('does not wrap the page in the app shell when not signed in', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
@@ -101,10 +101,10 @@ describe('App', () => {
 
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('header')).toBeNull();
+    expect(fixture.nativeElement.querySelector('app-shell')).toBeNull();
   });
 
-  it('shows the header with the signed-in name on every authenticated page', () => {
+  it('wraps every authenticated page in the app shell', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter(routes),
@@ -118,6 +118,6 @@ describe('App', () => {
 
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('header')?.textContent).toContain('Ada Lovelace');
+    expect(fixture.nativeElement.querySelector('app-shell')).toBeTruthy();
   });
 });

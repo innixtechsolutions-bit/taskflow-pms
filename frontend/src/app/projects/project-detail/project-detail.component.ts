@@ -15,6 +15,7 @@ import {
   WorkItemTreeNode,
 } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
+import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 
 const STATUSES = ['ToDo', 'InProgress', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
@@ -31,6 +32,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
     MatFormFieldModule,
     MatInputModule,
     MatTableModule,
+    PageHeaderComponent,
   ],
   templateUrl: './project-detail.component.html',
 })

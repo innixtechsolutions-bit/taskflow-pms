@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { UserRole } from '../../auth/auth.service';
+import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 import { UserListItem, UsersService } from '../users.service';
 
 const ROLES: UserRole[] = ['Developer', 'Manager', 'Admin'];
@@ -9,7 +10,7 @@ const ROLES: UserRole[] = ['Developer', 'Manager', 'Admin'];
 @Component({
   selector: 'app-users-list',
   standalone: true,
-  imports: [MatButtonModule, MatTableModule],
+  imports: [MatButtonModule, MatTableModule, PageHeaderComponent],
   templateUrl: './users-list.component.html',
 })
 export class UsersListComponent implements OnInit {

@@ -1,8 +1,8 @@
-<h1>Projects</h1>
-
-@if (authService.currentRole() === 'Manager' || authService.currentRole() === 'Admin') {
-  <a mat-flat-button color="primary" routerLink="/projects/new">New Project</a>
-}
+<app-page-header title="Projects" subtitle="Track and manage all your projects in one place.">
+  @if (authService.currentRole() === 'Manager' || authService.currentRole() === 'Admin') {
+    <a page-header-actions mat-flat-button color="primary" routerLink="/projects/new">New Project</a>
+  }
+</app-page-header>
 
 <table mat-table [dataSource]="items()" class="mat-elevation-z1">
   <ng-container matColumnDef="name">

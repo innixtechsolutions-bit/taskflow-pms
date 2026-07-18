@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { MatCardModule } from '@angular/material/card';
 import { AuthService } from '../auth/auth.service';
+import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 
 // Minimal placeholder: this feature (001-user-auth) only needs somewhere real for
 // login/register to land and for authGuard to protect — the actual TaskFlow home/
@@ -8,7 +9,7 @@ import { AuthService } from '../auth/auth.service';
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [MatCardModule],
+  imports: [MatCardModule, PageHeaderComponent],
   templateUrl: './home.component.html',
 })
 export class HomeComponent {

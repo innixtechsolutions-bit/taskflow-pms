@@ -1,0 +1,23 @@
+.shell-container {
+  height: 100dvh;
+}
+
+.shell-sidenav {
+  width: var(--sidebar-width);
+  background-color: var(--color-sidebar-bg);
+  color: var(--color-sidebar-text);
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-content {
+  background-color: var(--color-surface-alt);
+}
+
+.shell-content-inner {
+  margin: 0 auto;
+  padding: var(--space-5);
+  box-sizing: border-box;
+  width: 100%;
+}

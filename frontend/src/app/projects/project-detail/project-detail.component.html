@@ -1,19 +1,20 @@
 @if (project(); as p) {
-  <mat-card appearance="outlined" class="project-header-card">
-    <mat-card-header>
-      <mat-card-title>{{ p.name }}</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      @if (p.description) {
-        <p class="project-description">{{ p.description }}</p>
-      }
-      <p class="project-meta">Created by {{ p.createdByName }} on {{ p.createdAt }}</p>
-      @if (canManageProject()) {
+  <app-page-header [title]="p.name" [subtitle]="'Created by ' + p.createdByName + ' on ' + p.createdAt">
+    @if (canManageProject()) {
+      <ng-container page-header-actions>
         <a mat-button class="project-edit-link" [routerLink]="['/projects', p.id, 'edit']">Edit project</a>
         <button mat-button type="button" class="project-delete-button" (click)="onDeleteProject()">Delete project</button>
-      }
-    </mat-card-content>
-  </mat-card>
+      </ng-container>
+    }
+  </app-page-header>
+
+  @if (p.description) {
+    <mat-card appearance="outlined" class="project-description-card">
+      <mat-card-content>
+        <p class="project-description">{{ p.description }}</p>
+      </mat-card-content>
+    </mat-card>
+  }
 
   <h2>Work items</h2>
   <a mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">New work item</a>

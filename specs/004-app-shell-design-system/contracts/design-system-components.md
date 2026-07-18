@@ -44,7 +44,7 @@ routes only; never rendered on `/login` or `/register`.
   - `title: string` (required)
   - `subtitle?: string` (optional)
 - **Content projection**: an `actions` slot (e.g. `<ng-content
-  select="[pageHeaderActions]">`) for an optional right-aligned primary
+  select="[page-header-actions]">`) for an optional right-aligned primary
   action button — pages without an action simply project nothing.
 - **Outputs**: none.
 
