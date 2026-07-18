@@ -50,24 +50,56 @@ and before considering the feature done, per Constitution Principle VIII.
 4. Confirm the same user's avatar (if they appear as assignee on multiple
    work items, or as the signed-in user in the sidebar) always renders the
    same background color everywhere.
+5. **Feature 003 tree-view regression** (folded in from that feature's own
+   visual QA, now re-verified as part of this retrofit): with the tree view
+   wrapped in a card and its rows using chips/avatars (T031), confirm
+   indentation per level and expand/collapse of a parent's children still
+   behave exactly as before this feature — no row misalignment, no lost
+   expand/collapse state.
+6. **Feature 003 "Add child" pre-select regression**: from an Epic/Story/Task
+   work item's detail page (a type that can legally have children), start
+   creating a child work item. Confirm the new item's form still pre-selects
+   that item as the parent, unaffected by this feature's chip/avatar/date
+   retrofit of the detail page.
 
 ## 4. Friendly dates, no raw ISO (SC-006)
 
-1. On Projects list, project detail, and Users list, confirm every visible
-   date renders like `"Jul 17, 2026"` — not an ISO timestamp
-   (`2026-07-17T00:00:00Z`-style string).
-2. If any date field is null/not set, confirm it renders a placeholder
+Check each retrofitted page individually — a pass on one page does not imply
+a pass on another:
+
+1. **Projects list** (`createdAt`): every row's date renders like
+   `"Jul 17, 2026"`, never an ISO timestamp (`2026-07-17T00:00:00Z`-style
+   string).
+2. **Project detail** (`createdAt` in the "Created by … on …" line): same
+   friendly format, in both tree and flat view.
+3. **Users list** (`createdAt`): same friendly format for every row.
+4. **Work item detail / Dashboard placeholder**: confirm these pages show no
+   raw date strings either — they currently display no date fields at all
+   (per research.md #7), so there is nothing to reformat here; this step
+   exists so a reviewer doesn't mistake "no dates shown" for "dates not yet
+   formatted."
+5. If any date field is null/not set, confirm it renders a placeholder
    (e.g. `"—"`), not a blank or malformed cell.
 
 ## 5. Full-width list pages (SC-007)
 
-1. At a browser width of ~1440px or more, open Projects list, Users list,
-   and a project's flat work-item list. Confirm the primary content (card
-   grid or table) visibly fills most of the available content width — not a
-   narrow column hugging the left edge with large empty space to the right.
-2. Confirm a page with very few rows (e.g. a project with a single work
+Check each retrofitted list page individually, at a browser width of
+~1440px or more:
+
+1. **Projects list**: the card grid/table visibly fills most of the
+   available content width — not a narrow column hugging the left edge with
+   large empty space to the right.
+2. **Project detail — tree view**: the card containing the tree fills the
+   available content width.
+3. **Project detail — flat view**: the filtered table fills the available
+   content width.
+4. **Users list**: the table fills the available content width.
+5. Confirm a page with very few rows (e.g. a project with a single work
    item) still uses the full sensible content width for its layout, rather
    than shrinking to fit the row count.
+6. Non-list pages (work item detail, project/work-item forms, Dashboard
+   placeholder) are NOT subject to this check — they are content-width
+   pages by design, not lists; do not flag them for "not being full-width."
 
 ## 6. Tablet breakpoint collapse (SC-004)
 
