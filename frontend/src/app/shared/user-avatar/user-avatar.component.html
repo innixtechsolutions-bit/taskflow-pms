@@ -1,0 +1,6 @@
+<span class="user-avatar">
+  <span class="avatar-badge" [style.background-color]="color()" [title]="fullName()">{{ initials() }}</span>
+  @if (showName()) {
+    <span class="avatar-name">{{ fullName() }}</span>
+  }
+</span>

@@ -1,0 +1,46 @@
+/* Shared base for StatusChipComponent/PriorityChipComponent — a static,
+   non-interactive label (not mat-chip; see research.md #4 for why). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-chip);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chip--status-todo {
+  background-color: var(--color-status-todo-bg);
+  color: var(--color-status-todo-text);
+}
+
+.chip--status-inprogress {
+  background-color: var(--color-status-inprogress-bg);
+  color: var(--color-status-inprogress-text);
+}
+
+.chip--status-done {
+  background-color: var(--color-status-done-bg);
+  color: var(--color-status-done-text);
+}
+
+.chip--priority-low {
+  background-color: var(--color-priority-low-bg);
+  color: var(--color-priority-low-text);
+}
+
+.chip--priority-medium {
+  background-color: var(--color-priority-medium-bg);
+  color: var(--color-priority-medium-text);
+}
+
+.chip--priority-high {
+  background-color: var(--color-priority-high-bg);
+  color: var(--color-priority-high-text);
+}
+
+.chip--priority-critical {
+  background-color: var(--color-priority-critical-bg);
+  color: var(--color-priority-critical-text);
+}

@@ -67,13 +67,14 @@ routes only; never rendered on `/login` or `/register`.
 ## `<app-user-avatar>` — `shared/user-avatar/user-avatar.component.ts`
 
 - **Inputs**:
-  - `userId: number` (required — drives the deterministic color)
-  - `fullName: string` (required — drives the initials)
+  - `fullName: string` (required — drives both the initials and the
+    deterministic color; see data-model.md's "Correction from the original
+    plan" for why this isn't `userId` — the tree view's DTO has no id)
   - `showName?: boolean` (default `false`) — when `true`, renders the name
     text adjacent to the circular avatar.
 - **Outputs**: none.
-- **Guarantee**: same `userId` always renders the same background color,
-  anywhere in the app (FR-010).
+- **Guarantee**: the same `fullName` always renders the same background
+  color, anywhere in the app (FR-010).
 
 ## `<app-empty-state>` — `shared/empty-state/empty-state.component.ts`
 

@@ -45,6 +45,15 @@ describe('ProjectsListComponent', () => {
     expect(text).toContain('Mobile App');
   });
 
+  it('renders the created date in friendly format, never raw ISO (SC-006)', async () => {
+    configure();
+    const fixture = await render();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Jan 1, 2026');
+    expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
   it('shows an Edit link per project for a Manager', async () => {
     configure(undefined, 'Manager');
     const fixture = await render();

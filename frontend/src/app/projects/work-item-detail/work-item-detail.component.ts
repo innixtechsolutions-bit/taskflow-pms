@@ -4,6 +4,9 @@ import { MatCardModule } from '@angular/material/card';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { WorkItemDetail, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
+import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
+import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
+import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 
 // Mirrors the backend's RequiredParentType mapping in reverse (data-model.md's
 // Hierarchy rules table) — the type a new child would need, given this item's type.
@@ -14,7 +17,7 @@ const CHILD_TYPE: Record<string, string> = { Epic: 'Story', Story: 'Task', Task:
 @Component({
   selector: 'app-work-item-detail',
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatCardModule],
+  imports: [RouterLink, MatButtonModule, MatCardModule, StatusChipComponent, PriorityChipComponent, UserAvatarComponent],
   templateUrl: './work-item-detail.component.html',
 })
 export class WorkItemDetailComponent implements OnInit {

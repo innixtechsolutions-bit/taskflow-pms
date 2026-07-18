@@ -2,6 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+// Mirrors backend/TaskFlow.Api/Data/Entities/WorkItem.cs's WorkItemStatus/
+// WorkItemPriority enums by value name (Feature 004, FR-009/data-model.md) —
+// narrowing these from `string` lets StatusChipComponent/PriorityChipComponent
+// switch exhaustively, so a new enum value without a matching chip case is a
+// compile error instead of a silently uncolored chip.
+export type WorkItemStatus = 'ToDo' | 'InProgress' | 'Done';
+export type WorkItemPriority = 'Low' | 'Medium' | 'High' | 'Critical';
+
 export interface WorkItemRequest {
   type: string;
   title: string;
@@ -19,8 +27,8 @@ export interface WorkItem {
   type: string;
   title: string;
   description: string | null;
-  priority: string;
-  status: string;
+  priority: WorkItemPriority;
+  status: WorkItemStatus;
   assigneeUserId: number | null;
   assigneeName: string | null;
   dueDate: string | null;
@@ -45,7 +53,7 @@ export interface WorkItemChild {
   id: number;
   title: string;
   type: string;
-  status: string;
+  status: WorkItemStatus;
   assigneeName: string | null;
 }
 
@@ -59,8 +67,8 @@ export interface WorkItemTreeNode {
   id: number;
   type: string;
   title: string;
-  status: string;
-  priority: string;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
   assigneeName: string | null;
   directChildrenCount: number;
   directChildrenDoneCount: number;

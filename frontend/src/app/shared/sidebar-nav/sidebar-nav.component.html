@@ -27,7 +27,7 @@
 
   <div class="sidebar-user">
     <button type="button" class="user-menu-trigger" [matMenuTriggerFor]="userMenu">
-      <span class="user-avatar-placeholder">{{ initials() }}</span>
+      <app-user-avatar [fullName]="authService.currentUser()?.fullName ?? ''" />
       @if (!isCollapsed()) {
         <span class="user-info">
           <span class="user-name">{{ authService.currentUser()?.fullName }}</span>

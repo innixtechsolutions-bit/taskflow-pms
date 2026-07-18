@@ -16,6 +16,10 @@ import {
 } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
+import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
+import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
+import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
+import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 
 const STATUSES = ['ToDo', 'InProgress', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
@@ -33,6 +37,10 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
     MatInputModule,
     MatTableModule,
     PageHeaderComponent,
+    StatusChipComponent,
+    PriorityChipComponent,
+    UserAvatarComponent,
+    FriendlyDatePipe,
   ],
   templateUrl: './project-detail.component.html',
 })

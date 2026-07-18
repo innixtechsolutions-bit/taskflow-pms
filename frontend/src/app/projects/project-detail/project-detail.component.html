@@ -1,5 +1,5 @@
 @if (project(); as p) {
-  <app-page-header [title]="p.name" [subtitle]="'Created by ' + p.createdByName + ' on ' + p.createdAt">
+  <app-page-header [title]="p.name" [subtitle]="'Created by ' + p.createdByName + ' on ' + (p.createdAt | friendlyDate)">
     @if (canManageProject()) {
       <ng-container page-header-actions>
         <a mat-button class="project-edit-link" [routerLink]="['/projects', p.id, 'edit']">Edit project</a>
@@ -49,10 +49,10 @@
       }
       <a class="tree-item-title" [routerLink]="['/projects', p.id, 'work-items', node.id]">{{ node.title }}</a>
       <span class="tree-item-type">{{ node.type }}</span>
-      <span class="tree-item-status">{{ node.status }}</span>
-      <span class="tree-item-priority">{{ node.priority }}</span>
+      <app-status-chip class="tree-item-status" [status]="node.status" />
+      <app-priority-chip class="tree-item-priority" [priority]="node.priority" />
       @if (node.assigneeName) {
-        <span class="tree-item-assignee">{{ node.assigneeName }}</span>
+        <app-user-avatar class="tree-item-assignee" [fullName]="node.assigneeName" [showName]="true" />
       }
       @if (node.directChildrenCount > 0) {
         <span class="tree-item-count">{{ node.directChildrenDoneCount }}/{{ node.directChildrenCount }} done</span>
@@ -66,14 +66,16 @@
   </ng-template>
 
   @if (viewMode() === 'tree') {
-    <div class="tree-view">
-      @if (treeNodes().length === 0) {
-        <p>No work items yet</p>
-      }
-      @for (node of treeNodes(); track node.id) {
-        <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { $implicit: node, level: 0 }"></ng-container>
-      }
-    </div>
+    <mat-card appearance="outlined" class="tree-view-card">
+      <mat-card-content class="tree-view">
+        @if (treeNodes().length === 0) {
+          <p>No work items yet</p>
+        }
+        @for (node of treeNodes(); track node.id) {
+          <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { $implicit: node, level: 0 }"></ng-container>
+        }
+      </mat-card-content>
+    </mat-card>
   }
 
   @if (viewMode() === 'flat') {
@@ -134,12 +136,16 @@
 
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
-        <td mat-cell *matCellDef="let item" class="work-item-status">{{ item.status }}</td>
+        <td mat-cell *matCellDef="let item" class="work-item-status">
+          <app-status-chip [status]="item.status" />
+        </td>
       </ng-container>
 
       <ng-container matColumnDef="priority">
         <th mat-header-cell *matHeaderCellDef>Priority</th>
-        <td mat-cell *matCellDef="let item" class="work-item-priority">{{ item.priority }}</td>
+        <td mat-cell *matCellDef="let item" class="work-item-priority">
+          <app-priority-chip [priority]="item.priority" />
+        </td>
       </ng-container>
 
       <ng-container matColumnDef="actions">

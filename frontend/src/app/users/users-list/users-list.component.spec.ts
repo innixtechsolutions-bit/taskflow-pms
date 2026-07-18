@@ -32,6 +32,19 @@ describe('UsersListComponent', () => {
     expect(text).toContain('grace@example.com');
   });
 
+  it('renders each user as an avatar+name and the registered date in friendly format (SC-006)', async () => {
+    configure();
+    const fixture = TestBed.createComponent(UsersListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelectorAll('app-user-avatar').length).toBe(2);
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Jan 1, 2026');
+    expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
   it('pre-selects each row\'s actual role on initial render, not just the first option', async () => {
     configure();
     const fixture = TestBed.createComponent(UsersListComponent);

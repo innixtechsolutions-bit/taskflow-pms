@@ -7,6 +7,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
 import { TABLET_BREAKPOINT_QUERY } from '../breakpoints';
+import { UserAvatarComponent } from '../user-avatar/user-avatar.component';
 import { isNavItemVisible, NAV_ITEMS } from './nav-items';
 
 /**
@@ -18,7 +19,7 @@ import { isNavItemVisible, NAV_ITEMS } from './nav-items';
 @Component({
   selector: 'app-sidebar-nav',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, MatIconModule, MatMenuModule, MatTooltipModule],
+  imports: [RouterLink, RouterLinkActive, MatIconModule, MatMenuModule, MatTooltipModule, UserAvatarComponent],
   templateUrl: './sidebar-nav.component.html',
   styleUrl: './sidebar-nav.component.css',
 })
@@ -43,18 +44,5 @@ export class SidebarNavComponent {
 
   protected onLogoutClicked(): void {
     this.logout.emit();
-  }
-
-  // Plain initials placeholder — replaced by <app-user-avatar> once it
-  // exists (US3/T035); kept minimal here rather than duplicating its
-  // hashing logic ahead of time.
-  protected initials(): string {
-    const name = this.authService.currentUser()?.fullName ?? '';
-    return name
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join('');
   }
 }

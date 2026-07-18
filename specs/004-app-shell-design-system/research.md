@@ -88,22 +88,30 @@ semantics rather than using the right tool for a static label.
 
 ## 5. Deterministic avatar color
 
-**Decision**: A pure function (`avatarColorFor(userId: number): string`,
-co-located with `UserAvatarComponent`) that hashes the user's numeric `id`
-(stable and unique, per `AuthState`/user DTOs) into an index over a fixed
-palette of ~8 accent tokens defined in `design-tokens.scss`, plus a small
-initials helper (`initialsFor(fullName: string)`, e.g. "Uma Kannan" → "UK").
+**Decision (revised during implementation — see data-model.md's "Correction
+from the original plan")**: A pure function (`avatarColorFor(fullName:
+string): string`, co-located with `UserAvatarComponent`) that hashes the
+user's `fullName` into an index over a fixed palette of ~8 accent tokens
+defined in `design-tokens.scss`, plus a small initials helper
+(`initialsFor(fullName: string)`, e.g. "Uma Kannan" → "UK").
 
-**Rationale**: Hashing on `id` guarantees the same user always gets the same
-color and avoids collisions between two users who happen to share a display
-name — `fullName` alone is not a safe hash key. A simple `id % paletteLength`
-(or a cheap string/number hash if IDs aren't evenly distributed) needs no
-dependency and is trivially unit-testable.
+**Rationale**: The original plan hashed on the user's numeric `id`, reasoned
+to be safer than a name (no duplicate-name collisions). Implementation found
+that `WorkItemTreeNodeDto` (`backend/TaskFlow.Api/Dtos/`) — the tree view's
+data source — only returns `AssigneeName`, not an id, while the flat
+list/detail DTOs do have one. Hashing on `id` where available and `fullName`
+elsewhere would make the same assignee render two *different* avatar colors
+depending on which view they're seen in, directly breaking FR-010/US3's
+"same user → same color, everywhere" — a worse, and directly testable,
+failure than the name-collision risk. `fullName` is hashed everywhere
+instead, since it is the one field present in every context (tree, flat
+list, detail, sidebar, Users list) — no new backend field, per FR-015.
 
-**Alternatives considered**: Hashing on `fullName` — rejected due to
-duplicate-name collisions; a hosted avatar/gravatar-style service — rejected,
-out of scope (no external services) and unnecessary for initials-only
-avatars.
+**Alternatives considered**: Hashing on `id` where available, falling back
+to `fullName` in the tree view — rejected because it produces exactly the
+inconsistency described above (same person, different color, depending on
+which screen). A hosted avatar/gravatar-style service — rejected, out of
+scope (no external services) and unnecessary for initials-only avatars.
 
 ## 6. Toasts
 

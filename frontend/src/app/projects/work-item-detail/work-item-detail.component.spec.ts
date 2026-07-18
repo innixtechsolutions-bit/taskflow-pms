@@ -64,6 +64,14 @@ async function render() {
 }
 
 describe('WorkItemDetailComponent', () => {
+  it('renders status and priority as chips, not plain text', async () => {
+    configure();
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('app-status-chip.work-item-status')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('app-priority-chip.work-item-priority')).toBeTruthy();
+  });
+
   it('renders the parent as a link when one exists', async () => {
     configure();
     const fixture = await render();

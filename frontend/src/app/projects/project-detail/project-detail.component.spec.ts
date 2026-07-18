@@ -95,6 +95,23 @@ describe('ProjectDetailComponent', () => {
     expect(text).toContain('Ada Lovelace');
   });
 
+  it('renders the creation date in friendly format, never raw ISO (SC-006)', async () => {
+    configure();
+    const fixture = await render();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Jan 1, 2026');
+    expect(text).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('renders status and priority as chips, not plain text', async () => {
+    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem({ status: 'InProgress', priority: 'High' })])));
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('app-status-chip')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('app-priority-chip')).toBeTruthy();
+  });
+
   it('shows "No work items yet" when the project has none', async () => {
     configure();
     const fixture = await render();
@@ -489,6 +506,18 @@ describe('ProjectDetailComponent tree view', () => {
     const parentRow = fixture.nativeElement.querySelector('#tree-work-item-1') as HTMLElement;
     const childRow = fixture.nativeElement.querySelector('#tree-work-item-2') as HTMLElement;
     expect(Number(childRow.dataset['level'])).toBeGreaterThan(Number(parentRow.dataset['level']));
+  });
+
+  it('renders the tree inside a card, with status/priority chips per row (FR-014)', async () => {
+    configure(undefined, undefined, undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
+    const fixture = await render();
+    (fixture.nativeElement.querySelector('.tree-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.tree-view-card')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#tree-work-item-1 app-status-chip')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#tree-work-item-1 app-priority-chip')).toBeTruthy();
   });
 
   it("links a tree row's title to its detail page", async () => {

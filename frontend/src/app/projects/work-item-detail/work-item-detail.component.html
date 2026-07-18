@@ -5,10 +5,10 @@
     </mat-card-header>
     <mat-card-content>
       <p class="work-item-type">{{ i.type }}</p>
-      <p class="work-item-status">{{ i.status }}</p>
-      <p class="work-item-priority">{{ i.priority }}</p>
+      <app-status-chip class="work-item-status" [status]="i.status" />
+      <app-priority-chip class="work-item-priority" [priority]="i.priority" />
       @if (i.assigneeName) {
-        <p class="work-item-assignee">{{ i.assigneeName }}</p>
+        <app-user-avatar class="work-item-assignee" [fullName]="i.assigneeName" [showName]="true" />
       }
       @if (i.description) {
         <p class="work-item-description">{{ i.description }}</p>
@@ -33,9 +33,10 @@
               <a class="child-link" [routerLink]="['/projects', projectId, 'work-items', child.id]">{{
                 child.title
               }}</a>
-              — {{ child.type }} — {{ child.status }}
+              — {{ child.type }} —
+              <app-status-chip [status]="child.status" />
               @if (child.assigneeName) {
-                — {{ child.assigneeName }}
+                <app-user-avatar [fullName]="child.assigneeName" [showName]="true" />
               }
             </li>
           }

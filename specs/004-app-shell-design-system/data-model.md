@@ -69,7 +69,21 @@ Derived, not stored — computed from data already present on the current user
 | Input | Derivation | Output |
 |---|---|---|
 | `fullName: string` | first-letter of first two space-separated words, uppercased | Initials, e.g. "Uma Kannan" → "UK" |
-| `id: number` | `id` hashed into an index over the avatar accent palette (research.md #5) | Deterministic background color, stable across sessions and screens |
+| `fullName: string` | hashed into an index over the avatar accent palette (research.md #5, revised) | Deterministic background color, stable across sessions and screens |
+
+**Correction from the original plan**: research.md #5 originally proposed
+hashing on the user's numeric `id`. Implementation found that the tree
+endpoint's DTO (`WorkItemTreeNodeDto`, `backend/TaskFlow.Api/Dtos/`) only
+returns `AssigneeName` — no `AssigneeUserId` — while the flat list/detail
+DTOs do include an id. Hashing on different keys in different views would
+make the *same* assignee render a *different* avatar color in the tree vs.
+the flat/detail view, directly failing FR-010/US3's "same user → same color,
+everywhere" requirement — worse than the collision risk it was meant to
+avoid. `fullName` is the one identifier available in every context (tree,
+flat list, detail, sidebar, Users list), so both initials and color now
+derive from it. Two users who happen to share an exact display name will
+share an avatar color — an accepted, low-probability cosmetic tradeoff,
+consistent with adding no new backend fields (FR-015/spec Assumptions).
 
 No new fields are required on any existing user/assignee DTO — `id` and
 `fullName` (or equivalent `assigneeName`/`assigneeId`-style fields) already
