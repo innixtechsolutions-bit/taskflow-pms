@@ -62,4 +62,17 @@ public class WorkItem
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    // Self-referencing FK: required for SubTask, optional for Task, forbidden for
+    // Epic/Story-with-no-Epic (enforced in WorkItemService, not the database — a
+    // column can't express "required depending on Type"). SQL Server won't let this
+    // relationship cascade on delete (see AppDbContext), so subtree deletion is
+    // application code in WorkItemService.
+    public int? ParentWorkItemId { get; set; }
+
+    public WorkItem? ParentWorkItem { get; set; }
+
+    // Direct children only — deeper levels are reached by querying, not by walking
+    // this collection recursively.
+    public ICollection<WorkItem> Children { get; set; } = new List<WorkItem>();
 }

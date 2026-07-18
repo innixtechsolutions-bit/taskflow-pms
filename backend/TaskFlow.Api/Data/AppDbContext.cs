@@ -75,6 +75,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(w => w.AssigneeUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Every tree-build and descendant-collection query filters or groups on
+            // ParentWorkItemId — this feature's single highest-volume new query path.
+            entity.HasIndex(w => w.ParentWorkItemId);
+
+            // Self-referencing FK (a WorkItem's parent is another WorkItem). SQL
+            // Server flatly refuses ON DELETE CASCADE on a self-join (error 1785 —
+            // it can't prove the cascade terminates), unlike the Project->WorkItem
+            // cascade above. So subtree deletion happens explicitly in
+            // WorkItemService.DeleteAsync instead of at the database level.
+            entity.HasOne(w => w.ParentWorkItem)
+                .WithMany(w => w.Children)
+                .HasForeignKey(w => w.ParentWorkItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Same readable-text-over-int rationale as User.Role above, for all three
             // of this entity's enums.
             entity.Property(w => w.Type).HasConversion<string>();

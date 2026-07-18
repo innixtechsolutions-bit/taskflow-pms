@@ -40,9 +40,9 @@ alongside US3 rather than as a separate phase.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T001 Add `ParentWorkItemId` (`int?`), `ParentWorkItem` (`WorkItem?`), and `Children` (`ICollection<WorkItem>`) to the `WorkItem` entity in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs` per `data-model.md`
-- [ ] T002 Update `backend/TaskFlow.Api/Data/AppDbContext.cs`: configure `WorkItem`'s self-referencing `ParentWorkItem`/`Children` relationship as `DeleteBehavior.Restrict` (research.md §1 — SQL Server rejects a cascading self-referencing FK) and add an index on `ParentWorkItemId` — depends on T001
-- [ ] T003 Generate the EF Core migration `AddWorkItemHierarchy` in `backend/TaskFlow.Api/Data/Migrations/` via `dotnet ef migrations add AddWorkItemHierarchy --project backend/TaskFlow.Api`, and apply it to the local dev database via `dotnet ef database update` — depends on T002. Confirm it applies cleanly (no cascade-path error), verifying the Restrict design from research.md §1.
+- [X] T001 Add `ParentWorkItemId` (`int?`), `ParentWorkItem` (`WorkItem?`), and `Children` (`ICollection<WorkItem>`) to the `WorkItem` entity in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs` per `data-model.md`
+- [X] T002 Update `backend/TaskFlow.Api/Data/AppDbContext.cs`: configure `WorkItem`'s self-referencing `ParentWorkItem`/`Children` relationship as `DeleteBehavior.Restrict` (research.md §1 — SQL Server rejects a cascading self-referencing FK) and add an index on `ParentWorkItemId` — depends on T001
+- [X] T003 Generate the EF Core migration `AddWorkItemHierarchy` in `backend/TaskFlow.Api/Data/Migrations/` via `dotnet ef migrations add AddWorkItemHierarchy --project backend/TaskFlow.Api`, and apply it to the local dev database via `dotnet ef database update` — depends on T002. **Confirmed clean**: migration applied with `ON DELETE NO ACTION` on the self-referencing FK (no cascade-path error), confirming research.md §1's Restrict design. 137/137 pre-existing backend tests still pass, 0 regressions.
 
 **Checkpoint**: `WorkItems.ParentWorkItemId` exists — user story implementation can now begin.
 
