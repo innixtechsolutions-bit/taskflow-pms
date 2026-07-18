@@ -33,3 +33,11 @@ public class InvalidParentTypeException(Data.Entities.WorkItemType childType, Da
 public class ParentWorkItemNotFoundException() : Exception("Parent work item not found.");
 
 public class ParentMustBeSameProjectException() : Exception("Parent must belong to the same project.");
+
+// A Type change is refused, rather than silently orphaning a relationship, when it
+// would invalidate the item's existing parent or existing children (FR-007).
+public class TypeChangeInvalidatesParentException() : Exception(
+    "Cannot change type: the item's existing parent would no longer be valid for the new type.");
+
+public class TypeChangeInvalidatesChildrenException() : Exception(
+    "Cannot change type: the item's existing children would no longer be valid for the new type.");

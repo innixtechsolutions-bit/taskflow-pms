@@ -338,6 +338,74 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task Update_reparents_a_task_to_a_different_story()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"reparent-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var newStoryId = await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "New story");
+        var taskId = await CreateItemOfTypeAsync(token, projectId, "Task", title: "Task");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{taskId}", token);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Task", parentWorkItemId = newStoryId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        Assert.Equal(newStoryId, body!.ParentWorkItemId);
+    }
+
+    [Fact]
+    public async Task Update_returns_400_when_reparenting_to_the_wrong_type()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"reparent-badtype-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var taskId = await CreateItemOfTypeAsync(token, projectId, "Task", title: "Task");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{taskId}", token);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Task", parentWorkItemId = epicId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_400_when_setting_an_item_as_its_own_parent()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"selfparent-{Guid.NewGuid():N}@example.com");
+        var taskId = await CreateItemOfTypeAsync(token, projectId, "Task", title: "Task");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{taskId}", token);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Task", parentWorkItemId = taskId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Update_returns_400_for_a_type_change_that_invalidates_existing_children()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"typechange-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var storyId = await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "Story");
+        var taskId = await CreateItemOfTypeAsync(token, projectId, "Task", storyId, "Task");
+        await CreateItemOfTypeAsync(token, projectId, "SubTask", taskId, "SubTask");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{taskId}", token);
+        request.Content = JsonContent.Create(new { type = "Story", title = "Task", parentWorkItemId = epicId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Delete_removes_the_entire_subtree()
     {
         var adminToken = await LoginAsSeededAdminAsync();

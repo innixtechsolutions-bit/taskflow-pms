@@ -155,7 +155,7 @@ const existingItem = {
   createdByName: 'Ada Lovelace',
   createdAt: '2026-07-01T00:00:00.000Z',
   updatedAt: '2026-07-01T00:00:00.000Z',
-  parentWorkItemId: null,
+  parentWorkItemId: 10,
 };
 
 function configureEdit(
@@ -211,5 +211,49 @@ describe('WorkItemFormComponent (edit mode)', () => {
     await fixture.whenStable();
 
     expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ title: 'Updated title' }));
+  });
+
+  it("pre-fills the item's current parent", async () => {
+    configureEdit();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    expect((root.querySelector('#parentWorkItemId') as HTMLSelectElement).value).toBe('10');
+  });
+
+  it('submits a changed parent', async () => {
+    const { updateWorkItem } = configureEdit();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const parentSelect = root.querySelector<HTMLSelectElement>('#parentWorkItemId')!;
+    parentSelect.value = '11';
+    parentSelect.dispatchEvent(new Event('change'));
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ parentWorkItemId: 11 }));
+  });
+
+  it('submits a cleared parent as undefined', async () => {
+    const { updateWorkItem } = configureEdit(
+      vi.fn().mockResolvedValue({ ...existingItem, type: 'Task', parentWorkItemId: null })
+    );
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ parentWorkItemId: undefined }));
   });
 });

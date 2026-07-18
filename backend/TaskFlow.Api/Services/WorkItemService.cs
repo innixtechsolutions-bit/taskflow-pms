@@ -109,6 +109,34 @@ public class WorkItemService(AppDbContext dbContext)
             }
         }
 
+        // Checked against the item's *current*, pre-update parent/children — not the
+        // incoming request — so a type change is refused whenever it would strand an
+        // existing relationship, independent of whatever ParentWorkItemId this same
+        // request happens to carry (research.md §3).
+        if (type != workItem.Type)
+        {
+            if (workItem.ParentWorkItemId.HasValue)
+            {
+                var currentParent = await dbContext.WorkItems.FindAsync(workItem.ParentWorkItemId.Value);
+                if (currentParent is null || currentParent.Type != RequiredParentType(type))
+                {
+                    throw new TypeChangeInvalidatesParentException();
+                }
+            }
+
+            var childTypes = await dbContext.WorkItems
+                .Where(w => w.ParentWorkItemId == workItem.Id)
+                .Select(w => w.Type)
+                .Distinct()
+                .ToListAsync();
+            if (childTypes.Any(childType => RequiredParentType(childType) != type))
+            {
+                throw new TypeChangeInvalidatesChildrenException();
+            }
+        }
+
+        await ValidateParentAsync(workItem.ProjectId, type, request.ParentWorkItemId);
+
         // ProjectId is never assigned here — it's immutable after creation (FR-014) and
         // WorkItemRequest doesn't even carry one, so there's no path that could change it.
         workItem.Type = type;
@@ -119,6 +147,7 @@ public class WorkItemService(AppDbContext dbContext)
         workItem.AssigneeUserId = request.AssigneeUserId;
         workItem.DueDate = request.DueDate;
         workItem.UpdatedAt = DateTime.UtcNow;
+        workItem.ParentWorkItemId = request.ParentWorkItemId;
 
         await dbContext.SaveChangesAsync();
 

@@ -170,6 +170,34 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+        catch (EpicCannotHaveParentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (ParentRequiredException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidParentTypeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (ParentWorkItemNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (ParentMustBeSameProjectException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (TypeChangeInvalidatesParentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (TypeChangeInvalidatesChildrenException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
     }
 
     [HttpDelete("api/work-items/{id}")]

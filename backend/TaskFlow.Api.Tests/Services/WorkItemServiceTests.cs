@@ -422,6 +422,116 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     }
 
     [Fact]
+    public async Task UpdateAsync_reparents_a_task_to_a_different_story_in_the_same_project()
+    {
+        var user = AddUser("reparent-ok@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var oldStory = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Old story");
+        var newStory = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "New story");
+        var task = AddChildWorkItem(project.Id, oldStory.Id, user.Id, WorkItemType.Task, "Task");
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(user.Id, "Developer", task.Id, RequestOfType("Task", newStory.Id, "Task"));
+
+        Assert.Equal(newStory.Id, result.ParentWorkItemId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_reparenting_a_task_to_an_epic()
+    {
+        var user = AddUser("reparent-badtype@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidParentTypeException>(
+            () => sut.UpdateAsync(user.Id, "Developer", task.Id, RequestOfType("Task", epic.Id, "Task")));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_allows_clearing_an_optional_task_parent()
+    {
+        var user = AddUser("reparent-clear@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task");
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(user.Id, "Developer", task.Id, RequestOfType("Task", null, "Task"));
+
+        Assert.Null(result.ParentWorkItemId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_setting_an_item_as_its_own_parent()
+    {
+        var user = AddUser("reparent-self@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task");
+        var sut = CreateSut();
+
+        // A self-reference is caught by the ordinary type check, not a special-cased
+        // cycle algorithm — the Task's own type never equals its required parent
+        // type, Story (research.md §2).
+        await Assert.ThrowsAsync<InvalidParentTypeException>(
+            () => sut.UpdateAsync(user.Id, "Developer", task.Id, RequestOfType("Task", task.Id, "Task")));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_a_type_change_that_invalidates_the_existing_parent()
+    {
+        var user = AddUser("typechange-parent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var taskUnderStory = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task under story");
+        var sut = CreateSut();
+
+        // Changing this Task's type to SubTask would require its existing parent
+        // (a Story) to instead be a Task — invalid.
+        await Assert.ThrowsAsync<TypeChangeInvalidatesParentException>(
+            () => sut.UpdateAsync(user.Id, "Developer", taskUnderStory.Id, RequestOfType("SubTask", story.Id, "Task under story")));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_a_type_change_that_invalidates_existing_children()
+    {
+        var user = AddUser("typechange-children@example.com");
+        var project = AddProject("Alpha", user.Id);
+        // Standalone (no parent) so only the children-side check is exercised here —
+        // a Task with a Story parent would also trip the parent-side check the moment
+        // its type changes away from Task, since Story then stops being Task's
+        // required parent type, confounding which check actually fired.
+        var task = AddWorkItem(project.Id, user.Id, type: WorkItemType.Task, title: "Task");
+        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "SubTask child");
+        var sut = CreateSut();
+
+        // The Task has a SubTask child, which requires a Task parent — changing the
+        // Task itself to Story would leave that SubTask's parent invalid.
+        await Assert.ThrowsAsync<TypeChangeInvalidatesChildrenException>(
+            () => sut.UpdateAsync(user.Id, "Developer", task.Id, RequestOfType("Story", null, "Task")));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_allows_a_type_change_with_no_conflicting_parent_or_children()
+    {
+        var user = AddUser("typechange-ok@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var story = AddWorkItem(project.Id, user.Id, type: WorkItemType.Story, title: "Story");
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(user.Id, "Developer", story.Id, RequestOfType("Task", null, "Story"));
+
+        Assert.Equal("Task", result.Type);
+    }
+
+    [Fact]
     public async Task DeleteAsync_authorization_check_applies_only_to_the_item_being_deleted()
     {
         var creator = AddUser("delete-cascade-auth@example.com");
