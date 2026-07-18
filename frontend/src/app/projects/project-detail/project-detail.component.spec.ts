@@ -52,19 +52,20 @@ function configure(
   authState: { id: number; role: string } | null = { id: 1, role: 'Developer' },
   deleteWorkItem = vi.fn().mockResolvedValue(undefined),
   deleteProject = vi.fn().mockResolvedValue(undefined),
-  getAssignableUsers = vi.fn().mockResolvedValue([])
+  getAssignableUsers = vi.fn().mockResolvedValue([]),
+  getWorkItemsTree = vi.fn().mockResolvedValue([])
 ) {
   TestBed.configureTestingModule({
     imports: [ProjectDetailComponent],
     providers: [
       provideRouter([]),
       { provide: ProjectsService, useValue: { getProject, deleteProject } },
-      { provide: WorkItemsService, useValue: { getWorkItems, deleteWorkItem, getAssignableUsers } },
+      { provide: WorkItemsService, useValue: { getWorkItems, deleteWorkItem, getAssignableUsers, getWorkItemsTree } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
     ],
   });
-  return { getProject, getWorkItems, deleteWorkItem, deleteProject, getAssignableUsers };
+  return { getProject, getWorkItems, deleteWorkItem, deleteProject, getAssignableUsers, getWorkItemsTree };
 }
 
 async function render() {
@@ -358,5 +359,115 @@ describe('ProjectDetailComponent filter, search, and pagination', () => {
     fixture.detectChanges();
 
     expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ page: 2 }));
+  });
+});
+
+const treeData = [
+  {
+    id: 1,
+    type: 'Epic',
+    title: 'Epic One',
+    status: 'ToDo',
+    priority: 'Medium',
+    assigneeName: null,
+    directChildrenCount: 1,
+    directChildrenDoneCount: 0,
+    children: [
+      {
+        id: 2,
+        type: 'Story',
+        title: 'Story One',
+        status: 'InProgress',
+        priority: 'High',
+        assigneeName: null,
+        directChildrenCount: 0,
+        directChildrenDoneCount: 0,
+        children: [],
+      },
+    ],
+  },
+  {
+    id: 3,
+    type: 'Task',
+    title: 'Standalone Task',
+    status: 'ToDo',
+    priority: 'Low',
+    assigneeName: null,
+    directChildrenCount: 0,
+    directChildrenDoneCount: 0,
+    children: [],
+  },
+];
+
+describe('ProjectDetailComponent tree view', () => {
+  it('defaults to the Flat view (Feature 002 behavior unchanged)', async () => {
+    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem()])));
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.tree-view')).toBeNull();
+  });
+
+  it('switches to Tree view and back via the toggle', async () => {
+    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem()])), undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('.tree-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.tree-view')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeNull();
+
+    (fixture.nativeElement.querySelector('.flat-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeTruthy();
+  });
+
+  it('renders children indented beneath their parent, and standalone items at the top level', async () => {
+    configure(undefined, undefined, undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
+    const fixture = await render();
+    (fixture.nativeElement.querySelector('.tree-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent;
+    expect(text).toContain('Epic One');
+    expect(text).toContain('Story One');
+    expect(text).toContain('Standalone Task');
+    const parentRow = fixture.nativeElement.querySelector('#tree-work-item-1') as HTMLElement;
+    const childRow = fixture.nativeElement.querySelector('#tree-work-item-2') as HTMLElement;
+    expect(Number(childRow.dataset['level'])).toBeGreaterThan(Number(parentRow.dataset['level']));
+  });
+
+  it("shows a parent row's direct-children done count", async () => {
+    configure(undefined, undefined, undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
+    const fixture = await render();
+    (fixture.nativeElement.querySelector('.tree-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement.querySelector('#tree-work-item-1') as HTMLElement).textContent).toContain('0/1 done');
+  });
+
+  it("collapses and re-expands a parent's children", async () => {
+    configure(undefined, undefined, undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
+    const fixture = await render();
+    (fixture.nativeElement.querySelector('.tree-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector('#tree-work-item-1 .expand-toggle') as HTMLButtonElement;
+    toggle.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#tree-work-item-2')).toBeNull();
+
+    toggle.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#tree-work-item-2')).toBeTruthy();
   });
 });

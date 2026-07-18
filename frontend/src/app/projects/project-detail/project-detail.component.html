@@ -18,6 +18,64 @@
   <h2>Work items</h2>
   <a mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">New work item</a>
 
+  <div class="view-toggle">
+    <button
+      mat-stroked-button
+      type="button"
+      class="tree-view-toggle"
+      [class.active]="viewMode() === 'tree'"
+      (click)="viewMode.set('tree')"
+    >
+      Tree view
+    </button>
+    <button
+      mat-stroked-button
+      type="button"
+      class="flat-view-toggle"
+      [class.active]="viewMode() === 'flat'"
+      (click)="viewMode.set('flat')"
+    >
+      Flat view
+    </button>
+  </div>
+
+  <ng-template #treeNodeTemplate let-node let-level="level">
+    <div class="tree-row" [id]="'tree-work-item-' + node.id" [attr.data-level]="level" [style.paddingLeft.px]="level * 20">
+      @if (node.children.length > 0) {
+        <button type="button" class="expand-toggle" (click)="toggleCollapsed(node.id)">
+          {{ isCollapsed(node.id) ? '+' : '−' }}
+        </button>
+      }
+      <span class="tree-item-title">{{ node.title }}</span>
+      <span class="tree-item-type">{{ node.type }}</span>
+      <span class="tree-item-status">{{ node.status }}</span>
+      <span class="tree-item-priority">{{ node.priority }}</span>
+      @if (node.assigneeName) {
+        <span class="tree-item-assignee">{{ node.assigneeName }}</span>
+      }
+      @if (node.directChildrenCount > 0) {
+        <span class="tree-item-count">{{ node.directChildrenDoneCount }}/{{ node.directChildrenCount }} done</span>
+      }
+    </div>
+    @if (node.children.length > 0 && !isCollapsed(node.id)) {
+      @for (child of node.children; track child.id) {
+        <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { $implicit: child, level: level + 1 }"></ng-container>
+      }
+    }
+  </ng-template>
+
+  @if (viewMode() === 'tree') {
+    <div class="tree-view">
+      @if (treeNodes().length === 0) {
+        <p>No work items yet</p>
+      }
+      @for (node of treeNodes(); track node.id) {
+        <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { $implicit: node, level: 0 }"></ng-container>
+      }
+    </div>
+  }
+
+  @if (viewMode() === 'flat') {
   <div class="work-item-filters">
     <label for="statusFilter">Status</label>
     <select id="statusFilter" (change)="onStatusFilterChange($any($event.target).value)">
@@ -101,5 +159,6 @@
       <button mat-stroked-button type="button" class="prev-page" (click)="prevPage()" [disabled]="page() === 1">Previous</button>
       <button mat-stroked-button type="button" class="next-page" (click)="nextPage()" [disabled]="page() * pageSize >= totalCount()">Next</button>
     </div>
+  }
   }
 }

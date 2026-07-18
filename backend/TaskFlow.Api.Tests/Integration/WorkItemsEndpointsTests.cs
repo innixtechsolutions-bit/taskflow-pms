@@ -277,6 +277,47 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GetTree_returns_200_with_a_correctly_nested_shape()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"tree-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var storyId = await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "Story");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items/tree", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<WorkItemTreeNodeDto>>();
+        var epicNode = Assert.Single(body!);
+        Assert.Equal(epicId, epicNode.Id);
+        var storyNode = Assert.Single(epicNode.Children);
+        Assert.Equal(storyId, storyNode.Id);
+    }
+
+    [Fact]
+    public async Task GetTree_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"tree-noproject-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/work-items/tree", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetTree_returns_401_without_a_token()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/work-items/tree");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private async Task<WorkItemDto> CreateWorkItemAsync(string token, int projectId, string title = "Fix the login bug", int? assigneeUserId = null)
     {
         var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);

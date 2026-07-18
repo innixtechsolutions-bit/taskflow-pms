@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -6,7 +7,13 @@ import { MatInputModule } from '@angular/material/input';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
-import { UserLookupItem, WorkItem, WorkItemsFilter, WorkItemsService } from '../work-items.service';
+import {
+  UserLookupItem,
+  WorkItem,
+  WorkItemsFilter,
+  WorkItemsService,
+  WorkItemTreeNode,
+} from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 
 const STATUSES = ['ToDo', 'InProgress', 'Done'];
@@ -16,7 +23,15 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 @Component({
   selector: 'app-project-detail',
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule, MatTableModule],
+  imports: [
+    RouterLink,
+    NgTemplateOutlet,
+    MatButtonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatTableModule,
+  ],
   templateUrl: './project-detail.component.html',
 })
 export class ProjectDetailComponent implements OnInit {
@@ -49,14 +64,42 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly pageSize = 20;
   protected readonly totalCount = signal(0);
 
+  // Flat is the default (Feature 002's unchanged behavior, FR-023); Tree is opt-in
+  // via the toggle, per User Story 5's non-regression guarantee.
+  protected readonly viewMode = signal<'flat' | 'tree'>('flat');
+  protected readonly treeNodes = signal<WorkItemTreeNode[]>([]);
+  // Tracks which parent rows are collapsed rather than which are expanded, so a
+  // freshly-loaded tree starts fully expanded without needing to pre-populate a set
+  // of every node's id (FR-013's collapse state need not persist across reloads).
+  protected readonly collapsedIds = signal<Set<number>>(new Set());
+
   ngOnInit(): void {
     void this.loadProject();
     void this.loadWorkItems();
     void this.loadAssignableUsers();
+    void this.loadTree();
   }
 
   private async loadProject(): Promise<void> {
     this.project.set(await this.projectsService.getProject(this.projectId));
+  }
+
+  private async loadTree(): Promise<void> {
+    this.treeNodes.set(await this.workItemsService.getWorkItemsTree(this.projectId));
+  }
+
+  protected isCollapsed(id: number): boolean {
+    return this.collapsedIds().has(id);
+  }
+
+  protected toggleCollapsed(id: number): void {
+    const next = new Set(this.collapsedIds());
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    this.collapsedIds.set(next);
   }
 
   private async loadAssignableUsers(): Promise<void> {
@@ -162,9 +205,11 @@ export class ProjectDetailComponent implements OnInit {
     }
     await this.workItemsService.deleteWorkItem(item.id);
     // Deleting a work item changes the project's totalWorkItemCount (used by the
-    // project-level delete confirmation), so both need refreshing, not just the list.
+    // project-level delete confirmation) and the tree's shape, so all three need
+    // refreshing, not just the flat list.
     await this.loadProject();
     await this.loadWorkItems();
+    await this.loadTree();
   }
 
   // Project edit/delete is a simple role check — no ownership dimension, unlike

@@ -312,6 +312,57 @@ public class WorkItemService(AppDbContext dbContext)
         }
     }
 
+    private record WorkItemTreeRow(int Id, string Type, string Title, string Status, string Priority, string? AssigneeName, int? ParentWorkItemId);
+
+    public async Task<List<WorkItemTreeNodeDto>> GetTreeAsync(int projectId)
+    {
+        var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
+        if (!projectExists)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        // One query for the whole project, pre-sorted — nesting happens in memory
+        // below. A self-referencing tree can't be shaped by SQL alone without a
+        // recursive CTE (raw SQL needs justification per the constitution), and at
+        // this feature's scale (tens to low hundreds of items per project) a single
+        // in-memory grouping pass is simpler and needs none (research.md §4).
+        // LINQ-to-Objects' GroupBy preserves each group's original relative order, so
+        // sorting once here is enough for every level of the resulting tree (§7) —
+        // no per-level re-sort is needed after grouping.
+        var items = await dbContext.WorkItems
+            .Where(w => w.ProjectId == projectId)
+            .OrderByDescending(w => w.UpdatedAt)
+            .Select(w => new WorkItemTreeRow(
+                w.Id,
+                w.Type.ToString(),
+                w.Title,
+                w.Status.ToString(),
+                w.Priority.ToString(),
+                w.Assignee != null ? w.Assignee.FullName : null,
+                w.ParentWorkItemId))
+            .ToListAsync();
+
+        var childrenByParent = items
+            .Where(w => w.ParentWorkItemId.HasValue)
+            .GroupBy(w => w.ParentWorkItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var roots = items.Where(w => w.ParentWorkItemId is null);
+        return roots.Select(r => BuildTreeNode(r, childrenByParent)).ToList();
+    }
+
+    private static WorkItemTreeNodeDto BuildTreeNode(WorkItemTreeRow row, Dictionary<int, List<WorkItemTreeRow>> childrenByParent)
+    {
+        var childRows = childrenByParent.TryGetValue(row.Id, out var found) ? found : [];
+        var doneCount = childRows.Count(c => c.Status == "Done");
+        var childNodes = childRows.Select(c => BuildTreeNode(c, childrenByParent)).ToList();
+
+        return new WorkItemTreeNodeDto(
+            row.Id, row.Type, row.Title, row.Status, row.Priority, row.AssigneeName,
+            childRows.Count, doneCount, childNodes);
+    }
+
     public async Task<List<WorkItemLookupItemDto>> GetParentCandidatesAsync(int projectId, string type)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);

@@ -41,6 +41,18 @@ export interface WorkItemLookupItem {
   title: string;
 }
 
+export interface WorkItemTreeNode {
+  id: number;
+  type: string;
+  title: string;
+  status: string;
+  priority: string;
+  assigneeName: string | null;
+  directChildrenCount: number;
+  directChildrenDoneCount: number;
+  children: WorkItemTreeNode[];
+}
+
 export interface PagedResult<T> {
   items: T[];
   page: number;
@@ -110,5 +122,12 @@ export class WorkItemsService {
       )
     );
     return result.candidates;
+  }
+
+  // Unpaginated by design — a tree's shape doesn't compose with pagination, and at
+  // this feature's scale returning the whole project's hierarchy in one response is
+  // simpler than tree-aware paging (research.md §4).
+  async getWorkItemsTree(projectId: number): Promise<WorkItemTreeNode[]> {
+    return firstValueFrom(this.http.get<WorkItemTreeNode[]>(`/api/projects/${projectId}/work-items/tree`));
   }
 }

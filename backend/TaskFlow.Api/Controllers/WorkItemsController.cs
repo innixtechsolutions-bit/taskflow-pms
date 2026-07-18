@@ -80,6 +80,19 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         }
     }
 
+    [HttpGet("api/projects/{projectId}/work-items/tree")]
+    public async Task<ActionResult<List<WorkItemTreeNodeDto>>> GetTree(int projectId)
+    {
+        try
+        {
+            return Ok(await workItemService.GetTreeAsync(projectId));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+    }
+
     [HttpGet("api/projects/{projectId}/work-items")]
     public async Task<ActionResult<PagedResult<WorkItemDto>>> GetWorkItems(
         int projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,

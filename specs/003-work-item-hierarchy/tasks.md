@@ -88,17 +88,17 @@ alongside US3 rather than as a separate phase.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T018 [P] [US2] Unit tests for `WorkItemService.GetTreeAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: correct nesting for a multi-level chain, `directChildrenCount`/`directChildrenDoneCount` count only direct children, standalone items appear as top-level nodes with empty `children`, ordering by `UpdatedAt` descending at every level
-- [ ] T019 [P] [US2] Integration tests for `GET /api/projects/{projectId}/work-items/tree` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` with correctly nested shape, `404` unknown project, `401` with no token (allowed + denied paths, matching Feature 002's equivalent new-GET-endpoint tests)
-- [ ] T020 [P] [US2] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: Tree/Flat toggle switches views; tree renders indentation per level; expand/collapse hides/shows a parent's children; each parent row shows "n/m done"; standalone items render at the top level alongside hierarchical ones
+- [X] T018 [P] [US2] Unit tests for `WorkItemService.GetTreeAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: correct nesting for a multi-level chain, `directChildrenCount`/`directChildrenDoneCount` count only direct children, standalone items appear as top-level nodes with empty `children`, ordering by `UpdatedAt` descending at every level. **Confirmed RED**: `GetTreeAsync` didn't exist.
+- [X] T019 [P] [US2] Integration tests for `GET /api/projects/{projectId}/work-items/tree` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` with correctly nested shape, `404` unknown project, `401` with no token
+- [X] T020 [P] [US2] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: Tree/Flat toggle switches views; tree renders indentation per level; expand/collapse hides/shows a parent's children; each parent row shows "n/m done"; standalone items render at the top level alongside hierarchical ones. **Confirmed RED**: 4/5 new tests failed (no toggle/tree markup yet; the "defaults to Flat" case passed vacuously).
 
 ### Implementation for User Story 2
 
-- [ ] T021 [US2] Add `WorkItemTreeNodeDto` in `backend/TaskFlow.Api/Dtos/WorkItemTreeNodeDto.cs` (recursive `children` array) per `data-model.md`
-- [ ] T022 [US2] Implement `WorkItemService.GetTreeAsync` in `backend/TaskFlow.Api/Services/WorkItemService.cs` (load the project's items once, group by `ParentWorkItemId` in memory, build nested nodes with direct-child/done counts, order by `UpdatedAt` descending — research.md §4, §7) — depends on T021
-- [ ] T023 [US2] Implement `WorkItemsController.GetTree` (`GET /api/projects/{projectId}/work-items/tree`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T022
-- [ ] T024 [US2] Add `getWorkItemsTree()` to `frontend/src/app/projects/work-items.service.ts` — depends on T023
-- [ ] T025 [US2] Add a Tree/Flat view toggle to `project-detail` (+ template): Tree is the new indented/expand-collapse rendering with per-parent counts; Flat is Feature 002's existing paginated `mat-table` list, unchanged — depends on T024, T020
+- [X] T021 [US2] Add `WorkItemTreeNodeDto` in `backend/TaskFlow.Api/Dtos/WorkItemTreeNodeDto.cs` (recursive `children` array) per `data-model.md`
+- [X] T022 [US2] Implement `WorkItemService.GetTreeAsync` in `backend/TaskFlow.Api/Services/WorkItemService.cs` (load the project's items once, group by `ParentWorkItemId` in memory, build nested nodes with direct-child/done counts, order by `UpdatedAt` descending — research.md §4, §7) — depends on T021
+- [X] T023 [US2] Implement `WorkItemsController.GetTree` (`GET /api/projects/{projectId}/work-items/tree`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T022. **Confirmed GREEN**: 168/168 backend tests pass (was 160, +8 new, 0 regressions).
+- [X] T024 [US2] Add `getWorkItemsTree()` to `frontend/src/app/projects/work-items.service.ts` — depends on T023
+- [X] T025 [US2] Add a Tree/Flat view toggle to `project-detail` (+ template): Tree is the new indented/expand-collapse rendering with per-parent counts; Flat is Feature 002's existing paginated `mat-table` list, unchanged (kept as the *default* view — no functional regression, US5) — depends on T024, T020. Implemented via a recursive `ng-template`/`NgTemplateOutlet` pair rather than Angular Material's CDK tree, since the project's own nested `children` array already gives the recursion a natural base case (Clarity Over Cleverness). **Confirmed GREEN**: 85/85 frontend tests pass (was 80, +5 new, 0 regressions).
 
 **Checkpoint**: User Stories 1-2 work — a hierarchy can be built and seen as a tree.
 

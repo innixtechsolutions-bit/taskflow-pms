@@ -230,6 +230,103 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     }
 
     [Fact]
+    public async Task GetTreeAsync_nests_a_multi_level_chain_correctly()
+    {
+        var user = AddUser("tree-nesting@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = new WorkItem
+        {
+            ProjectId = project.Id, Type = WorkItemType.Story, Title = "Story", CreatedByUserId = user.Id,
+            CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id
+        };
+        Db.WorkItems.Add(story);
+        Db.SaveChanges();
+        var task = new WorkItem
+        {
+            ProjectId = project.Id, Type = WorkItemType.Task, Title = "Task", CreatedByUserId = user.Id,
+            CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = story.Id
+        };
+        Db.WorkItems.Add(task);
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var tree = await sut.GetTreeAsync(project.Id);
+
+        var epicNode = Assert.Single(tree);
+        Assert.Equal(epic.Id, epicNode.Id);
+        var storyNode = Assert.Single(epicNode.Children);
+        Assert.Equal(story.Id, storyNode.Id);
+        var taskNode = Assert.Single(storyNode.Children);
+        Assert.Equal(task.Id, taskNode.Id);
+        Assert.Empty(taskNode.Children);
+    }
+
+    [Fact]
+    public async Task GetTreeAsync_counts_only_direct_children_for_the_done_count()
+    {
+        var user = AddUser("tree-counts@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        for (var i = 0; i < 5; i++)
+        {
+            Db.WorkItems.Add(new WorkItem
+            {
+                ProjectId = project.Id, Type = WorkItemType.Story, Title = $"Story {i}", CreatedByUserId = user.Id,
+                CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id,
+                Status = i < 3 ? WorkItemStatus.Done : WorkItemStatus.ToDo
+            });
+        }
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var tree = await sut.GetTreeAsync(project.Id);
+
+        var epicNode = Assert.Single(tree);
+        Assert.Equal(5, epicNode.DirectChildrenCount);
+        Assert.Equal(3, epicNode.DirectChildrenDoneCount);
+    }
+
+    [Fact]
+    public async Task GetTreeAsync_lists_standalone_items_as_top_level_nodes_with_no_children()
+    {
+        var user = AddUser("tree-standalone@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, type: WorkItemType.Task, title: "Standalone task");
+        var sut = CreateSut();
+
+        var tree = await sut.GetTreeAsync(project.Id);
+
+        var node = Assert.Single(tree);
+        Assert.Equal("Standalone task", node.Title);
+        Assert.Empty(node.Children);
+        Assert.Equal(0, node.DirectChildrenCount);
+    }
+
+    [Fact]
+    public async Task GetTreeAsync_orders_items_within_a_level_by_most_recently_updated_first()
+    {
+        var user = AddUser("tree-order@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Oldest", updatedAt: DateTime.UtcNow.AddMinutes(-2));
+        AddWorkItem(project.Id, user.Id, title: "Newest", updatedAt: DateTime.UtcNow);
+        var sut = CreateSut();
+
+        var tree = await sut.GetTreeAsync(project.Id);
+
+        Assert.Equal("Newest", tree[0].Title);
+        Assert.Equal("Oldest", tree[1].Title);
+    }
+
+    [Fact]
+    public async Task GetTreeAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetTreeAsync(999999));
+    }
+
+    [Fact]
     public async Task CreateAsync_applies_default_priority_and_status_when_omitted()
     {
         var user = AddUser("creator@example.com");
