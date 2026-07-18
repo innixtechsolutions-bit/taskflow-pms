@@ -6,6 +6,7 @@ import { AuthService, AuthState, UserRole } from '../../auth/auth.service';
 
 function stateFor(role: UserRole): AuthState {
   return {
+    id: 1,
     token: 'a-token',
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
     fullName: 'Ada Lovelace',
