@@ -823,4 +823,29 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<InvalidWorkItemStatusException>(
             () => sut.GetWorkItemsAsync(project.Id, 1, 20, "NotAStatus", null, null, null, null));
     }
+
+    // User Story 5 (non-regression): Feature 002's flat filter/search/pagination
+    // logic is completely untouched by this feature — this test just proves it,
+    // against a project that now contains a full hierarchy chain plus a standalone
+    // item, confirming matches are returned regardless of depth or tree position.
+    [Fact]
+    public async Task GetWorkItemsAsync_returns_matches_regardless_of_hierarchy_position()
+    {
+        var user = AddUser("regression-hierarchy@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic root");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story child", WorkItemStatus.InProgress);
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task grandchild");
+        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "Deeply nested subtask", WorkItemStatus.Done);
+        AddWorkItem(project.Id, user.Id, type: WorkItemType.Task, title: "Standalone done task", status: WorkItemStatus.Done);
+        var sut = CreateSut();
+
+        var byStatus = await sut.GetWorkItemsAsync(project.Id, 1, 20, "Done", null, null, null, null);
+        var bySearch = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, null, "nested");
+        var all = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, null, null);
+
+        Assert.Equal(2, byStatus.TotalCount);
+        Assert.Equal("Deeply nested subtask", bySearch.Items.Single().Title);
+        Assert.Equal(5, all.TotalCount);
+    }
 }

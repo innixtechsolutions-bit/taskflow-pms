@@ -165,12 +165,12 @@ alongside US3 rather than as a separate phase.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T046 [P] [US5] Extend `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs` and `Integration/WorkItemsEndpointsTests.cs`'s existing `GetWorkItemsAsync`/`GET /api/projects/{projectId}/work-items` filter/search/pagination tests with a mixed dataset (parented and standalone items across all four types) — confirms Feature 002's filtering logic (unchanged in this feature) still returns correct results regardless of tree position
-- [ ] T047 [P] [US5] Extend `project-detail.component.spec.ts`'s existing Flat-view filter/search tests to run against a mix of parented and standalone items, confirming the Flat view still renders unindented and filters/searches correctly
+- [X] T046 [P] [US5] Extend `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs` and `Integration/WorkItemsEndpointsTests.cs`'s existing `GetWorkItemsAsync`/`GET /api/projects/{projectId}/work-items` filter/search/pagination tests with a mixed dataset (parented and standalone items across all four types) — confirms Feature 002's filtering logic (unchanged in this feature) still returns correct results regardless of tree position. **Confirmed GREEN immediately** (no implementation change needed, as expected): 189/189 backend tests pass (was 187, +2 new, 0 regressions).
+- [X] T047 [P] [US5] Extend `project-detail.component.spec.ts`'s existing Flat-view filter/search tests to run against a mix of parented and standalone items, confirming the Flat view still renders unindented and filters/searches correctly. **Confirmed GREEN immediately**: 98/98 frontend tests pass (was 97, +1 new, 0 regressions).
 
 ### Implementation for User Story 5
 
-- [ ] T048 [US5] No new production code is expected — `GetWorkItemsAsync` and the Flat view are untouched by Features US1-US4 per plan.md/research.md §4. If T046/T047 surface a gap (e.g., a template regression from `WorkItemDto`'s new field), fix it here.
+- [X] T048 [US5] No new production code is expected — `GetWorkItemsAsync` and the Flat view are untouched by Features US1-US4 per plan.md/research.md §4. If T046/T047 surface a gap (e.g., a template regression from `WorkItemDto`'s new field), fix it here. **No gap found** — both regression suites passed on the first run with zero production changes, confirming Feature 002's flat-list behavior was never touched by US1-US4.
 
 **Checkpoint**: All five user stories are independently functional — the feature described in `spec.md` is complete end-to-end, and Feature 002's flat list/filter/search remains fully intact.
 

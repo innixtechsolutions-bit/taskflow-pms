@@ -116,6 +116,20 @@ describe('ProjectDetailComponent', () => {
     const link = fixture.nativeElement.querySelector('.work-item-title a') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/projects/1/work-items/42');
   });
+
+  // User Story 5 (non-regression): the Flat view renders a parented item exactly
+  // like a standalone one — no indentation, no tree-only markup — regardless of
+  // whether it has a parentWorkItemId, matching Feature 002's unchanged behavior.
+  it('renders a parented item in Flat view exactly like a standalone one, with no indentation', async () => {
+    configure(
+      undefined,
+      vi.fn().mockResolvedValue(pageOf([sampleItem({ id: 1, title: 'A child item', parentWorkItemId: 99 })]))
+    );
+    const fixture = await render();
+
+    expect(fixture.nativeElement.textContent).toContain('A child item');
+    expect(fixture.nativeElement.querySelector('.tree-row')).toBeNull();
+  });
 });
 
 describe('ProjectDetailComponent edit control visibility', () => {

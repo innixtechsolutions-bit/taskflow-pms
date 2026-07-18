@@ -639,4 +639,24 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    // User Story 5 (non-regression): the flat list endpoint is untouched by this
+    // feature — confirms search still matches a child item by title even though its
+    // parent's title doesn't match, exactly as Feature 002 specified.
+    [Fact]
+    public async Task GetWorkItems_search_matches_a_child_item_even_when_its_parent_does_not()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"regression-search-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Unrelated epic title");
+        await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "Findable story title");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items?search=Findable", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<WorkItemDto>>();
+        Assert.Equal("Findable story title", body!.Items.Single().Title);
+    }
 }
