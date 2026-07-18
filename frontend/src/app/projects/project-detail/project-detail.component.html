@@ -82,39 +82,47 @@
 
   @if (viewMode() === 'flat') {
   <div class="work-item-filters">
-    <label for="statusFilter">Status</label>
-    <select id="statusFilter" (change)="onStatusFilterChange($any($event.target).value)">
-      <option value="" [selected]="statusFilter() === ''">All statuses</option>
-      @for (s of statuses; track s) {
-        <option [value]="s" [selected]="statusFilter() === s">{{ s }}</option>
-      }
-    </select>
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Status</mat-label>
+      <mat-select id="statusFilter" [value]="statusFilter()" (selectionChange)="onStatusFilterChange($event.value)">
+        <mat-option value="">All statuses</mat-option>
+        @for (s of statuses; track s) {
+          <mat-option [value]="s">{{ s }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
-    <label for="typeFilter">Type</label>
-    <select id="typeFilter" (change)="onTypeFilterChange($any($event.target).value)">
-      <option value="" [selected]="typeFilter() === ''">All types</option>
-      @for (t of types; track t) {
-        <option [value]="t" [selected]="typeFilter() === t">{{ t }}</option>
-      }
-    </select>
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Type</mat-label>
+      <mat-select id="typeFilter" [value]="typeFilter()" (selectionChange)="onTypeFilterChange($event.value)">
+        <mat-option value="">All types</mat-option>
+        @for (t of types; track t) {
+          <mat-option [value]="t">{{ t }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
-    <label for="priorityFilter">Priority</label>
-    <select id="priorityFilter" (change)="onPriorityFilterChange($any($event.target).value)">
-      <option value="" [selected]="priorityFilter() === ''">All priorities</option>
-      @for (pr of priorities; track pr) {
-        <option [value]="pr" [selected]="priorityFilter() === pr">{{ pr }}</option>
-      }
-    </select>
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Priority</mat-label>
+      <mat-select id="priorityFilter" [value]="priorityFilter()" (selectionChange)="onPriorityFilterChange($event.value)">
+        <mat-option value="">All priorities</mat-option>
+        @for (pr of priorities; track pr) {
+          <mat-option [value]="pr">{{ pr }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
-    <label for="assigneeFilter">Assignee</label>
-    <select id="assigneeFilter" (change)="onAssigneeFilterChange($any($event.target).value)">
-      <option value="" [selected]="assigneeFilter() === ''">All assignees</option>
-      @for (u of assignableUsers(); track u.id) {
-        <option [value]="u.id" [selected]="assigneeFilter() === u.id.toString()">{{ u.fullName }}</option>
-      }
-    </select>
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Assignee</mat-label>
+      <mat-select id="assigneeFilter" [value]="assigneeFilter()" (selectionChange)="onAssigneeFilterChange($event.value)">
+        <mat-option value="">All assignees</mat-option>
+        @for (u of assignableUsers(); track u.id) {
+          <mat-option [value]="u.id.toString()">{{ u.fullName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
 
-    <mat-form-field appearance="outline" class="search-field">
+    <mat-form-field appearance="outline" class="filter-field search-field">
       <mat-label>Search</mat-label>
       <input matInput id="searchFilter" type="text" [value]="searchInput()" (input)="searchInput.set($any($event.target).value)" />
     </mat-form-field>

@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
@@ -37,6 +38,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
+    MatSelectModule,
     MatTableModule,
     PageHeaderComponent,
     StatusChipComponent,

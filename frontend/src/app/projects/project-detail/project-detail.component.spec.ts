@@ -1,11 +1,24 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatSelectHarness } from '@angular/material/select/testing';
 import { vi } from 'vitest';
 import { ProjectDetailComponent } from './project-detail.component';
 import { ProjectsService } from '../projects.service';
 import { WorkItem, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
+
+async function chooseFilterOption(
+  fixture: ComponentFixture<unknown>,
+  label: string,
+  optionText: string
+): Promise<void> {
+  const loader = TestbedHarnessEnvironment.loader(fixture);
+  const select = await loader.getHarness(MatSelectHarness.with({ label }));
+  await select.open();
+  await select.clickOptions({ text: optionText });
+}
 
 const sampleProject = {
   id: 1,
@@ -393,9 +406,7 @@ describe('ProjectDetailComponent filter, search, and pagination', () => {
     configure(undefined, getWorkItems);
     const fixture = await render();
 
-    const select = fixture.nativeElement.querySelector('#statusFilter') as HTMLSelectElement;
-    select.value = 'Done';
-    select.dispatchEvent(new Event('change'));
+    await chooseFilterOption(fixture, 'Status', 'Done');
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -435,9 +446,7 @@ describe('ProjectDetailComponent filter, search, and pagination', () => {
     configure(undefined, getWorkItems);
     const fixture = await render();
 
-    const select = fixture.nativeElement.querySelector('#statusFilter') as HTMLSelectElement;
-    select.value = 'Done';
-    select.dispatchEvent(new Event('change'));
+    await chooseFilterOption(fixture, 'Status', 'Done');
     await fixture.whenStable();
     fixture.detectChanges();
 

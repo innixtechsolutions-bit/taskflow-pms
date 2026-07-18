@@ -2,11 +2,14 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormField, maxLength, minLength, required, form } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
 import { NotificationService } from '../../shared/notification.service';
+import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 
 interface TitleFormModel {
   title: string;
@@ -16,10 +19,35 @@ const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 const STATUSES = ['ToDo', 'InProgress', 'Done'];
 
+// A date <input>/the API's dueDate field both want 'YYYY-MM-DD'; MatDatepicker
+// wants a Date. Built from local year/month/day rather than toISOString() (which
+// converts to UTC first and can shift the date by a day near midnight in
+// timezones ahead of UTC).
+function toDateOnlyString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateOnlyString(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 @Component({
   selector: 'app-work-item-form',
   standalone: true,
-  imports: [FormField, MatButtonModule, MatCardModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    FormField,
+    MatButtonModule,
+    MatCardModule,
+    MatDatepickerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    PageHeaderComponent,
+  ],
   templateUrl: './work-item-form.component.html',
 })
 export class WorkItemFormComponent implements OnInit {
@@ -41,11 +69,11 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly assignableUsers = signal<UserLookupItem[]>([]);
 
   // A separate, minimal Signal Forms tree for just the title — the only field with
-  // real validation. The other fields are plain signals driven by [selected] on each
-  // <option>, not [value] on the <select> itself (research.md §6): Angular writes a
-  // <select>'s own [value] binding before its @for-rendered <option> children exist in
-  // the DOM, so the browser has nothing yet to match against and silently defaults to
-  // the first option — the same bug Feature 001's Phase 7 found and fixed.
+  // real validation. The other fields are plain signals, each driven by mat-select's
+  // own [value]/(selectionChange) (or MatDatepicker for the date) rather than a
+  // native <select>'s [value]/(change) — mat-select doesn't have the native-<select>
+  // "[value] written before @for-rendered <option>s exist" bug research.md §6
+  // originally worked around, so that workaround no longer applies to these fields.
   protected readonly titleModel = signal<TitleFormModel>({ title: '' });
   protected readonly titleForm = form(this.titleModel, (path) => {
     required(path.title, { message: 'Title is required.' });
@@ -58,7 +86,7 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly priority = signal('Medium');
   protected readonly status = signal('ToDo');
   protected readonly assigneeUserId = signal('');
-  protected readonly dueDate = signal('');
+  protected readonly dueDate = signal<Date | null>(null);
   protected readonly parentWorkItemId = signal('');
   protected readonly parentCandidates = signal<WorkItemLookupItem[]>([]);
 
@@ -111,8 +139,7 @@ export class WorkItemFormComponent implements OnInit {
     this.priority.set(item.priority);
     this.status.set(item.status);
     this.assigneeUserId.set(item.assigneeUserId ? item.assigneeUserId.toString() : '');
-    // The API returns a full ISO datetime; a date <input> only accepts its date portion.
-    this.dueDate.set(item.dueDate ? item.dueDate.slice(0, 10) : '');
+    this.dueDate.set(item.dueDate ? parseDateOnlyString(item.dueDate) : null);
     this.parentWorkItemId.set(item.parentWorkItemId ? item.parentWorkItemId.toString() : '');
     await this.loadParentCandidates();
   }
@@ -128,6 +155,7 @@ export class WorkItemFormComponent implements OnInit {
     this.serverError.set(null);
     this.submitting.set(true);
     try {
+      const dueDate = this.dueDate();
       const request = {
         type: this.type(),
         title: this.titleModel().title,
@@ -135,7 +163,7 @@ export class WorkItemFormComponent implements OnInit {
         priority: this.priority(),
         status: this.status(),
         assigneeUserId: this.assigneeUserId() ? Number(this.assigneeUserId()) : undefined,
-        dueDate: this.dueDate() || undefined,
+        dueDate: dueDate ? toDateOnlyString(dueDate) : undefined,
         parentWorkItemId: this.parentWorkItemId() ? Number(this.parentWorkItemId()) : undefined,
       };
       if (this.isEditMode) {

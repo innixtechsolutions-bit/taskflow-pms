@@ -1,6 +1,7 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
@@ -16,5 +17,8 @@ export const appConfig: ApplicationConfig = {
     // eagerly at bootstrap, which pairs better with zoneless change detection
     // than the classic provideAnimations().
     provideAnimationsAsync(),
+    // MatDatepicker needs a DateAdapter — native Date is sufficient, no
+    // extra date library needed (work-item-form's due date field).
+    provideNativeDateAdapter(),
   ]
 };

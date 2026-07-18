@@ -1,5 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { HarnessLoader } from '@angular/cdk/testing';
+import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatSelectHarness } from '@angular/material/select/testing';
+import { provideNativeDateAdapter } from '@angular/material/core';
 import { vi } from 'vitest';
 import { WorkItemFormComponent } from './work-item-form.component';
 import { WorkItemsService } from '../work-items.service';
@@ -20,6 +24,16 @@ const sampleCandidates = [
   { id: 11, title: 'Epic Two' },
 ];
 
+async function selectByLabel(loader: HarnessLoader, label: string): Promise<MatSelectHarness> {
+  return loader.getHarness(MatSelectHarness.with({ label }));
+}
+
+async function chooseOption(loader: HarnessLoader, label: string, optionText: string): Promise<void> {
+  const select = await selectByLabel(loader, label);
+  await select.open();
+  await select.clickOptions({ text: optionText });
+}
+
 function configure(
   createWorkItem = vi.fn(),
   getAssignableUsers = vi.fn().mockResolvedValue(sampleUsers),
@@ -37,18 +51,25 @@ function configure(
         },
       },
       { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
+      provideNativeDateAdapter(),
     ],
   });
   return { createWorkItem, getAssignableUsers, getParentCandidates };
 }
 
+async function render(): Promise<{ fixture: ReturnType<typeof TestBed.createComponent>; loader: HarnessLoader }> {
+  const fixture = TestBed.createComponent(WorkItemFormComponent);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  fixture.detectChanges();
+  const loader = TestbedHarnessEnvironment.loader(fixture);
+  return { fixture, loader };
+}
+
 describe('WorkItemFormComponent (create mode)', () => {
   it('submits with the title and the shown defaults, and shows a success toast', async () => {
     const { createWorkItem } = configure(vi.fn().mockResolvedValue({ id: 5 }));
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture } = await render();
     const notificationService = TestBed.inject(NotificationService);
 
     const root = fixture.nativeElement as HTMLElement;
@@ -65,82 +86,60 @@ describe('WorkItemFormComponent (create mode)', () => {
 
   it("correctly pre-selects each dropdown's bound value on initial render, not just the first option", async () => {
     configure();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { loader } = await render();
 
-    const root = fixture.nativeElement as HTMLElement;
-    // 'Task' and 'Medium' are each the 3rd/2nd <option>, not the 1st — this only
-    // passes if the dropdown is genuinely reading the bound value (research.md §6),
-    // not silently defaulting to whichever <option> happens to come first.
-    expect((root.querySelector('#type') as HTMLSelectElement).value).toBe('Task');
-    expect((root.querySelector('#priority') as HTMLSelectElement).value).toBe('Medium');
-    expect((root.querySelector('#status') as HTMLSelectElement).value).toBe('ToDo');
+    // 'Task' and 'Medium' are each the 3rd/2nd option, not the 1st — this only
+    // passes if mat-select is genuinely reading the bound value (research.md §6's
+    // underlying concern, now via mat-select instead of a native <select>).
+    expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Task');
+    expect(await (await selectByLabel(loader, 'Priority')).getValueText()).toBe('Medium');
+    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('ToDo');
   });
 
   it('lists assignable users fetched from the server', async () => {
     configure();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { loader } = await render();
 
-    expect(fixture.nativeElement.textContent).toContain('Ada Lovelace');
-    expect(fixture.nativeElement.textContent).toContain('Grace Hopper');
+    const assigneeSelect = await selectByLabel(loader, 'Assignee');
+    await assigneeSelect.open();
+    const optionTexts = await Promise.all((await assigneeSelect.getOptions()).map((o) => o.getText()));
+
+    expect(optionTexts).toContain('Ada Lovelace');
+    expect(optionTexts).toContain('Grace Hopper');
   });
 
   it('refetches parent candidates when Type changes', async () => {
     const { getParentCandidates } = configure();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture, loader } = await render();
 
     expect(getParentCandidates).toHaveBeenCalledWith(1, 'Task');
 
-    const root = fixture.nativeElement as HTMLElement;
-    const typeSelect = root.querySelector<HTMLSelectElement>('#type')!;
-    typeSelect.value = 'SubTask';
-    typeSelect.dispatchEvent(new Event('change'));
+    await chooseOption(loader, 'Type', 'SubTask');
     await fixture.whenStable();
-    fixture.detectChanges();
 
     expect(getParentCandidates).toHaveBeenCalledWith(1, 'SubTask');
   });
 
   it('marks the parent picker required for SubTask', async () => {
     configure();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture, loader } = await render();
 
-    const root = fixture.nativeElement as HTMLElement;
-    const typeSelect = root.querySelector<HTMLSelectElement>('#type')!;
-    typeSelect.value = 'SubTask';
-    typeSelect.dispatchEvent(new Event('change'));
+    await chooseOption(loader, 'Type', 'SubTask');
     await fixture.whenStable();
-    fixture.detectChanges();
 
-    expect(root.querySelector<HTMLSelectElement>('#parentWorkItemId')!.required).toBe(true);
+    const parentSelect = await selectByLabel(loader, 'Parent (required)');
+    expect(await parentSelect.isRequired()).toBe(true);
   });
 
   it('hides the parent picker entirely for Epic', async () => {
     configure();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture, loader } = await render();
 
-    const root = fixture.nativeElement as HTMLElement;
-    const typeSelect = root.querySelector<HTMLSelectElement>('#type')!;
-    typeSelect.value = 'Epic';
-    typeSelect.dispatchEvent(new Event('change'));
+    await chooseOption(loader, 'Type', 'Epic');
     await fixture.whenStable();
-    fixture.detectChanges();
 
-    expect(root.querySelector('#parentWorkItemId')).toBeNull();
+    const parentSelects = await loader.getAllHarnesses(MatSelectHarness.with({ label: /Parent/ }));
+    expect(parentSelects.length).toBe(0);
   });
 });
 
@@ -182,33 +181,28 @@ function configureEdit(
       },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '7' }) } } },
       { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
+      provideNativeDateAdapter(),
     ],
   });
   return { getWorkItem, updateWorkItem, getParentCandidates };
 }
 
 describe('WorkItemFormComponent (edit mode)', () => {
-  it("pre-fills existing values, including each <select> correctly pre-selecting its current value", async () => {
+  it('pre-fills existing values, including each mat-select correctly pre-selecting its current value', async () => {
     configureEdit();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture, loader } = await render();
 
     const root = fixture.nativeElement as HTMLElement;
     expect((root.querySelector('#title') as HTMLInputElement).value).toBe('Existing item');
-    expect((root.querySelector('#type') as HTMLSelectElement).value).toBe('Story');
-    expect((root.querySelector('#priority') as HTMLSelectElement).value).toBe('High');
-    expect((root.querySelector('#status') as HTMLSelectElement).value).toBe('InProgress');
-    expect((root.querySelector('#assigneeUserId') as HTMLSelectElement).value).toBe('2');
+    expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Story');
+    expect(await (await selectByLabel(loader, 'Priority')).getValueText()).toBe('High');
+    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('InProgress');
+    expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Grace Hopper');
   });
 
   it('submits changes via updateWorkItem rather than createWorkItem', async () => {
     const { updateWorkItem } = configureEdit();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture } = await render();
 
     const root = fixture.nativeElement as HTMLElement;
     setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Updated title');
@@ -220,27 +214,18 @@ describe('WorkItemFormComponent (edit mode)', () => {
 
   it("pre-fills the item's current parent", async () => {
     configureEdit();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { loader } = await render();
 
-    const root = fixture.nativeElement as HTMLElement;
-    expect((root.querySelector('#parentWorkItemId') as HTMLSelectElement).value).toBe('10');
+    const parentSelect = await selectByLabel(loader, 'Parent');
+    expect(await parentSelect.getValueText()).toBe('Epic One');
   });
 
   it('submits a changed parent', async () => {
     const { updateWorkItem } = configureEdit();
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture, loader } = await render();
 
-    const root = fixture.nativeElement as HTMLElement;
-    const parentSelect = root.querySelector<HTMLSelectElement>('#parentWorkItemId')!;
-    parentSelect.value = '11';
-    parentSelect.dispatchEvent(new Event('change'));
-    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await chooseOption(loader, 'Parent', 'Epic Two');
+    fixture.nativeElement.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
     await fixture.whenStable();
 
     expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ parentWorkItemId: 11 }));
@@ -250,13 +235,9 @@ describe('WorkItemFormComponent (edit mode)', () => {
     const { updateWorkItem } = configureEdit(
       vi.fn().mockResolvedValue({ ...existingItem, type: 'Task', parentWorkItemId: null })
     );
-    const fixture = TestBed.createComponent(WorkItemFormComponent);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    const { fixture } = await render();
 
-    const root = fixture.nativeElement as HTMLElement;
-    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    fixture.nativeElement.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
     await fixture.whenStable();
 
     expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ parentWorkItemId: undefined }));

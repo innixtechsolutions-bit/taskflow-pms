@@ -1,35 +1,39 @@
+<app-page-header [title]="isEditMode ? 'Edit work item' : 'Create a work item'" />
+
 <div class="form-page">
   <mat-card appearance="outlined">
-    <mat-card-header>
-      <mat-card-title>{{ isEditMode ? 'Edit work item' : 'Create a work item' }}</mat-card-title>
-    </mat-card-header>
     <mat-card-content>
       <form (submit)="onSubmit($event)" novalidate>
         @if (serverError()) {
           <p class="server-error" role="alert">{{ serverError() }}</p>
         }
 
-        <label for="type">Type</label>
-        <select id="type" (change)="onTypeChange($any($event.target).value)">
-          @for (t of types; track t) {
-            <option [value]="t" [selected]="t === type()">{{ t }}</option>
-          }
-        </select>
+        <mat-form-field appearance="outline">
+          <mat-label>Type</mat-label>
+          <mat-select id="type" [value]="type()" (selectionChange)="onTypeChange($event.value)">
+            @for (t of types; track t) {
+              <mat-option [value]="t">{{ t }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
         @if (type() !== 'Epic') {
-          <label for="parentWorkItemId">Parent{{ type() === 'SubTask' ? ' (required)' : '' }}</label>
-          <select
-            id="parentWorkItemId"
-            [required]="type() === 'SubTask'"
-            (change)="parentWorkItemId.set($any($event.target).value)"
-          >
-            @if (type() === 'Task') {
-              <option value="" [selected]="parentWorkItemId() === ''">None</option>
-            }
-            @for (c of parentCandidates(); track c.id) {
-              <option [value]="c.id" [selected]="parentWorkItemId() === c.id.toString()">{{ c.title }}</option>
-            }
-          </select>
+          <mat-form-field appearance="outline">
+            <mat-label>Parent{{ type() === 'SubTask' ? ' (required)' : '' }}</mat-label>
+            <mat-select
+              id="parentWorkItemId"
+              [required]="type() === 'SubTask'"
+              [value]="parentWorkItemId()"
+              (selectionChange)="parentWorkItemId.set($event.value)"
+            >
+              @if (type() === 'Task') {
+                <mat-option value="">None</mat-option>
+              }
+              @for (c of parentCandidates(); track c.id) {
+                <mat-option [value]="c.id.toString()">{{ c.title }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         }
 
         <mat-form-field appearance="outline">
@@ -45,31 +49,39 @@
           <textarea matInput id="description" [value]="description()" (input)="description.set($any($event.target).value)"></textarea>
         </mat-form-field>
 
-        <label for="priority">Priority</label>
-        <select id="priority" (change)="priority.set($any($event.target).value)">
-          @for (p of priorities; track p) {
-            <option [value]="p" [selected]="p === priority()">{{ p }}</option>
-          }
-        </select>
+        <mat-form-field appearance="outline">
+          <mat-label>Priority</mat-label>
+          <mat-select id="priority" [value]="priority()" (selectionChange)="priority.set($event.value)">
+            @for (p of priorities; track p) {
+              <mat-option [value]="p">{{ p }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-        <label for="status">Status</label>
-        <select id="status" (change)="status.set($any($event.target).value)">
-          @for (s of statuses; track s) {
-            <option [value]="s" [selected]="s === status()">{{ s }}</option>
-          }
-        </select>
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select id="status" [value]="status()" (selectionChange)="status.set($event.value)">
+            @for (s of statuses; track s) {
+              <mat-option [value]="s">{{ s }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-        <label for="assigneeUserId">Assignee</label>
-        <select id="assigneeUserId" (change)="assigneeUserId.set($any($event.target).value)">
-          <option value="" [selected]="assigneeUserId() === ''">Unassigned</option>
-          @for (u of assignableUsers(); track u.id) {
-            <option [value]="u.id" [selected]="assigneeUserId() === u.id.toString()">{{ u.fullName }}</option>
-          }
-        </select>
+        <mat-form-field appearance="outline">
+          <mat-label>Assignee</mat-label>
+          <mat-select id="assigneeUserId" [value]="assigneeUserId()" (selectionChange)="assigneeUserId.set($event.value)">
+            <mat-option value="">Unassigned</mat-option>
+            @for (u of assignableUsers(); track u.id) {
+              <mat-option [value]="u.id.toString()">{{ u.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
         <mat-form-field appearance="outline">
           <mat-label>Due date</mat-label>
-          <input matInput id="dueDate" type="date" [value]="dueDate()" (input)="dueDate.set($any($event.target).value)" />
+          <input matInput id="dueDate" [matDatepicker]="dueDatePicker" [value]="dueDate()" (dateChange)="dueDate.set($event.value)" />
+          <mat-datepicker-toggle matIconSuffix [for]="dueDatePicker"></mat-datepicker-toggle>
+          <mat-datepicker #dueDatePicker></mat-datepicker>
         </mat-form-field>
 
         <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
