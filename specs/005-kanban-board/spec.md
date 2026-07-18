@@ -241,12 +241,15 @@ project.
   on the board? It renders like any other card, including its own
   direct-children progress count if it has direct children; the type
   label makes it identifiable at a glance.
-- What happens if a drag gesture is started but the item's permission
-  check would reject the destination (e.g., dragging into a column
-  representing a status the user isn't allowed to set)? Since the
-  permission rule is about editing the item, not the target status, any
-  attempted move by an unauthorized user is rejected regardless of
-  destination column.
+- Does which column a card is dragged *into* affect whether the drag is
+  allowed? No — the permission rule (FR-014) is about whether the user
+  may edit that *item* at all (creator, assignee, Manager, Admin); there
+  is no separate concept of a status a user "isn't allowed to set." An
+  unauthorized user's drag is rejected the same way regardless of which
+  column it's dropped on. *(Merged during triage — L1: this previously
+  posed a confusing hypothetical about destination-specific permissions,
+  which don't exist in this app; the real answer is fully covered by
+  FR-014/US3's own acceptance scenarios.)*
 
 ## Requirements *(mandatory)*
 

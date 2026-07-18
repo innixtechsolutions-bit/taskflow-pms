@@ -22,10 +22,19 @@ api/projects/{projectId}/work-items`.
 **Auth**: any authenticated user (read-only; matches `GetWorkItems`/
 `GetTree`'s existing access level).
 
-**Response 200** — `WorkItemBoardDto`:
+**Response 200** — `WorkItemBoardDto`. `columns` carries both the status
+value and its display label (M1 revision — see research.md #2 and
+data-model.md): the frontend renders column headers purely from this
+array and never derives a label itself, so a future per-project column
+list (Feature 006) is a pure backend change, never a board-component one.
 ```json
 {
-  "columns": ["ToDo", "InProgress", "InReview", "Done"],
+  "columns": [
+    { "status": "ToDo", "label": "To Do" },
+    { "status": "InProgress", "label": "In Progress" },
+    { "status": "InReview", "label": "In Review" },
+    { "status": "Done", "label": "Done" }
+  ],
   "items": [
     {
       "id": 42,

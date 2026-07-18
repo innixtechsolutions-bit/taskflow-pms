@@ -41,21 +41,48 @@ nested rather than the flat, status-grouped shape the board needs (FR-008
 requires every item, at every depth, to appear as its own card).
 
 **Decision**: A new endpoint, `GET api/projects/{projectId}/work-items/
-board`, returns `WorkItemBoardDto { Columns: string[], Items:
+board`, returns `WorkItemBoardDto { Columns: BoardColumnDto[], Items:
 WorkItemBoardCardDto[] }` — one query pass over all of a project's work
 items (same unpaginated, whole-project-at-once approach `GetTreeAsync`
 already uses at this scale, per that method's own research-backed
 rationale), computing each item's direct-children-done count with the same
 `Dictionary`/`GroupBy`-by-`ParentWorkItemId` shape `GetTreeAsync` already
 uses — applied to every item, not just roots. `Columns` is the ordered
-status list (`["ToDo", "InProgress", "InReview", "Done"]`) embedded in the
+column list (`[{status: "ToDo", label: "To Do"}, ...]`) embedded in the
 same response, since the board always needs both together in one request.
 
-**Column labels are not sent by the backend.** `Columns` is a list of raw
-status names; the frontend already owns the canonical status→label mapping
-in `StatusChipComponent`'s label map (`"ToDo"` → `"To Do"`, etc.) — sending
-labels from the backend too would create a second source of truth for the
-same text. The board's column header reuses that existing map.
+**Revised during triage — column labels ARE sent by the backend, not
+derived client-side.** The original version of this decision had `Columns`
+as a bare `string[]` of status names, with the frontend deriving each
+column's header text from `StatusChipComponent`'s own status→label map.
+That's wrong for this feature's own stated forward-compat requirement
+(FR-006: "the rendering approach MUST NOT assume that list is permanently
+fixed, since a future feature makes it configurable per project"). If the
+board component computes column labels itself from a closed, hardcoded
+map of the four known statuses, Feature 006 can't actually just "change
+what the backend returns" — a project with a custom-named column (e.g.
+"Backlog" or "QA") would have no entry in that map, forcing a board-
+component code change exactly when the point of this architecture was to
+avoid one. Sending `{status, label}` pairs from the backend now — even
+though today's `label` values are just formatted enum names computed
+server-side — means the board component only ever does "render whatever
+columns the response contains, in that order," and Feature 006 becomes a
+pure backend change (real per-project persistence + custom labels) with
+zero board-component edits.
+
+This does introduce a small, deliberate duplication: today, the backend's
+board-column labels and the frontend's `StatusChipComponent` label map
+say the same English words ("To Do", "In Progress", ...) in two places.
+That's an accepted tradeoff, not an oversight — the two concepts are not
+actually the same thing long-term. A status *chip* always represents one
+of the fixed `WorkItemStatus` enum values and will always need an English
+label for it, everywhere that status renders as a chip (tree rows, flat
+rows, detail pages) — that's permanent, chip-specific display logic that
+has nothing to do with board columns. A board *column*, per this
+feature's own explicit premise, is the thing that becomes arbitrary and
+per-project in Feature 006. Coupling column-label rendering to whatever
+the backend returns now avoids a real, larger problem later; the minor
+text duplication today is the cheaper side of that trade.
 
 **Alternatives considered**: Extending `WorkItemDto`/the flat list endpoint
 with child-progress counts and an "unpaginated" query flag — rejected;

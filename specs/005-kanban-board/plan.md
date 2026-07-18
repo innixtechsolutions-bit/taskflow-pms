@@ -153,7 +153,8 @@ backend/
 │   │   └── Entities/
 │   │       └── WorkItem.cs                  # MODIFIED — add InReview to WorkItemStatus enum
 │   ├── Dtos/
-│   │   ├── WorkItemBoardDto.cs              # NEW — { Columns: string[], Items: WorkItemBoardCardDto[] }
+│   │   ├── WorkItemBoardDto.cs              # NEW — { Columns: BoardColumnDto[], Items: WorkItemBoardCardDto[] }
+│   │   │                                      (BoardColumnDto: {Status, Label} — M1, label from backend)
 │   │   ├── WorkItemBoardCardDto.cs          # NEW — board card fields incl. child-progress counts
 │   │   └── UpdateWorkItemStatusRequest.cs   # NEW — { Status: string }
 │   ├── Services/
