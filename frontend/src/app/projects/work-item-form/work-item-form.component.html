@@ -10,11 +10,27 @@
         }
 
         <label for="type">Type</label>
-        <select id="type" (change)="type.set($any($event.target).value)">
+        <select id="type" (change)="onTypeChange($any($event.target).value)">
           @for (t of types; track t) {
             <option [value]="t" [selected]="t === type()">{{ t }}</option>
           }
         </select>
+
+        @if (type() !== 'Epic') {
+          <label for="parentWorkItemId">Parent{{ type() === 'SubTask' ? ' (required)' : '' }}</label>
+          <select
+            id="parentWorkItemId"
+            [required]="type() === 'SubTask'"
+            (change)="parentWorkItemId.set($any($event.target).value)"
+          >
+            @if (type() === 'Task') {
+              <option value="" [selected]="parentWorkItemId() === ''">None</option>
+            }
+            @for (c of parentCandidates(); track c.id) {
+              <option [value]="c.id" [selected]="parentWorkItemId() === c.id.toString()">{{ c.title }}</option>
+            }
+          </select>
+        }
 
         <mat-form-field appearance="outline">
           <mat-label>Title</mat-label>

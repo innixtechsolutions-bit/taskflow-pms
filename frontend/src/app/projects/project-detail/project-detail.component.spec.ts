@@ -41,6 +41,7 @@ function sampleItem(overrides: Partial<WorkItem> = {}): WorkItem {
     createdByName: 'Creator',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
+    parentWorkItemId: null,
     ...overrides,
   };
 }

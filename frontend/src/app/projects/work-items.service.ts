@@ -10,6 +10,7 @@ export interface WorkItemRequest {
   status?: string;
   assigneeUserId?: number;
   dueDate?: string;
+  parentWorkItemId?: number;
 }
 
 export interface WorkItem {
@@ -27,11 +28,17 @@ export interface WorkItem {
   createdByName: string;
   createdAt: string;
   updatedAt: string;
+  parentWorkItemId: number | null;
 }
 
 export interface UserLookupItem {
   id: number;
   fullName: string;
+}
+
+export interface WorkItemLookupItem {
+  id: number;
+  title: string;
 }
 
 export interface PagedResult<T> {
@@ -90,5 +97,18 @@ export class WorkItemsService {
 
   async getAssignableUsers(): Promise<UserLookupItem[]> {
     return firstValueFrom(this.http.get<UserLookupItem[]>('/api/users/lookup'));
+  }
+
+  // Called whenever the form's Type field changes — the candidate list depends on
+  // Type (data-model.md's Hierarchy rules table), so a fresh list is fetched each time
+  // rather than filtering one big list client-side.
+  async getParentCandidates(projectId: number, type: string): Promise<WorkItemLookupItem[]> {
+    const result = await firstValueFrom(
+      this.http.get<{ candidates: WorkItemLookupItem[] }>(
+        `/api/projects/${projectId}/work-items/parent-candidates`,
+        { params: { type } }
+      )
+    );
+    return result.candidates;
   }
 }

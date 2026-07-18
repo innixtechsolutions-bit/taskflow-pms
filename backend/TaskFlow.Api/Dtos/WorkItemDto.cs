@@ -14,4 +14,5 @@ public record WorkItemDto(
     int CreatedByUserId,
     string CreatedByName,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    int? ParentWorkItemId);

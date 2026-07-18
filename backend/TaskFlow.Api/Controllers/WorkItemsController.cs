@@ -40,6 +40,44 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+        catch (EpicCannotHaveParentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (ParentRequiredException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidParentTypeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (ParentWorkItemNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (ParentMustBeSameProjectException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+    }
+
+    [HttpGet("api/projects/{projectId}/work-items/parent-candidates")]
+    public async Task<ActionResult<WorkItemParentCandidatesResponse>> GetParentCandidates(int projectId, [FromQuery] string type)
+    {
+        try
+        {
+            var candidates = await workItemService.GetParentCandidatesAsync(projectId, type);
+            return Ok(new WorkItemParentCandidatesResponse(candidates));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (InvalidWorkItemTypeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
     }
 
     [HttpGet("api/projects/{projectId}/work-items")]

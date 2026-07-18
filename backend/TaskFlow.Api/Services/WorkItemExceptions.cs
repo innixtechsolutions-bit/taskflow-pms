@@ -19,3 +19,17 @@ public class NotAuthorizedToEditWorkItemException() : Exception(
 // Manager/Admin (FR-017/FR-018).
 public class NotAuthorizedToDeleteWorkItemException() : Exception(
     "You do not have permission to delete this work item.");
+
+// Hierarchy rule violations (data-model.md's Hierarchy rules table). Each names the
+// specific rule broken, per FR-009's "error response that names the specific rule
+// violated" requirement.
+public class EpicCannotHaveParentException() : Exception("An Epic cannot have a parent.");
+
+public class ParentRequiredException(Data.Entities.WorkItemType type) : Exception($"{type} requires a parent.");
+
+public class InvalidParentTypeException(Data.Entities.WorkItemType childType, Data.Entities.WorkItemType requiredParentType)
+    : Exception($"{childType}'s parent must be a {requiredParentType}.");
+
+public class ParentWorkItemNotFoundException() : Exception("Parent work item not found.");
+
+public class ParentMustBeSameProjectException() : Exception("Parent must belong to the same project.");

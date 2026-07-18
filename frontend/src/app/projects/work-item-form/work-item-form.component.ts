@@ -5,7 +5,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
-import { UserLookupItem, WorkItemsService } from '../work-items.service';
+import { UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
 
 interface TitleFormModel {
   title: string;
@@ -57,12 +57,15 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly status = signal('ToDo');
   protected readonly assigneeUserId = signal('');
   protected readonly dueDate = signal('');
+  protected readonly parentWorkItemId = signal('');
+  protected readonly parentCandidates = signal<WorkItemLookupItem[]>([]);
 
   protected readonly submitting = signal(false);
   protected readonly serverError = signal<string | null>(null);
 
   ngOnInit(): void {
     void this.loadAssignableUsers();
+    void this.loadParentCandidates();
     if (this.isEditMode) {
       void this.loadExistingWorkItem();
     }
@@ -70,6 +73,19 @@ export class WorkItemFormComponent implements OnInit {
 
   private async loadAssignableUsers(): Promise<void> {
     this.assignableUsers.set(await this.workItemsService.getAssignableUsers());
+  }
+
+  private async loadParentCandidates(): Promise<void> {
+    this.parentCandidates.set(await this.workItemsService.getParentCandidates(this.projectId, this.type()));
+  }
+
+  // Type drives which candidates are valid (data-model.md's Hierarchy rules table),
+  // so a Type change refetches candidates and clears any parent no longer valid for
+  // the newly selected type rather than leaving a stale, possibly-illegal selection.
+  protected onTypeChange(value: string): void {
+    this.type.set(value);
+    this.parentWorkItemId.set('');
+    void this.loadParentCandidates();
   }
 
   private async loadExistingWorkItem(): Promise<void> {
@@ -82,6 +98,8 @@ export class WorkItemFormComponent implements OnInit {
     this.assigneeUserId.set(item.assigneeUserId ? item.assigneeUserId.toString() : '');
     // The API returns a full ISO datetime; a date <input> only accepts its date portion.
     this.dueDate.set(item.dueDate ? item.dueDate.slice(0, 10) : '');
+    this.parentWorkItemId.set(item.parentWorkItemId ? item.parentWorkItemId.toString() : '');
+    await this.loadParentCandidates();
   }
 
   protected async onSubmit(event: Event): Promise<void> {
@@ -103,6 +121,7 @@ export class WorkItemFormComponent implements OnInit {
         status: this.status(),
         assigneeUserId: this.assigneeUserId() ? Number(this.assigneeUserId()) : undefined,
         dueDate: this.dueDate() || undefined,
+        parentWorkItemId: this.parentWorkItemId() ? Number(this.parentWorkItemId()) : undefined,
       };
       if (this.isEditMode) {
         await this.workItemsService.updateWorkItem(this.workItemId!, request);

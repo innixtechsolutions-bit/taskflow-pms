@@ -43,6 +43,8 @@ public class WorkItemService(AppDbContext dbContext)
             }
         }
 
+        await ValidateParentAsync(projectId, type, request.ParentWorkItemId);
+
         var now = DateTime.UtcNow;
         var workItem = new WorkItem
         {
@@ -56,7 +58,8 @@ public class WorkItemService(AppDbContext dbContext)
             DueDate = request.DueDate,
             CreatedByUserId = creatorUserId,
             CreatedAt = now,
-            UpdatedAt = now
+            UpdatedAt = now,
+            ParentWorkItemId = request.ParentWorkItemId
         };
 
         dbContext.WorkItems.Add(workItem);
@@ -223,7 +226,8 @@ public class WorkItemService(AppDbContext dbContext)
                 w.CreatedByUserId,
                 w.CreatedBy!.FullName,
                 w.CreatedAt,
-                w.UpdatedAt))
+                w.UpdatedAt,
+                w.ParentWorkItemId))
             .ToListAsync();
 
         return new PagedResult<WorkItemDto>(items, page, pageSize, totalCount);
@@ -246,6 +250,92 @@ public class WorkItemService(AppDbContext dbContext)
                 w.CreatedByUserId,
                 w.CreatedBy!.FullName,
                 w.CreatedAt,
-                w.UpdatedAt))
+                w.UpdatedAt,
+                w.ParentWorkItemId))
             .SingleOrDefaultAsync() ?? throw new WorkItemNotFoundException();
+
+    // The chain's rank: Epic(0) < Story(1) < Task(2) < SubTask(3). A valid parent is
+    // always exactly one rank below the child — null means "no parent allowed at all"
+    // (Epic only). Because rank strictly decreases walking up any parent chain, and
+    // Epic (rank 0) can never itself have a parent, no item can ever reach itself
+    // again by following parent references — cycles are unreachable by construction,
+    // so no separate ancestor-walk/visited-set check is needed anywhere this helper
+    // is used (research.md §2). The same fact means a parent-candidates query filtered
+    // to just "the required type, same project" can never include the item itself or
+    // any of its own descendants either, since a descendant's type is always at or
+    // below the item's own rank, never one rank above it.
+    private static WorkItemType? RequiredParentType(WorkItemType type) => type switch
+    {
+        WorkItemType.Epic => null,
+        WorkItemType.Story => WorkItemType.Epic,
+        WorkItemType.Task => WorkItemType.Story,
+        WorkItemType.SubTask => WorkItemType.Task,
+        _ => throw new ArgumentOutOfRangeException(nameof(type))
+    };
+
+    // Story/SubTask require a parent; Task's is optional; Epic forbids one entirely.
+    private static bool ParentIsRequired(WorkItemType type) => type is WorkItemType.Story or WorkItemType.SubTask;
+
+    private async Task ValidateParentAsync(int projectId, WorkItemType type, int? parentWorkItemId)
+    {
+        var requiredParentType = RequiredParentType(type);
+
+        if (requiredParentType is null)
+        {
+            if (parentWorkItemId.HasValue)
+            {
+                throw new EpicCannotHaveParentException();
+            }
+            return;
+        }
+
+        if (!parentWorkItemId.HasValue)
+        {
+            if (ParentIsRequired(type))
+            {
+                throw new ParentRequiredException(type);
+            }
+            return;
+        }
+
+        var parent = await dbContext.WorkItems.FindAsync(parentWorkItemId.Value)
+            ?? throw new ParentWorkItemNotFoundException();
+
+        if (parent.ProjectId != projectId)
+        {
+            throw new ParentMustBeSameProjectException();
+        }
+
+        if (parent.Type != requiredParentType.Value)
+        {
+            throw new InvalidParentTypeException(type, requiredParentType.Value);
+        }
+    }
+
+    public async Task<List<WorkItemLookupItemDto>> GetParentCandidatesAsync(int projectId, string type)
+    {
+        var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
+        if (!projectExists)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        if (!Enum.TryParse<WorkItemType>(type, ignoreCase: true, out var typeValue))
+        {
+            throw new InvalidWorkItemTypeException();
+        }
+
+        var requiredParentType = RequiredParentType(typeValue);
+        if (requiredParentType is null)
+        {
+            // Epic never has a parent — an always-empty list, not an error, so the
+            // frontend can simply disable the picker rather than special-case this.
+            return [];
+        }
+
+        return await dbContext.WorkItems
+            .Where(w => w.ProjectId == projectId && w.Type == requiredParentType.Value)
+            .Select(w => new WorkItemLookupItemDto(w.Id, w.Title))
+            .ToListAsync();
+    }
 }

@@ -14,19 +14,25 @@ function setInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: string
   el.dispatchEvent(new Event('input'));
 }
 
+const sampleCandidates = [
+  { id: 10, title: 'Epic One' },
+  { id: 11, title: 'Epic Two' },
+];
+
 function configure(
   createWorkItem = vi.fn(),
-  getAssignableUsers = vi.fn().mockResolvedValue(sampleUsers)
+  getAssignableUsers = vi.fn().mockResolvedValue(sampleUsers),
+  getParentCandidates = vi.fn().mockResolvedValue(sampleCandidates)
 ) {
   TestBed.configureTestingModule({
     imports: [WorkItemFormComponent],
     providers: [
       provideRouter([]),
-      { provide: WorkItemsService, useValue: { createWorkItem, getAssignableUsers } },
+      { provide: WorkItemsService, useValue: { createWorkItem, getAssignableUsers, getParentCandidates } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1' }) } } },
     ],
   });
-  return { createWorkItem, getAssignableUsers };
+  return { createWorkItem, getAssignableUsers, getParentCandidates };
 }
 
 describe('WorkItemFormComponent (create mode)', () => {
@@ -74,6 +80,59 @@ describe('WorkItemFormComponent (create mode)', () => {
     expect(fixture.nativeElement.textContent).toContain('Ada Lovelace');
     expect(fixture.nativeElement.textContent).toContain('Grace Hopper');
   });
+
+  it('refetches parent candidates when Type changes', async () => {
+    const { getParentCandidates } = configure();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getParentCandidates).toHaveBeenCalledWith(1, 'Task');
+
+    const root = fixture.nativeElement as HTMLElement;
+    const typeSelect = root.querySelector<HTMLSelectElement>('#type')!;
+    typeSelect.value = 'SubTask';
+    typeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getParentCandidates).toHaveBeenCalledWith(1, 'SubTask');
+  });
+
+  it('marks the parent picker required for SubTask', async () => {
+    configure();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const typeSelect = root.querySelector<HTMLSelectElement>('#type')!;
+    typeSelect.value = 'SubTask';
+    typeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.querySelector<HTMLSelectElement>('#parentWorkItemId')!.required).toBe(true);
+  });
+
+  it('hides the parent picker entirely for Epic', async () => {
+    configure();
+    const fixture = TestBed.createComponent(WorkItemFormComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const typeSelect = root.querySelector<HTMLSelectElement>('#type')!;
+    typeSelect.value = 'Epic';
+    typeSelect.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.querySelector('#parentWorkItemId')).toBeNull();
+  });
 });
 
 const existingItem = {
@@ -91,11 +150,13 @@ const existingItem = {
   createdByName: 'Ada Lovelace',
   createdAt: '2026-07-01T00:00:00.000Z',
   updatedAt: '2026-07-01T00:00:00.000Z',
+  parentWorkItemId: null,
 };
 
 function configureEdit(
   getWorkItem = vi.fn().mockResolvedValue(existingItem),
-  updateWorkItem = vi.fn().mockResolvedValue(existingItem)
+  updateWorkItem = vi.fn().mockResolvedValue(existingItem),
+  getParentCandidates = vi.fn().mockResolvedValue(sampleCandidates)
 ) {
   TestBed.configureTestingModule({
     imports: [WorkItemFormComponent],
@@ -103,12 +164,17 @@ function configureEdit(
       provideRouter([]),
       {
         provide: WorkItemsService,
-        useValue: { getWorkItem, updateWorkItem, getAssignableUsers: vi.fn().mockResolvedValue(sampleUsers) },
+        useValue: {
+          getWorkItem,
+          updateWorkItem,
+          getAssignableUsers: vi.fn().mockResolvedValue(sampleUsers),
+          getParentCandidates,
+        },
       },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '7' }) } } },
     ],
   });
-  return { getWorkItem, updateWorkItem };
+  return { getWorkItem, updateWorkItem, getParentCandidates };
 }
 
 describe('WorkItemFormComponent (edit mode)', () => {

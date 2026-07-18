@@ -65,6 +65,170 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         Title = title
     };
 
+    private static WorkItemRequest RequestOfType(string type, int? parentWorkItemId = null, string title = "Some item") => new()
+    {
+        Type = type,
+        Title = title,
+        ParentWorkItemId = parentWorkItemId
+    };
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_parent_on_an_epic()
+    {
+        var user = AddUser("epic-parent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var otherEpic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Other epic");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<EpicCannotHaveParentException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("Epic", otherEpic.Id)));
+    }
+
+    [Fact]
+    public async Task CreateAsync_requires_an_epic_parent_for_a_story()
+    {
+        var user = AddUser("story-noparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ParentRequiredException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("Story")));
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_non_epic_parent_for_a_story()
+    {
+        var user = AddUser("story-wrongparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var task = AddWorkItem(project.Id, user.Id, type: WorkItemType.Task, title: "A task");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidParentTypeException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("Story", task.Id)));
+    }
+
+    [Fact]
+    public async Task CreateAsync_creates_a_story_under_an_epic()
+    {
+        var user = AddUser("story-ok@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var sut = CreateSut();
+
+        var result = await sut.CreateAsync(user.Id, project.Id, RequestOfType("Story", epic.Id));
+
+        Assert.Equal(epic.Id, result.ParentWorkItemId);
+    }
+
+    [Fact]
+    public async Task CreateAsync_allows_a_task_with_no_parent()
+    {
+        var user = AddUser("task-noparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        var result = await sut.CreateAsync(user.Id, project.Id, RequestOfType("Task"));
+
+        Assert.Null(result.ParentWorkItemId);
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_non_story_parent_for_a_task()
+    {
+        var user = AddUser("task-wrongparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidParentTypeException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("Task", epic.Id)));
+    }
+
+    [Fact]
+    public async Task CreateAsync_requires_a_task_parent_for_a_subtask()
+    {
+        var user = AddUser("subtask-noparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ParentRequiredException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("SubTask")));
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_non_task_parent_for_a_subtask()
+    {
+        var user = AddUser("subtask-wrongparent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var story = AddWorkItem(project.Id, user.Id, type: WorkItemType.Story, title: "Story");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidParentTypeException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("SubTask", story.Id)));
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_parent_from_a_different_project()
+    {
+        var user = AddUser("cross-project@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var otherProject = AddProject("Beta", user.Id);
+        var epicInOtherProject = AddWorkItem(otherProject.Id, user.Id, type: WorkItemType.Epic, title: "Other project epic");
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ParentMustBeSameProjectException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("Story", epicInOtherProject.Id)));
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_an_unknown_parent_id()
+    {
+        var user = AddUser("unknown-parent@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ParentWorkItemNotFoundException>(
+            () => sut.CreateAsync(user.Id, project.Id, RequestOfType("Story", 999999)));
+    }
+
+    [Fact]
+    public async Task GetParentCandidatesAsync_returns_only_same_project_items_of_the_required_parent_type()
+    {
+        var user = AddUser("candidates@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var otherProject = AddProject("Beta", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic in project");
+        AddWorkItem(project.Id, user.Id, type: WorkItemType.Story, title: "Not a candidate (wrong type)");
+        AddWorkItem(otherProject.Id, user.Id, type: WorkItemType.Epic, title: "Epic in other project");
+        var sut = CreateSut();
+
+        var candidates = await sut.GetParentCandidatesAsync(project.Id, "Story");
+
+        var candidate = Assert.Single(candidates);
+        Assert.Equal(epic.Id, candidate.Id);
+    }
+
+    [Fact]
+    public async Task GetParentCandidatesAsync_returns_an_empty_list_for_epic()
+    {
+        var user = AddUser("candidates-epic@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Some epic");
+        var sut = CreateSut();
+
+        var candidates = await sut.GetParentCandidatesAsync(project.Id, "Epic");
+
+        Assert.Empty(candidates);
+    }
+
+    [Fact]
+    public async Task GetParentCandidatesAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetParentCandidatesAsync(999999, "Story"));
+    }
+
     [Fact]
     public async Task CreateAsync_applies_default_priority_and_status_when_omitted()
     {

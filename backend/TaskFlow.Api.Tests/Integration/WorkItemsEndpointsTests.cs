@@ -122,6 +122,161 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    private async Task<int> CreateItemOfTypeAsync(string token, int projectId, string type, int? parentWorkItemId = null, string title = "Some item")
+    {
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type, title, parentWorkItemId });
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        return body!.Id;
+    }
+
+    [Fact]
+    public async Task Create_a_full_four_level_chain_succeeds_with_correct_parents()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"chain-{Guid.NewGuid():N}@example.com");
+
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+        var storyId = await CreateItemOfTypeAsync(token, projectId, "Story", epicId, "Story");
+        var taskId = await CreateItemOfTypeAsync(token, projectId, "Task", storyId, "Task");
+        var subTaskId = await CreateItemOfTypeAsync(token, projectId, "SubTask", taskId, "SubTask");
+
+        Assert.True(epicId > 0);
+        Assert.True(storyId > 0);
+        Assert.True(taskId > 0);
+        Assert.True(subTaskId > 0);
+    }
+
+    [Fact]
+    public async Task Create_returns_400_when_an_epic_is_given_a_parent()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"badepic-{Guid.NewGuid():N}@example.com");
+        var otherEpicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Other epic");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Epic", title = "Bad epic", parentWorkItemId = otherEpicId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_returns_400_when_a_subtask_has_no_parent()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"nosubtaskparent-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "SubTask", title = "Bad subtask" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_returns_400_for_a_wrong_type_parent()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"wrongtype-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "SubTask", title = "Bad subtask", parentWorkItemId = epicId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_returns_400_for_a_cross_project_parent()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var otherProjectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"crossproject-{Guid.NewGuid():N}@example.com");
+        var epicInOtherProjectId = await CreateItemOfTypeAsync(token, otherProjectId, "Epic", title: "Other project epic");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Story", title = "Bad story", parentWorkItemId = epicInOtherProjectId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetParentCandidates_returns_200_with_correct_candidates()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"candidates-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items/parent-candidates?type=Story", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemParentCandidatesResponse>();
+        var candidate = Assert.Single(body!.Candidates);
+        Assert.Equal(epicId, candidate.Id);
+    }
+
+    [Fact]
+    public async Task GetParentCandidates_returns_200_with_an_empty_array_for_epic()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"candidates-epic-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items/parent-candidates?type=Epic", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemParentCandidatesResponse>();
+        Assert.Empty(body!.Candidates);
+    }
+
+    [Fact]
+    public async Task GetParentCandidates_returns_400_for_an_invalid_type()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"candidates-badtype-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items/parent-candidates?type=NotAType", token));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetParentCandidates_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"candidates-noproject-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, "/api/projects/999999/work-items/parent-candidates?type=Story", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetParentCandidates_returns_401_without_a_token()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/work-items/parent-candidates?type=Story");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private async Task<WorkItemDto> CreateWorkItemAsync(string token, int projectId, string title = "Fix the login bug", int? assigneeUserId = null)
     {
         var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
