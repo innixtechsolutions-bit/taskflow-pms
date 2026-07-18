@@ -122,7 +122,18 @@ app.UseExceptionHandler();
 // RFC 7807 shape (FR-020), instead of only the errors an action method threw itself.
 app.UseStatusCodePages();
 
-app.UseHttpsRedirection();
+// Skipped in Development: the Angular dev server's proxy (frontend/proxy.conf.json)
+// targets this API over plain HTTP only. When both an http and an https endpoint
+// are bound (the default "https" launch profile), this middleware would otherwise
+// 307-redirect every request to the https endpoint — the browser follows that
+// redirect directly, bypassing the dev-server proxy and crossing origins, and
+// strips the Authorization header on that cross-origin hop (Fetch spec behavior),
+// turning every authenticated call into a spurious 401 that looks like a logout.
+// A real deployment (not Development) still gets the redirect.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // CORS must run before authentication/authorization: the browser's preflight
 // OPTIONS request carries no Authorization header, so if UseCors ran later,

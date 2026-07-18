@@ -6,6 +6,8 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { AuthService, AuthState } from './auth/auth.service';
 import { RegisterComponent } from './auth/register/register.component';
+import { ProjectsListComponent } from './projects/projects-list/projects-list.component';
+import { ProjectsService } from './projects/projects.service';
 
 const signedInState: AuthState = {
   id: 1,
@@ -47,6 +49,45 @@ describe('App', () => {
     await harness.navigateByUrl('/');
 
     expect(harness.routeNativeElement?.textContent).toContain('Ada Lovelace');
+  });
+
+  // Bug report: after a successful login (home renders fine), clicking "Projects"
+  // redirects to /login?returnUrl=%2Fprojects even though the visitor is signed in.
+  // Reproduces the exact reported sequence — navigate to '/' first, then '/projects',
+  // against the real routes/guard with one persistent signed-in AuthService.
+  it('navigates to /projects after already having visited the home page while signed in', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter(routes),
+        { provide: AuthService, useValue: { currentUser: () => signedInState, currentRole: () => signedInState.role } },
+        { provide: ProjectsService, useValue: { getProjects: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }) } },
+      ],
+    });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/');
+
+    await harness.navigateByUrl('/projects', ProjectsListComponent);
+
+    expect(TestBed.inject(Router).url).toBe('/projects');
+  });
+
+  // Same reproduction, but against the REAL AuthService (not a mock) — seeded via
+  // setAuth() exactly the way a real login() call leaves it, to catch a bug in
+  // AuthService's own signal/storage state rather than assuming it's sound.
+  it('navigates to /projects using the real AuthService after visiting home', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter(routes),
+        { provide: ProjectsService, useValue: { getProjects: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }) } },
+      ],
+    });
+    TestBed.inject(AuthService).setAuth(signedInState);
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/');
+
+    await harness.navigateByUrl('/projects', ProjectsListComponent);
+
+    expect(TestBed.inject(Router).url).toBe('/projects');
   });
 
   it('does not show the header when not signed in', () => {
