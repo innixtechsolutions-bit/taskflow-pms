@@ -141,11 +141,12 @@ public class WorkItemService(AppDbContext dbContext)
         await dbContext.SaveChangesAsync();
     }
 
-    // Bare-minimum listing (no filters yet — see US6) pulled forward from its nominal
-    // phase: US4's edit/delete controls need rows to render next to, and there's no
-    // work-item list UI at all without this existing first (tasks.md's discovered-
-    // dependency note).
-    public async Task<PagedResult<WorkItemDto>> GetWorkItemsAsync(int projectId, int page, int pageSize)
+    // Bare-minimum listing (pulled forward into US4 since edit/delete controls need
+    // rows to render next to — tasks.md's discovered-dependency note) extended here
+    // with the full filter/search set.
+    public async Task<PagedResult<WorkItemDto>> GetWorkItemsAsync(
+        int projectId, int page, int pageSize,
+        string? status, string? type, string? priority, int? assigneeUserId, string? search)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
         if (!projectExists)
@@ -153,7 +154,51 @@ public class WorkItemService(AppDbContext dbContext)
             throw new ProjectNotFoundException();
         }
 
+        // Each .Where() below only appends a predicate to this query's expression tree —
+        // nothing touches the database until it's enumerated (.CountAsync()/.ToListAsync()
+        // further down), so five conditionally-appended .Where() calls still produce one
+        // SQL query with up to five AND conditions, not five separate round-trips
+        // (research.md §4).
         var query = dbContext.WorkItems.Where(w => w.ProjectId == projectId);
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (!Enum.TryParse<WorkItemStatus>(status, ignoreCase: true, out var statusValue))
+            {
+                throw new InvalidWorkItemStatusException();
+            }
+            query = query.Where(w => w.Status == statusValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            if (!Enum.TryParse<WorkItemType>(type, ignoreCase: true, out var typeValue))
+            {
+                throw new InvalidWorkItemTypeException();
+            }
+            query = query.Where(w => w.Type == typeValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(priority))
+        {
+            if (!Enum.TryParse<WorkItemPriority>(priority, ignoreCase: true, out var priorityValue))
+            {
+                throw new InvalidWorkItemPriorityException();
+            }
+            query = query.Where(w => w.Priority == priorityValue);
+        }
+
+        if (assigneeUserId.HasValue)
+        {
+            query = query.Where(w => w.AssigneeUserId == assigneeUserId.Value);
+        }
+
+        // Case-insensitive via SQL Server's default collation, same mechanism as
+        // Project.Name/User.Email elsewhere in this codebase — no extra call needed.
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query = query.Where(w => w.Title.Contains(search));
+        }
 
         // Clamped, never rejected (spec.md Edge Cases) — a caller asking for too much
         // just gets the maximum instead of an error.

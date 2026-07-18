@@ -43,16 +43,31 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
     }
 
     [HttpGet("api/projects/{projectId}/work-items")]
-    public async Task<ActionResult<PagedResult<WorkItemDto>>> GetWorkItems(int projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<PagedResult<WorkItemDto>>> GetWorkItems(
+        int projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null, [FromQuery] string? type = null, [FromQuery] string? priority = null,
+        [FromQuery] int? assigneeUserId = null, [FromQuery] string? search = null)
     {
         try
         {
-            var result = await workItemService.GetWorkItemsAsync(projectId, page, pageSize);
+            var result = await workItemService.GetWorkItemsAsync(projectId, page, pageSize, status, type, priority, assigneeUserId, search);
             return Ok(result);
         }
         catch (ProjectNotFoundException ex)
         {
             return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (InvalidWorkItemStatusException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidWorkItemTypeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidWorkItemPriorityException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
     }
 

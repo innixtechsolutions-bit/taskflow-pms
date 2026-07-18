@@ -11,8 +11,51 @@
 
   <h2>Work items</h2>
   <a [routerLink]="['/projects', p.id, 'work-items', 'new']">New work item</a>
+
+  <div class="work-item-filters">
+    <label for="statusFilter">Status</label>
+    <select id="statusFilter" (change)="onStatusFilterChange($any($event.target).value)">
+      <option value="" [selected]="statusFilter() === ''">All statuses</option>
+      @for (s of statuses; track s) {
+        <option [value]="s" [selected]="statusFilter() === s">{{ s }}</option>
+      }
+    </select>
+
+    <label for="typeFilter">Type</label>
+    <select id="typeFilter" (change)="onTypeFilterChange($any($event.target).value)">
+      <option value="" [selected]="typeFilter() === ''">All types</option>
+      @for (t of types; track t) {
+        <option [value]="t" [selected]="typeFilter() === t">{{ t }}</option>
+      }
+    </select>
+
+    <label for="priorityFilter">Priority</label>
+    <select id="priorityFilter" (change)="onPriorityFilterChange($any($event.target).value)">
+      <option value="" [selected]="priorityFilter() === ''">All priorities</option>
+      @for (pr of priorities; track pr) {
+        <option [value]="pr" [selected]="priorityFilter() === pr">{{ pr }}</option>
+      }
+    </select>
+
+    <label for="assigneeFilter">Assignee</label>
+    <select id="assigneeFilter" (change)="onAssigneeFilterChange($any($event.target).value)">
+      <option value="" [selected]="assigneeFilter() === ''">All assignees</option>
+      @for (u of assignableUsers(); track u.id) {
+        <option [value]="u.id" [selected]="assigneeFilter() === u.id.toString()">{{ u.fullName }}</option>
+      }
+    </select>
+
+    <label for="searchFilter">Search</label>
+    <input id="searchFilter" type="text" [value]="searchInput()" (input)="searchInput.set($any($event.target).value)" />
+    <button type="button" class="search-button" (click)="onSearch()">Search</button>
+  </div>
+
   @if (workItems().length === 0) {
-    <p>No work items yet</p>
+    @if (hasActiveFilters()) {
+      <p>No items match your filters.</p>
+    } @else {
+      <p>No work items yet</p>
+    }
   } @else {
     <ul class="work-item-list">
       @for (item of workItems(); track item.id) {
@@ -29,5 +72,9 @@
         </li>
       }
     </ul>
+    <div class="work-item-pagination">
+      <button type="button" class="prev-page" (click)="prevPage()" [disabled]="page() === 1">Previous</button>
+      <button type="button" class="next-page" (click)="nextPage()" [disabled]="page() * pageSize >= totalCount()">Next</button>
+    </div>
   }
 }

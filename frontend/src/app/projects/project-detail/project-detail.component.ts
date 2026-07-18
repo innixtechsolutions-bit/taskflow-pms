@@ -1,8 +1,12 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
-import { WorkItem, WorkItemsService } from '../work-items.service';
+import { UserLookupItem, WorkItem, WorkItemsFilter, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
+
+const STATUSES = ['ToDo', 'InProgress', 'Done'];
+const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
+const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
 @Component({
   selector: 'app-project-detail',
@@ -20,15 +24,105 @@ export class ProjectDetailComponent implements OnInit {
 
   protected readonly project = signal<ProjectDetail | null>(null);
   protected readonly workItems = signal<WorkItem[]>([]);
+  protected readonly assignableUsers = signal<UserLookupItem[]>([]);
+
+  protected readonly statuses = STATUSES;
+  protected readonly types = TYPES;
+  protected readonly priorities = PRIORITIES;
+
+  protected readonly statusFilter = signal('');
+  protected readonly typeFilter = signal('');
+  protected readonly priorityFilter = signal('');
+  protected readonly assigneeFilter = signal('');
+  protected readonly searchFilter = signal('');
+  protected readonly searchInput = signal('');
+
+  protected readonly page = signal(1);
+  protected readonly pageSize = 20;
+  protected readonly totalCount = signal(0);
 
   ngOnInit(): void {
-    void this.load();
+    void this.loadProject();
+    void this.loadWorkItems();
+    void this.loadAssignableUsers();
   }
 
-  private async load(): Promise<void> {
+  private async loadProject(): Promise<void> {
     this.project.set(await this.projectsService.getProject(this.projectId));
-    const page = await this.workItemsService.getWorkItems(this.projectId);
-    this.workItems.set(page.items);
+  }
+
+  private async loadAssignableUsers(): Promise<void> {
+    this.assignableUsers.set(await this.workItemsService.getAssignableUsers());
+  }
+
+  private currentFilter(): WorkItemsFilter {
+    return {
+      page: this.page(),
+      pageSize: this.pageSize,
+      status: this.statusFilter() || undefined,
+      type: this.typeFilter() || undefined,
+      priority: this.priorityFilter() || undefined,
+      assigneeUserId: this.assigneeFilter() ? Number(this.assigneeFilter()) : undefined,
+      search: this.searchFilter() || undefined,
+    };
+  }
+
+  private async loadWorkItems(): Promise<void> {
+    const result = await this.workItemsService.getWorkItems(this.projectId, this.currentFilter());
+    this.workItems.set(result.items);
+    this.totalCount.set(result.totalCount);
+  }
+
+  // Distinguishes a genuinely empty project (FR-023) from filters that simply matched
+  // nothing — the two need different messages.
+  protected hasActiveFilters(): boolean {
+    return !!(
+      this.statusFilter() ||
+      this.typeFilter() ||
+      this.priorityFilter() ||
+      this.assigneeFilter() ||
+      this.searchFilter()
+    );
+  }
+
+  protected onStatusFilterChange(value: string): void {
+    this.statusFilter.set(value);
+    this.applyFilters();
+  }
+
+  protected onTypeFilterChange(value: string): void {
+    this.typeFilter.set(value);
+    this.applyFilters();
+  }
+
+  protected onPriorityFilterChange(value: string): void {
+    this.priorityFilter.set(value);
+    this.applyFilters();
+  }
+
+  protected onAssigneeFilterChange(value: string): void {
+    this.assigneeFilter.set(value);
+    this.applyFilters();
+  }
+
+  protected onSearch(): void {
+    this.searchFilter.set(this.searchInput());
+    this.applyFilters();
+  }
+
+  private applyFilters(): void {
+    this.page.set(1);
+    void this.loadWorkItems();
+  }
+
+  protected nextPage(): void {
+    this.page.update((p) => p + 1);
+    void this.loadWorkItems();
+  }
+
+  protected prevPage(): void {
+    this.page.update((p) => Math.max(1, p - 1));
+    void this.loadWorkItems();
   }
 
   // Broader than canDelete: also allows the item's current assignee (FR-016).
@@ -59,7 +153,10 @@ export class ProjectDetailComponent implements OnInit {
       return;
     }
     await this.workItemsService.deleteWorkItem(item.id);
-    await this.load();
+    // Deleting a work item changes the project's totalWorkItemCount (used by the
+    // project-level delete confirmation), so both need refreshing, not just the list.
+    await this.loadProject();
+    await this.loadWorkItems();
   }
 
   // Project edit/delete is a simple role check — no ownership dimension, unlike

@@ -253,12 +253,49 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         AddWorkItem(project.Id, user.Id, title: "Middle", updatedAt: DateTime.UtcNow.AddMinutes(-1));
         var sut = CreateSut();
 
-        var result = await sut.GetWorkItemsAsync(project.Id, page: 1, pageSize: 20);
+        var result = await sut.GetWorkItemsAsync(project.Id, page: 1, pageSize: 20, status: null, type: null, priority: null, assigneeUserId: null, search: null);
 
         Assert.Equal(3, result.TotalCount);
         Assert.Equal("Newest", result.Items[0].Title);
         Assert.Equal("Middle", result.Items[1].Title);
         Assert.Equal("Oldest", result.Items[2].Title);
+    }
+
+    [Fact]
+    public async Task GetWorkItemsAsync_filters_by_status_type_priority_and_assignee_individually_and_combined()
+    {
+        var user = AddUser("filterer@example.com");
+        var assignee = AddUser("assignee3@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var match = AddWorkItem(project.Id, user.Id, assigneeUserId: assignee.Id, status: WorkItemStatus.InProgress, priority: WorkItemPriority.High, type: WorkItemType.Story, title: "Match");
+        AddWorkItem(project.Id, user.Id, status: WorkItemStatus.ToDo, priority: WorkItemPriority.Low, type: WorkItemType.Task, title: "NoMatch");
+        var sut = CreateSut();
+
+        var byStatus = await sut.GetWorkItemsAsync(project.Id, 1, 20, "InProgress", null, null, null, null);
+        var byType = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, "Story", null, null, null);
+        var byPriority = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, "High", null, null);
+        var byAssignee = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, assignee.Id, null);
+        var combined = await sut.GetWorkItemsAsync(project.Id, 1, 20, "InProgress", "Story", "High", assignee.Id, null);
+
+        Assert.Equal(match.Id, byStatus.Items.Single().Id);
+        Assert.Equal(match.Id, byType.Items.Single().Id);
+        Assert.Equal(match.Id, byPriority.Items.Single().Id);
+        Assert.Equal(match.Id, byAssignee.Items.Single().Id);
+        Assert.Equal(match.Id, combined.Items.Single().Id);
+    }
+
+    [Fact]
+    public async Task GetWorkItemsAsync_search_is_a_case_insensitive_title_substring_match()
+    {
+        var user = AddUser("searcher@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Fix the LOGIN bug");
+        AddWorkItem(project.Id, user.Id, title: "Unrelated item");
+        var sut = CreateSut();
+
+        var result = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, null, search: "login");
+
+        Assert.Equal("Fix the LOGIN bug", result.Items.Single().Title);
     }
 
     [Fact]
@@ -272,7 +309,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         }
         var sut = CreateSut();
 
-        var result = await sut.GetWorkItemsAsync(project.Id, 1, pageSize: 500);
+        var result = await sut.GetWorkItemsAsync(project.Id, 1, pageSize: 500, null, null, null, null, null);
 
         Assert.Equal(100, result.PageSize);
     }
@@ -282,6 +319,18 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     {
         var sut = CreateSut();
 
-        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetWorkItemsAsync(999999, 1, 20));
+        await Assert.ThrowsAsync<ProjectNotFoundException>(
+            () => sut.GetWorkItemsAsync(999999, 1, 20, null, null, null, null, null));
+    }
+
+    [Fact]
+    public async Task GetWorkItemsAsync_throws_for_an_unparseable_status_filter()
+    {
+        var user = AddUser("badfilter@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidWorkItemStatusException>(
+            () => sut.GetWorkItemsAsync(project.Id, 1, 20, "NotAStatus", null, null, null, null));
     }
 }

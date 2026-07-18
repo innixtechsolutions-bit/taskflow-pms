@@ -237,16 +237,16 @@ bar and pagination controls, rather than creating the list from scratch.
 
 ### Tests for User Story 6 ⚠️
 
-- [ ] T051 [P] [US6] Unit tests for `WorkItemService.GetWorkItemsAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: paginated shape, each filter individually and in combination, case-insensitive title search, default sort by `UpdatedAt` descending, `pageSize` beyond 100 is clamped rather than rejected
-- [ ] T052 [P] [US6] Integration tests for `GET /api/projects/{projectId}/work-items` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: filters/search/pagination combinations, `404` unknown project, `400` when a `status`/`type`/`priority` query value doesn't parse as its enum (rather than the value being silently ignored)
-- [ ] T053 [P] [US6] Vitest tests added to `project-detail.component.spec.ts`: applying filters/search narrows the shown items; "No work items yet" (no filters, project genuinely empty) vs. "No items match your filters." (filters applied, no match) are distinguished; pagination controls page correctly
+- [X] T051 [P] [US6] Unit tests for `WorkItemService.GetWorkItemsAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: paginated shape, each filter individually and in combination, case-insensitive title search, default sort by `UpdatedAt` descending, `pageSize` beyond 100 is clamped rather than rejected. Extends the bare-minimum version pulled forward into US4 (tasks.md's discovered-dependency note) with the full filter set.
+- [X] T052 [P] [US6] Integration tests for `GET /api/projects/{projectId}/work-items` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: filters/search/pagination combinations, `404` unknown project, `400` when a `status`/`type`/`priority` query value doesn't parse as its enum (rather than the value being silently ignored)
+- [X] T053 [P] [US6] Vitest tests added to `project-detail.component.spec.ts`: applying filters/search narrows the shown items; "No work items yet" (no filters, project genuinely empty) vs. "No items match your filters." (filters applied, no match) are distinguished; pagination controls page correctly
 
 ### Implementation for User Story 6
 
-- [ ] T054 [US6] Implement `WorkItemService.GetWorkItemsAsync` (conditionally appended `.Where()` per supplied filter, case-insensitive title search, `pageSize` clamped to 100) in `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T031
-- [ ] T055 [US6] Implement `WorkItemsController.GetWorkItems` (`GET /api/projects/{projectId}/work-items`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T054
-- [ ] T056 [US6] Build the work-item list, filter/search bar, and pagination controls within `project-detail` (+ template) — depends on T053
-- [ ] T057 [US6] Add `getWorkItems()` (with filter/search/page params) to `work-items.service.ts`; wire `project-detail`'s filter bar and pagination to it — depends on T056
+- [X] T054 [US6] Implement `WorkItemService.GetWorkItemsAsync` (conditionally appended `.Where()` per supplied filter, case-insensitive title search, `pageSize` clamped to 100) in `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T031. Extends the bare-minimum US4 version with the full filter/search set and invalid-enum handling.
+- [X] T055 [US6] Implement `WorkItemsController.GetWorkItems` (`GET /api/projects/{projectId}/work-items`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T054
+- [X] T056 [US6] Build the work-item list, filter/search bar, and pagination controls within `project-detail` (+ template) — depends on T053. The itemized list itself (rows, edit/delete controls) was already built in US4; this task adds the status/type/priority/assignee `<select>` filters (each `[selected]`-per-`<option>`, research.md §6), a search input + button, and Previous/Next pagination controls on top of it.
+- [X] T057 [US6] Add `getWorkItems()` (with filter/search/page params) to `work-items.service.ts`; wire `project-detail`'s filter bar and pagination to it — depends on T056. `getWorkItems()`'s bare-minimum form was already added in US4; this task extends it and wires the new filter/search/pagination UI to it, resetting to page 1 on every filter/search change.
 
 **Checkpoint**: All six user stories are independently functional — the feature described in `spec.md` is complete end-to-end.
 

@@ -50,19 +50,20 @@ function configure(
   getWorkItems = vi.fn().mockResolvedValue(emptyPage()),
   authState: { id: number; role: string } | null = { id: 1, role: 'Developer' },
   deleteWorkItem = vi.fn().mockResolvedValue(undefined),
-  deleteProject = vi.fn().mockResolvedValue(undefined)
+  deleteProject = vi.fn().mockResolvedValue(undefined),
+  getAssignableUsers = vi.fn().mockResolvedValue([])
 ) {
   TestBed.configureTestingModule({
     imports: [ProjectDetailComponent],
     providers: [
       provideRouter([]),
       { provide: ProjectsService, useValue: { getProject, deleteProject } },
-      { provide: WorkItemsService, useValue: { getWorkItems, deleteWorkItem } },
+      { provide: WorkItemsService, useValue: { getWorkItems, deleteWorkItem, getAssignableUsers } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
     ],
   });
-  return { getProject, getWorkItems, deleteWorkItem, deleteProject };
+  return { getProject, getWorkItems, deleteWorkItem, deleteProject, getAssignableUsers };
 }
 
 async function render() {
@@ -277,5 +278,84 @@ describe('ProjectDetailComponent project-level edit/delete controls', () => {
 
     expect(deleteProject).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+});
+
+describe('ProjectDetailComponent filter, search, and pagination', () => {
+  it('applies a status filter and re-requests with it', async () => {
+    const getWorkItems = vi
+      .fn()
+      .mockResolvedValueOnce(pageOf([sampleItem({ id: 1 })]))
+      .mockResolvedValueOnce(pageOf([sampleItem({ id: 2, status: 'Done' })]));
+    configure(undefined, getWorkItems);
+    const fixture = await render();
+
+    const select = fixture.nativeElement.querySelector('#statusFilter') as HTMLSelectElement;
+    select.value = 'Done';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ status: 'Done', page: 1 }));
+  });
+
+  it('searches by title when the search button is clicked', async () => {
+    const getWorkItems = vi
+      .fn()
+      .mockResolvedValueOnce(pageOf([sampleItem()]))
+      .mockResolvedValueOnce(pageOf([sampleItem({ title: 'Fix the login bug' })]));
+    configure(undefined, getWorkItems);
+    const fixture = await render();
+
+    const input = fixture.nativeElement.querySelector('#searchFilter') as HTMLInputElement;
+    input.value = 'login';
+    input.dispatchEvent(new Event('input'));
+    (fixture.nativeElement.querySelector('.search-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ search: 'login', page: 1 }));
+  });
+
+  it('shows "No work items yet" when the project genuinely has none and no filters are applied', async () => {
+    configure(undefined, vi.fn().mockResolvedValue(emptyPage()));
+    const fixture = await render();
+
+    expect(fixture.nativeElement.textContent).toContain('No work items yet');
+  });
+
+  it('shows "No items match your filters." (not "No work items yet") when filters are applied and nothing matches', async () => {
+    const getWorkItems = vi
+      .fn()
+      .mockResolvedValueOnce(pageOf([sampleItem()]))
+      .mockResolvedValueOnce(emptyPage());
+    configure(undefined, getWorkItems);
+    const fixture = await render();
+
+    const select = fixture.nativeElement.querySelector('#statusFilter') as HTMLSelectElement;
+    select.value = 'Done';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('No items match your filters.');
+    expect(fixture.nativeElement.textContent).not.toContain('No work items yet');
+  });
+
+  it('pages forward and backward, disabling the buttons at the boundaries', async () => {
+    const getWorkItems = vi.fn().mockResolvedValue({ items: [sampleItem()], page: 1, pageSize: 20, totalCount: 25 });
+    configure(undefined, getWorkItems);
+    const fixture = await render();
+
+    const prevButton = fixture.nativeElement.querySelector('.prev-page') as HTMLButtonElement;
+    const nextButton = fixture.nativeElement.querySelector('.next-page') as HTMLButtonElement;
+    expect(prevButton.disabled).toBe(true);
+    expect(nextButton.disabled).toBe(false);
+
+    nextButton.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ page: 2 }));
   });
 });

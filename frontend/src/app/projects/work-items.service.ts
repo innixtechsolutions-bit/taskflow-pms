@@ -41,6 +41,16 @@ export interface PagedResult<T> {
   totalCount: number;
 }
 
+export interface WorkItemsFilter {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  type?: string;
+  priority?: string;
+  assigneeUserId?: number;
+  search?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorkItemsService {
   private readonly http = inject(HttpClient);
@@ -49,11 +59,21 @@ export class WorkItemsService {
     return firstValueFrom(this.http.post<WorkItem>(`/api/projects/${projectId}/work-items`, request));
   }
 
-  // Bare-minimum listing (no filters yet — see US6), pulled forward because US4's
-  // edit/delete controls need rows to render next to (tasks.md's discovered-
-  // dependency note).
-  async getWorkItems(projectId: number): Promise<PagedResult<WorkItem>> {
-    return firstValueFrom(this.http.get<PagedResult<WorkItem>>(`/api/projects/${projectId}/work-items`));
+  // Bare-minimum listing was pulled forward into US4 (edit/delete controls need rows to
+  // render next to — tasks.md's discovered-dependency note); this extends it with the
+  // full filter/search/pagination set.
+  async getWorkItems(projectId: number, filter: WorkItemsFilter = {}): Promise<PagedResult<WorkItem>> {
+    const params: Record<string, string | number> = {};
+    if (filter.page) params['page'] = filter.page;
+    if (filter.pageSize) params['pageSize'] = filter.pageSize;
+    if (filter.status) params['status'] = filter.status;
+    if (filter.type) params['type'] = filter.type;
+    if (filter.priority) params['priority'] = filter.priority;
+    if (filter.assigneeUserId) params['assigneeUserId'] = filter.assigneeUserId;
+    if (filter.search) params['search'] = filter.search;
+    return firstValueFrom(
+      this.http.get<PagedResult<WorkItem>>(`/api/projects/${projectId}/work-items`, { params })
+    );
   }
 
   async getWorkItem(id: number): Promise<WorkItem> {

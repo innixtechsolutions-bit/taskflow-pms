@@ -302,15 +302,16 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
     }
 
     [Fact]
-    public async Task GetWorkItems_returns_200_with_the_paginated_shape()
+    public async Task GetWorkItems_returns_200_with_filters_search_and_pagination()
     {
         var adminToken = await LoginAsSeededAdminAsync();
         var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
         var creatorToken = await RegisterAndGetTokenAsync($"lister-creator-{Guid.NewGuid():N}@example.com");
         await CreateWorkItemAsync(creatorToken, projectId, title: "Fix the login bug");
+        await CreateWorkItemAsync(creatorToken, projectId, title: "Unrelated item");
 
         var response = await _client.SendAsync(AuthedRequest(
-            HttpMethod.Get, $"/api/projects/{projectId}/work-items", creatorToken));
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items?search=login", creatorToken));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<PagedResult<WorkItemDto>>();
@@ -325,5 +326,18 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/work-items", token));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkItems_returns_400_for_an_unparseable_status_filter()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"lister-badfilter-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items?status=NotAStatus", token));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 }
