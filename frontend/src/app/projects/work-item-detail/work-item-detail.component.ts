@@ -7,6 +7,8 @@ import { AuthService } from '../../auth/auth.service';
 import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
+import { NotificationService } from '../../shared/notification.service';
+import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 
 // Mirrors the backend's RequiredParentType mapping in reverse (data-model.md's
 // Hierarchy rules table) — the type a new child would need, given this item's type.
@@ -17,7 +19,15 @@ const CHILD_TYPE: Record<string, string> = { Epic: 'Story', Story: 'Task', Task:
 @Component({
   selector: 'app-work-item-detail',
   standalone: true,
-  imports: [RouterLink, MatButtonModule, MatCardModule, StatusChipComponent, PriorityChipComponent, UserAvatarComponent],
+  imports: [
+    RouterLink,
+    MatButtonModule,
+    MatCardModule,
+    StatusChipComponent,
+    PriorityChipComponent,
+    UserAvatarComponent,
+    EmptyStateComponent,
+  ],
   templateUrl: './work-item-detail.component.html',
 })
 export class WorkItemDetailComponent implements OnInit {
@@ -25,6 +35,7 @@ export class WorkItemDetailComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly notificationService = inject(NotificationService);
   protected readonly projectId = Number(this.route.snapshot.paramMap.get('projectId'));
   private readonly workItemId = Number(this.route.snapshot.paramMap.get('id'));
 
@@ -87,7 +98,13 @@ export class WorkItemDetailComponent implements OnInit {
     if (!confirm(message)) {
       return;
     }
-    await this.workItemsService.deleteWorkItem(item.id);
+    try {
+      await this.workItemsService.deleteWorkItem(item.id);
+    } catch {
+      this.notificationService.error(`Could not delete "${item.title}". Please try again.`);
+      return;
+    }
+    this.notificationService.success(`"${item.title}" deleted.`);
     await this.router.navigateByUrl(`/projects/${this.projectId}`);
   }
 }

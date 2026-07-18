@@ -20,6 +20,8 @@ import { StatusChipComponent } from '../../shared/status-chip/status-chip.compon
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
+import { NotificationService } from '../../shared/notification.service';
+import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 
 const STATUSES = ['ToDo', 'InProgress', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
@@ -41,6 +43,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
     PriorityChipComponent,
     UserAvatarComponent,
     FriendlyDatePipe,
+    EmptyStateComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -50,6 +53,7 @@ export class ProjectDetailComponent implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly notificationService = inject(NotificationService);
   private readonly projectId = Number(this.route.snapshot.paramMap.get('id'));
 
   // Column order for mat-table's structural directives.
@@ -221,7 +225,13 @@ export class ProjectDetailComponent implements OnInit {
     if (!confirm(message)) {
       return;
     }
-    await this.workItemsService.deleteWorkItem(item.id);
+    try {
+      await this.workItemsService.deleteWorkItem(item.id);
+      this.notificationService.success(`"${item.title}" deleted.`);
+    } catch {
+      this.notificationService.error(`Could not delete "${item.title}". Please try again.`);
+      return;
+    }
     // Deleting a work item changes the project's totalWorkItemCount (used by the
     // project-level delete confirmation) and the tree's shape, so all three need
     // refreshing, not just the flat list.
@@ -249,7 +259,13 @@ export class ProjectDetailComponent implements OnInit {
     if (!confirmed) {
       return;
     }
-    await this.projectsService.deleteProject(project.id);
+    try {
+      await this.projectsService.deleteProject(project.id);
+    } catch {
+      this.notificationService.error(`Could not delete "${project.name}". Please try again.`);
+      return;
+    }
+    this.notificationService.success(`"${project.name}" deleted.`);
     await this.router.navigateByUrl('/projects');
   }
 }

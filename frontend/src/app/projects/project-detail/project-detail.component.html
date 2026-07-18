@@ -69,7 +69,9 @@
     <mat-card appearance="outlined" class="tree-view-card">
       <mat-card-content class="tree-view">
         @if (treeNodes().length === 0) {
-          <p>No work items yet</p>
+          <app-empty-state icon="inbox" message="No work items yet">
+            <a empty-state-action mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">Add work item</a>
+          </app-empty-state>
         }
         @for (node of treeNodes(); track node.id) {
           <ng-container *ngTemplateOutlet="treeNodeTemplate; context: { $implicit: node, level: 0 }"></ng-container>
@@ -121,9 +123,11 @@
 
   @if (workItems().length === 0) {
     @if (hasActiveFilters()) {
-      <p>No items match your filters.</p>
+      <app-empty-state icon="search_off" message="No items match your filters." />
     } @else {
-      <p>No work items yet</p>
+      <app-empty-state icon="inbox" message="No work items yet">
+        <a empty-state-action mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">Add work item</a>
+      </app-empty-state>
     }
   } @else {
     <table mat-table [dataSource]="workItems()" class="mat-elevation-z1">

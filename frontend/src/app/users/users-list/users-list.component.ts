@@ -5,6 +5,7 @@ import { UserRole } from '../../auth/auth.service';
 import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
+import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { UserListItem, UsersService } from '../users.service';
 
 const ROLES: UserRole[] = ['Developer', 'Manager', 'Admin'];
@@ -12,7 +13,14 @@ const ROLES: UserRole[] = ['Developer', 'Manager', 'Admin'];
 @Component({
   selector: 'app-users-list',
   standalone: true,
-  imports: [MatButtonModule, MatTableModule, PageHeaderComponent, UserAvatarComponent, FriendlyDatePipe],
+  imports: [
+    MatButtonModule,
+    MatTableModule,
+    PageHeaderComponent,
+    UserAvatarComponent,
+    FriendlyDatePipe,
+    EmptyStateComponent,
+  ],
   templateUrl: './users-list.component.html',
 })
 export class UsersListComponent implements OnInit {

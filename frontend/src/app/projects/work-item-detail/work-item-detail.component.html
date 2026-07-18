@@ -25,7 +25,7 @@
 
       <h3>Children</h3>
       @if (i.children.length === 0) {
-        <p>No children yet</p>
+        <app-empty-state icon="account_tree" message="No children yet" />
       } @else {
         <ul class="child-list">
           @for (child of i.children; track child.id) {

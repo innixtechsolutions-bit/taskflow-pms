@@ -3,6 +3,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { vi } from 'vitest';
 import { WorkItemFormComponent } from './work-item-form.component';
 import { WorkItemsService } from '../work-items.service';
+import { NotificationService } from '../../shared/notification.service';
 
 const sampleUsers = [
   { id: 1, fullName: 'Ada Lovelace' },
@@ -35,18 +36,20 @@ function configure(
           snapshot: { paramMap: convertToParamMap({ projectId: '1' }), queryParamMap: convertToParamMap({}) },
         },
       },
+      { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
     ],
   });
   return { createWorkItem, getAssignableUsers, getParentCandidates };
 }
 
 describe('WorkItemFormComponent (create mode)', () => {
-  it('submits with the title and the shown defaults', async () => {
+  it('submits with the title and the shown defaults, and shows a success toast', async () => {
     const { createWorkItem } = configure(vi.fn().mockResolvedValue({ id: 5 }));
     const fixture = TestBed.createComponent(WorkItemFormComponent);
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
+    const notificationService = TestBed.inject(NotificationService);
 
     const root = fixture.nativeElement as HTMLElement;
     setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
@@ -57,6 +60,7 @@ describe('WorkItemFormComponent (create mode)', () => {
       1,
       expect.objectContaining({ title: 'Fix the login bug', type: 'Task', priority: 'Medium', status: 'ToDo' })
     );
+    expect(notificationService.success).toHaveBeenCalled();
   });
 
   it("correctly pre-selects each dropdown's bound value on initial render, not just the first option", async () => {
@@ -177,6 +181,7 @@ function configureEdit(
         },
       },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '7' }) } } },
+      { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
     ],
   });
   return { getWorkItem, updateWorkItem, getParentCandidates };

@@ -5,6 +5,7 @@ import { ProjectDetailComponent } from './project-detail.component';
 import { ProjectsService } from '../projects.service';
 import { WorkItem, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
+import { NotificationService } from '../../shared/notification.service';
 
 const sampleProject = {
   id: 1,
@@ -56,6 +57,7 @@ function configure(
   getWorkItemsTree = vi.fn().mockResolvedValue([]),
   getWorkItemDetail = vi.fn().mockResolvedValue({ totalDescendantCount: 0 })
 ) {
+  const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [ProjectDetailComponent],
     providers: [
@@ -67,9 +69,19 @@ function configure(
       },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
+      { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getProject, getWorkItems, deleteWorkItem, deleteProject, getAssignableUsers, getWorkItemsTree, getWorkItemDetail };
+  return {
+    getProject,
+    getWorkItems,
+    deleteWorkItem,
+    deleteProject,
+    getAssignableUsers,
+    getWorkItemsTree,
+    getWorkItemDetail,
+    notificationService,
+  };
 }
 
 async function render() {
@@ -230,13 +242,13 @@ describe('ProjectDetailComponent delete control visibility (narrower than edit)'
     expect(deleteButton(fixture, 1)).toBeNull();
   });
 
-  it('calls deleteWorkItem and refreshes the list after a confirmed delete', async () => {
+  it('calls deleteWorkItem and refreshes the list after a confirmed delete, showing a success toast', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const getWorkItems = vi
       .fn()
       .mockResolvedValueOnce(pageOf([sampleItem({ id: 1, createdByUserId: 1 })]))
       .mockResolvedValueOnce(emptyPage());
-    const { deleteWorkItem } = configure(undefined, getWorkItems, { id: 1, role: 'Developer' });
+    const { deleteWorkItem, notificationService } = configure(undefined, getWorkItems, { id: 1, role: 'Developer' });
     const fixture = await render();
 
     (deleteButton(fixture, 1) as HTMLButtonElement).click();
@@ -245,6 +257,24 @@ describe('ProjectDetailComponent delete control visibility (narrower than edit)'
 
     expect(deleteWorkItem).toHaveBeenCalledWith(1);
     expect(getWorkItems).toHaveBeenCalledTimes(2);
+    expect(notificationService.success).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows an error toast when deleting a work item fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { notificationService } = configure(
+      undefined,
+      vi.fn().mockResolvedValue(pageOf([sampleItem({ id: 1, createdByUserId: 1 })])),
+      { id: 1, role: 'Developer' },
+      vi.fn().mockRejectedValue(new Error('failed'))
+    );
+    const fixture = await render();
+
+    (deleteButton(fixture, 1) as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(notificationService.error).toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 
@@ -320,9 +350,13 @@ describe('ProjectDetailComponent project-level edit/delete controls', () => {
     confirmSpy.mockRestore();
   });
 
-  it('calls deleteProject when the confirmation is accepted', async () => {
+  it('calls deleteProject when the confirmation is accepted, showing a success toast', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const { deleteProject } = configure(vi.fn().mockResolvedValue(sampleProjectWithItems), undefined, { id: 1, role: 'Manager' });
+    const { deleteProject, notificationService } = configure(
+      vi.fn().mockResolvedValue(sampleProjectWithItems),
+      undefined,
+      { id: 1, role: 'Manager' }
+    );
     const fixture = await render();
     // provideRouter([]) has no registered routes, so the real navigateByUrl('/projects')
     // this triggers would reject with "cannot match any routes" — irrelevant to what
@@ -333,6 +367,7 @@ describe('ProjectDetailComponent project-level edit/delete controls', () => {
     await fixture.whenStable();
 
     expect(deleteProject).toHaveBeenCalledWith(1);
+    expect(notificationService.success).toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 

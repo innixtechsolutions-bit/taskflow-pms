@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { vi } from 'vitest';
 import { WorkItemDetailComponent } from './work-item-detail.component';
 import { WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
+import { NotificationService } from '../../shared/notification.service';
 
 const detailWithParentAndChildren = {
   id: 5,
@@ -43,6 +44,7 @@ function configure(
   authState: { id: number; role: string } | null = { id: 1, role: 'Developer' },
   deleteWorkItem = vi.fn().mockResolvedValue(undefined)
 ) {
+  const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [WorkItemDetailComponent],
     providers: [
@@ -50,9 +52,10 @@ function configure(
       { provide: WorkItemsService, useValue: { getWorkItemDetail, deleteWorkItem } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '5' }) } } },
+      { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getWorkItemDetail, deleteWorkItem };
+  return { getWorkItemDetail, deleteWorkItem, notificationService };
 }
 
 async function render() {
@@ -121,6 +124,32 @@ describe('WorkItemDetailComponent', () => {
     (fixture.nativeElement.querySelector('.delete-button') as HTMLButtonElement).click();
 
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('3'));
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a success toast and navigates after a confirmed delete', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { notificationService } = configure();
+    const fixture = await render();
+    const router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    (fixture.nativeElement.querySelector('.delete-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(notificationService.success).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows an error toast when the delete request fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { notificationService } = configure(undefined, undefined, vi.fn().mockRejectedValue(new Error('failed')));
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('.delete-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(notificationService.error).toHaveBeenCalled();
     confirmSpy.mockRestore();
   });
 });

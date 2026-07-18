@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
+import { NotificationService } from '../../shared/notification.service';
 
 interface TitleFormModel {
   title: string;
@@ -25,6 +26,7 @@ export class WorkItemFormComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly notificationService = inject(NotificationService);
   private readonly projectId = Number(this.route.snapshot.paramMap.get('projectId'));
 
   // Presence of the route's :id param (only on the .../work-items/:id/edit route) is
@@ -141,9 +143,12 @@ export class WorkItemFormComponent implements OnInit {
       } else {
         await this.workItemsService.createWorkItem(this.projectId, request);
       }
+      this.notificationService.success(this.isEditMode ? 'Work item updated.' : 'Work item created.');
       await this.router.navigateByUrl(`/projects/${this.projectId}`);
     } catch {
-      this.serverError.set('Something went wrong. Please try again.');
+      const message = 'Something went wrong. Please try again.';
+      this.serverError.set(message);
+      this.notificationService.error(message);
     } finally {
       this.submitting.set(false);
     }

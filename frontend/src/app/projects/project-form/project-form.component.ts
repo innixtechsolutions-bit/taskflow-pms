@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectsService } from '../projects.service';
+import { NotificationService } from '../../shared/notification.service';
 
 interface ProjectFormModel {
   name: string;
@@ -23,6 +24,7 @@ export class ProjectFormComponent implements OnInit {
   private readonly projectsService = inject(ProjectsService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly notificationService = inject(NotificationService);
 
   // Presence of the route's :id param (only on the .../:id/edit route) distinguishes
   // edit mode from create mode — the same component serves both.
@@ -68,13 +70,15 @@ export class ProjectFormComponent implements OnInit {
       const result = this.isEditMode
         ? await this.projectsService.updateProject(this.projectId!, this.model())
         : await this.projectsService.createProject(this.model());
+      this.notificationService.success(this.isEditMode ? 'Project updated.' : 'Project created.');
       await this.router.navigateByUrl(`/projects/${result.id}`);
     } catch (error) {
-      this.serverError.set(
+      const message =
         error instanceof HttpErrorResponse && error.status === 409
           ? 'A project with this name already exists.'
-          : 'Something went wrong. Please try again.'
-      );
+          : 'Something went wrong. Please try again.';
+      this.serverError.set(message);
+      this.notificationService.error(message);
     } finally {
       this.submitting.set(false);
     }

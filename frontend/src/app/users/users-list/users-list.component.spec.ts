@@ -20,6 +20,17 @@ function configure(
 }
 
 describe('UsersListComponent', () => {
+  it('shows an empty state when there are no users', async () => {
+    configure(vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 20, totalCount: 0 }));
+    const fixture = TestBed.createComponent(UsersListComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-empty-state')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('table')).toBeNull();
+  });
+
   it('renders the paginated list of users', async () => {
     configure();
     const fixture = TestBed.createComponent(UsersListComponent);
