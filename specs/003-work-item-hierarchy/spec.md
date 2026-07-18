@@ -228,9 +228,11 @@ whether the tree view is used at all.
 - **FR-007**: System MUST refuse a work item type change if the change
   would make its existing parent or existing children invalid under the
   hierarchy rules.
-- **FR-008**: System MUST enforce all hierarchy rules (FR-001 through
-  FR-007) server-side, independent of and in addition to any client-side
-  filtering in pickers.
+- **FR-008**: The parent picker's client-side candidate filtering (FR-010)
+  MUST NOT be relied upon as the sole enforcement of FR-001 through FR-007
+  — every hierarchy rule MUST be re-validated independently server-side on
+  every request, so a request bypassing the picker entirely (e.g., a direct
+  API call) is held to the same rules.
 - **FR-009**: System MUST refuse an invalid parent assignment attempted via
   direct API call with an error response that names the specific rule
   violated, consistent with the project's existing error response format.

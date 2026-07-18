@@ -58,11 +58,11 @@ alongside US3 rather than as a separate phase.
 
 > Write these tests FIRST; confirm they FAIL before implementation (constitution Principle I)
 
-- [ ] T004 [P] [US1] Unit tests for `WorkItemService.CreateAsync`'s parent validation in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: Epic rejects any `ParentWorkItemId`; Story requires an Epic parent; Task's parent is optional but must be a Story when set; SubTask requires a Task parent; parent from a different project is rejected; unknown `ParentWorkItemId` is rejected
+- [ ] T004 [P] [US1] Unit tests for `WorkItemService.CreateAsync`'s parent validation in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: Epic rejects any `ParentWorkItemId`; Story requires an Epic parent; Task's parent is optional but must be a Story when set; SubTask requires a Task parent; parent from a different project is rejected; unknown `ParentWorkItemId` is rejected. (Self-parent/cycle rejection cannot be exercised here — a newly-created item has no id yet to reference; that case is genuinely testable only once an item exists, so it's covered by US4's `UpdateAsync` tests, T038/T040, per research.md §2.)
 - [ ] T005 [P] [US1] Unit tests for `WorkItemService.GetParentCandidatesAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: returns only same-project items of the required parent type for the given `type`; returns an empty list for `type=Epic`
 - [ ] T006 [P] [US1] Integration tests for `POST /api/projects/{projectId}/work-items`'s new parent-validation cases in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `201` with a valid parent at each level of the chain, `400` for each rule violation (wrong type, cross-project, missing-when-required, present-when-forbidden)
-- [ ] T007 [P] [US1] Integration tests for `GET /api/projects/{projectId}/work-items/parent-candidates?type=` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` with correct candidates per type, `200` empty array for `type=Epic`, `400` invalid/missing `type`, `404` unknown project. **Confirmed RED**: compile errors (`GetParentCandidatesAsync`, hierarchy exceptions, and the new endpoint don't exist yet).
-- [ ] T008 [P] [US1] Vitest tests for the parent picker (create mode) in `frontend/src/app/projects/work-item-form/work-item-form.component.spec.ts`: picker's candidate list refetches and changes when `Type` changes, is required for `SubTask`, and is disabled/hidden for `Epic`. **Confirmed RED**: `Cannot find module`/missing-element failures.
+- [ ] T007 [P] [US1] Integration tests for `GET /api/projects/{projectId}/work-items/parent-candidates?type=` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` with correct candidates per type, `200` empty array for `type=Epic`, `400` invalid/missing `type`, `404` unknown project, `401` with no token (allowed + denied paths, matching Feature 002's equivalent new-GET-endpoint tests)
+- [ ] T008 [P] [US1] Vitest tests for the parent picker (create mode) in `frontend/src/app/projects/work-item-form/work-item-form.component.spec.ts`: picker's candidate list refetches and changes when `Type` changes, is required for `SubTask`, and is disabled/hidden for `Epic`
 
 ### Implementation for User Story 1
 
@@ -72,9 +72,9 @@ alongside US3 rather than as a separate phase.
 - [ ] T012 [US1] Add hierarchy exceptions (`EpicCannotHaveParentException`, `ParentRequiredException`, `InvalidParentTypeException`, `ParentWorkItemNotFoundException`, `ParentMustBeSameProjectException`) in `backend/TaskFlow.Api/Services/WorkItemExceptions.cs` — depends on T009-T011
 - [ ] T013 [US1] Implement a `RequiredParentType(WorkItemType)` helper and a shared parent-validation routine in `backend/TaskFlow.Api/Services/WorkItemService.cs` (data-model.md's Hierarchy rules table); wire it into `CreateAsync` — depends on T012
 - [ ] T014 [US1] Implement `WorkItemService.GetParentCandidatesAsync` in `backend/TaskFlow.Api/Services/WorkItemService.cs` (project-scoped, type-filtered per the Hierarchy rules table — research.md §2, no exclude-self/descendants logic needed) — depends on T009
-- [ ] T015 [US1] Implement `WorkItemsController.GetParentCandidates` (`GET /api/projects/{projectId}/work-items/parent-candidates`) and extend `Create`'s catch blocks for the new exceptions in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T013, T014. **Confirmed GREEN**: backend test count grows, 0 regressions.
+- [ ] T015 [US1] Implement `WorkItemsController.GetParentCandidates` (`GET /api/projects/{projectId}/work-items/parent-candidates`) and extend `Create`'s catch blocks for the new exceptions in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T013, T014
 - [ ] T016 [US1] Add `getParentCandidates()` to `frontend/src/app/projects/work-items.service.ts`; add `parentWorkItemId` to the `WorkItem`/`WorkItemRequest` interfaces — depends on T015
-- [ ] T017 [US1] Extend the `work-item-form` component (create mode) with a parent picker that refetches candidates whenever `Type` changes, using native `<select>` with `[selected]`-per-`<option>` (Feature 002's research.md §6 convention) — depends on T016, T008. **Confirmed GREEN**: frontend test count grows, 0 regressions.
+- [ ] T017 [US1] Extend the `work-item-form` component (create mode) with a parent picker that refetches candidates whenever `Type` changes, using native `<select>` with `[selected]`-per-`<option>` (Feature 002's research.md §6 convention) — depends on T016, T008
 
 **Checkpoint**: User Story 1 is independently testable — a full four-level chain can be created with server- and UI-enforced parent rules.
 
@@ -89,16 +89,16 @@ alongside US3 rather than as a separate phase.
 ### Tests for User Story 2 ⚠️
 
 - [ ] T018 [P] [US2] Unit tests for `WorkItemService.GetTreeAsync` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: correct nesting for a multi-level chain, `directChildrenCount`/`directChildrenDoneCount` count only direct children, standalone items appear as top-level nodes with empty `children`, ordering by `UpdatedAt` descending at every level
-- [ ] T019 [P] [US2] Integration tests for `GET /api/projects/{projectId}/work-items/tree` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` with correctly nested shape, `404` unknown project. **Confirmed RED**: `GetTreeAsync`/`WorkItemTreeNodeDto`/the endpoint don't exist yet.
-- [ ] T020 [P] [US2] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: Tree/Flat toggle switches views; tree renders indentation per level; expand/collapse hides/shows a parent's children; each parent row shows "n/m done"; standalone items render at the top level alongside hierarchical ones. **Confirmed RED**: no tree markup exists yet.
+- [ ] T019 [P] [US2] Integration tests for `GET /api/projects/{projectId}/work-items/tree` in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: `200` with correctly nested shape, `404` unknown project, `401` with no token (allowed + denied paths, matching Feature 002's equivalent new-GET-endpoint tests)
+- [ ] T020 [P] [US2] Vitest tests added to `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`: Tree/Flat toggle switches views; tree renders indentation per level; expand/collapse hides/shows a parent's children; each parent row shows "n/m done"; standalone items render at the top level alongside hierarchical ones
 
 ### Implementation for User Story 2
 
 - [ ] T021 [US2] Add `WorkItemTreeNodeDto` in `backend/TaskFlow.Api/Dtos/WorkItemTreeNodeDto.cs` (recursive `children` array) per `data-model.md`
 - [ ] T022 [US2] Implement `WorkItemService.GetTreeAsync` in `backend/TaskFlow.Api/Services/WorkItemService.cs` (load the project's items once, group by `ParentWorkItemId` in memory, build nested nodes with direct-child/done counts, order by `UpdatedAt` descending — research.md §4, §7) — depends on T021
-- [ ] T023 [US2] Implement `WorkItemsController.GetTree` (`GET /api/projects/{projectId}/work-items/tree`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T022. **Confirmed GREEN**: 0 regressions.
+- [ ] T023 [US2] Implement `WorkItemsController.GetTree` (`GET /api/projects/{projectId}/work-items/tree`) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T022
 - [ ] T024 [US2] Add `getWorkItemsTree()` to `frontend/src/app/projects/work-items.service.ts` — depends on T023
-- [ ] T025 [US2] Add a Tree/Flat view toggle to `project-detail` (+ template): Tree is the new indented/expand-collapse rendering with per-parent counts; Flat is Feature 002's existing unpaginated... existing `mat-table` list, unchanged — depends on T024, T020. **Confirmed GREEN**: 0 regressions.
+- [ ] T025 [US2] Add a Tree/Flat view toggle to `project-detail` (+ template): Tree is the new indented/expand-collapse rendering with per-parent counts; Flat is Feature 002's existing paginated `mat-table` list, unchanged — depends on T024, T020
 
 **Checkpoint**: User Stories 1-2 work — a hierarchy can be built and seen as a tree.
 
@@ -115,8 +115,8 @@ alongside US3 rather than as a separate phase.
 - [ ] T026 [P] [US3] Unit tests for the detail projection in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: `parentWorkItemId`/`parentTitle` null when no parent, populated when one exists; `children` lists direct children only (title/type/status/assigneeName); `totalDescendantCount` sums every level, not just direct children
 - [ ] T027 [P] [US3] Unit tests for `WorkItemService.DeleteAsync`'s cascade behavior in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: deleting an item with descendants removes the entire subtree in one call; siblings and ancestors are untouched; the authorization check (creator/Manager/Admin) applies only to the item being deleted, not to each descendant
 - [ ] T028 [P] [US3] Integration tests for `GET /api/work-items/{id}`'s enriched response in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: response includes `parentWorkItemId`/`parentTitle`/`children`/`totalDescendantCount` as specified in `contracts/work-item-hierarchy-api.md`
-- [ ] T029 [P] [US3] Integration tests for `DELETE /api/work-items/{id}`'s cascade behavior in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: deleting a parent with descendants returns `204` and removes the whole subtree; `403`/`404` unchanged from Feature 002. **Confirmed RED**: `WorkItemDetailDto`/`WorkItemChildDto` don't exist; `DeleteAsync` doesn't cascade yet.
-- [ ] T030 [P] [US3] Vitest tests for a new `work-item-detail` component in `frontend/src/app/projects/work-item-detail/work-item-detail.component.spec.ts`: renders the parent as a link when present and nothing when absent; lists children (title/type/status/assignee) each linking to that child's detail page; starting a new child pre-selects this item as parent; the delete confirmation states `totalDescendantCount` when greater than zero. **Confirmed RED**: component doesn't exist.
+- [ ] T029 [P] [US3] Integration tests for `DELETE /api/work-items/{id}`'s cascade behavior in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`: deleting a parent with descendants returns `204` and removes the whole subtree; `403`/`404` unchanged from Feature 002
+- [ ] T030 [P] [US3] Vitest tests for a new `work-item-detail` component in `frontend/src/app/projects/work-item-detail/work-item-detail.component.spec.ts`: renders the parent as a link when present and nothing when absent; lists children (title/type/status/assignee) each linking to that child's detail page; starting a new child pre-selects this item as parent; the delete confirmation states `totalDescendantCount` when greater than zero
 
 ### Implementation for User Story 3
 
@@ -124,9 +124,10 @@ alongside US3 rather than as a separate phase.
 - [ ] T032 [US3] Implement a recursive descendant-id collection helper in `backend/TaskFlow.Api/Services/WorkItemService.cs`, shared by the detail projection's `totalDescendantCount` and `DeleteAsync`'s cascade (research.md §1, §6) — depends on T031
 - [ ] T033 [US3] Change `WorkItemService.GetByIdAsync` to return `WorkItemDetailDto` via a new `ToDetailDtoAsync` (parent lookup, direct-children projection, `totalDescendantCount`) — depends on T032
 - [ ] T034 [US3] Update `WorkItemService.DeleteAsync` to collect all descendant ids via the T032 helper and `RemoveRange` the entire subtree in one `SaveChangesAsync` call — depends on T032
-- [ ] T035 [US3] Update `WorkItemsController.Get`'s return type to `WorkItemDetailDto` (no route change) — depends on T033. **Confirmed GREEN**: 0 regressions.
+- [ ] T035 [US3] Update `WorkItemsController.Get`'s return type to `WorkItemDetailDto` (no route change) — depends on T033
 - [ ] T036 [US3] Build the `work-item-detail` component + template in `frontend/src/app/projects/work-item-detail/`, reusing `project-detail`'s existing edit/delete permission logic — depends on T030, T035
-- [ ] T037 [US3] Add `getWorkItemDetail()` to `work-items.service.ts`; add the `projects/:projectId/work-items/:id` route in `frontend/src/app/app.routes.ts` (registered after the existing `.../work-items/new` and `.../work-items/:id/edit` routes); link work item titles (in both the flat list and the tree view) to the new detail page; update delete confirmations project-wide to show `totalDescendantCount` when greater than zero — depends on T034, T036. **Confirmed GREEN**: 0 regressions.
+- [ ] T036a [US3] Wire the `work-item-detail` component's "create child" action (FR-019): a link/button, shown only when this item's type can legally have children (Epic, Story, or Task), that navigates to work-item creation with this item pre-selected as parent — e.g. a `parentWorkItemId` route/query param that `work-item-form`'s create mode reads and pre-fills (reusing T017's parent-picker population, just with an initial value) — depends on T036, T017
+- [ ] T037 [US3] Add `getWorkItemDetail()` to `work-items.service.ts`; add the `projects/:projectId/work-items/:id` route in `frontend/src/app/app.routes.ts` (registered after the existing `.../work-items/new` and `.../work-items/:id/edit` routes); link work item titles (in both the flat list and the tree view) to the new detail page; update delete confirmations project-wide to show `totalDescendantCount` when greater than zero — depends on T034, T036
 
 **Checkpoint**: User Stories 1-3 work — full tree creation, visibility, detail navigation, and safe cascade delete with an accurate confirmation.
 
@@ -140,17 +141,17 @@ alongside US3 rather than as a separate phase.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T038 [P] [US4] Unit tests for `WorkItemService.UpdateAsync`'s parent reassignment in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: valid reparent within the same project succeeds; the same rule violations as `CreateAsync` (T004) are rejected; clearing an optional Task parent succeeds
+- [ ] T038 [P] [US4] Unit tests for `WorkItemService.UpdateAsync`'s parent reassignment in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: valid reparent within the same project succeeds; the same rule violations as `CreateAsync` (T004) are rejected; clearing an optional Task parent succeeds; attempting to set an item as its own parent (self-reference) is rejected — this is the one case only reachable once an item already has an id, and is caught by the same type check as every other violation (an item's own type never equals its required-parent type — research.md §2), not a special-cased algorithm
 - [ ] T039 [P] [US4] Unit tests for `WorkItemService.UpdateAsync`'s type-change guard in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`: refuses a type change when the item's existing parent's type no longer matches the new type's required parent type; refuses a type change when any existing child's required-parent type no longer matches the new type; allows a type change with no such conflict
-- [ ] T040 [P] [US4] Integration tests for `PUT /api/work-items/{id}`'s reparent and type-change-guard cases in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`. **Confirmed RED**: type-change guard doesn't exist yet; new exceptions aren't mapped.
-- [ ] T041 [P] [US4] Vitest tests for edit mode's parent picker in `work-item-form.component.spec.ts`: pre-fills the item's current parent; changing/clearing it submits correctly. **Confirmed RED**: edit mode doesn't fetch/pre-fill `parentWorkItemId` yet.
+- [ ] T040 [P] [US4] Integration tests for `PUT /api/work-items/{id}`'s reparent and type-change-guard cases in `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`, including a direct-API attempt to set an item's `parentWorkItemId` to its own id, asserting `400` with a `ProblemDetails` body naming the violated rule (spec.md Edge Cases; quickstart.md §4)
+- [ ] T041 [P] [US4] Vitest tests for edit mode's parent picker in `work-item-form.component.spec.ts`: pre-fills the item's current parent; changing/clearing it submits correctly
 
 ### Implementation for User Story 4
 
 - [ ] T042 [US4] Extend `WorkItemService.UpdateAsync` to reuse US1's parent-validation routine (T013) for the incoming `ParentWorkItemId` — depends on T013
 - [ ] T043 [US4] Add the type-change guard to `WorkItemService.UpdateAsync` (data-model.md's Hierarchy rules table checked against the item's *current* parent and children — research.md §3), plus `TypeChangeInvalidatesParentException`/`TypeChangeInvalidatesChildrenException` in `WorkItemExceptions.cs` — depends on T042
-- [ ] T044 [US4] Extend `WorkItemsController.Update`'s catch blocks for the new exceptions in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T043. **Confirmed GREEN**: 0 regressions.
-- [ ] T045 [US4] Extend `work-item-form` edit mode: pre-fill the current parent, refresh candidates on `Type` change (reusing T017's logic), submit `parentWorkItemId` — depends on T044, T041. **Confirmed GREEN**: 0 regressions.
+- [ ] T044 [US4] Extend `WorkItemsController.Update`'s catch blocks for the new exceptions in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T043
+- [ ] T045 [US4] Extend `work-item-form` edit mode: pre-fill the current parent, refresh candidates on `Type` change (reusing T017's logic), submit `parentWorkItemId` — depends on T044, T041
 
 **Checkpoint**: User Stories 1-4 work — reorganization is fully supported without breaking the hierarchy's integrity.
 
@@ -257,5 +258,6 @@ Task: "Vitest tests for the parent picker (create mode) in frontend/src/app/proj
 - [Story] label maps each task to its user story for traceability
 - Tests MUST be written first and MUST fail before their implementation tasks (constitution Principle I)
 - Cascade-delete-with-confirmation (T031-T034, T037) is scoped under US3 per the note at the top of this file, not as its own phase
+- FR-019 ("pre-select parent when creating a child from a detail view") is implemented by T036a, added during `/speckit-analyze` triage alongside T036 rather than folded silently into T037's broader wiring task
 - Commit after each user story or logical group, per the constitution's Commit Convention (Conventional Commits, `feat: US<n> ...` referencing the story and passing test count)
 - Stop at any checkpoint to validate a story independently, per the constitution's Human-in-the-Loop principle

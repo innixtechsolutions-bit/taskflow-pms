@@ -53,6 +53,10 @@ Using a REST client (or browser devtools) against the running API:
    from the *first* project.
    **Expected**: `400` — parent must be in the same project.
 
+   Note: a self-parent/cycle attempt (spec.md Edge Cases; SC-002) can't be
+   constructed via `POST` — a newly-created item has no id yet to
+   reference — so that case is exercised in §4 below, once an item exists.
+
 ## 4. Reparenting and type-change guards (User Story 4)
 
 1. Edit the Task from step 1.3 above and change its parent to a different
@@ -60,6 +64,12 @@ Using a REST client (or browser devtools) against the running API:
    move.
 2. Edit that same Task and try to set its parent to the Epic.
    **Expected**: `400` — Task's parent must be a Story.
+2a. `PUT /api/work-items/{that Task's id}` with `parentWorkItemId` set to
+    the Task's *own* id (a direct self-parent attempt).
+    **Expected**: `400` with a `ProblemDetails` body naming the rule
+    violated — caught by the same type check as every other case (the
+    Task's own type never matches its required parent type, Story —
+    research.md §2), not a special-cased cycle check.
 3. Try to change that Task's `type` to `Story` while it still has the
    SubTask as a child. **Expected**: `400` — naming that the existing
    SubTask child requires a Task parent, not a Story.
