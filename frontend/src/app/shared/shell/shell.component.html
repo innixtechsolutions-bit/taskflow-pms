@@ -1,6 +1,6 @@
 <mat-sidenav-container class="shell-container">
   <mat-sidenav mode="side" [opened]="true" class="shell-sidenav">
-    <!-- Sidebar nav content wired in by SidebarNavComponent (US2) -->
+    <app-sidebar-nav (logout)="onLogout()" />
   </mat-sidenav>
   <mat-sidenav-content class="shell-content">
     <div class="shell-content-inner" style="max-width: var(--content-max-width)">

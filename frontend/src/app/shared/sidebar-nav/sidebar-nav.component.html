@@ -1,0 +1,42 @@
+<div class="sidebar-nav" [class.collapsed]="isCollapsed()">
+  <div class="sidebar-brand">
+    <span class="sidebar-logo">TF</span>
+    @if (!isCollapsed()) {
+      <span class="sidebar-product-name">TaskFlow</span>
+    }
+  </div>
+
+  <nav class="sidebar-links">
+    @for (item of navItems(); track item.route) {
+      <a
+        [routerLink]="item.route"
+        routerLinkActive="active-nav-item"
+        [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+        class="sidebar-link"
+        [matTooltip]="item.label"
+        [matTooltipDisabled]="!isCollapsed()"
+        matTooltipPosition="right"
+      >
+        <mat-icon>{{ item.icon }}</mat-icon>
+        @if (!isCollapsed()) {
+          <span class="sidebar-link-label">{{ item.label }}</span>
+        }
+      </a>
+    }
+  </nav>
+
+  <div class="sidebar-user">
+    <button type="button" class="user-menu-trigger" [matMenuTriggerFor]="userMenu">
+      <span class="user-avatar-placeholder">{{ initials() }}</span>
+      @if (!isCollapsed()) {
+        <span class="user-info">
+          <span class="user-name">{{ authService.currentUser()?.fullName }}</span>
+          <span class="user-role">{{ authService.currentUser()?.role }}</span>
+        </span>
+      }
+    </button>
+    <mat-menu #userMenu="matMenu">
+      <button mat-menu-item type="button" class="logout-menu-item" (click)="onLogoutClicked()">Log out</button>
+    </mat-menu>
+  </div>
+</div>
