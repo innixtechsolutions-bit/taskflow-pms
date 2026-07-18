@@ -119,3 +119,42 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   later phase extend rather than originate the list — documented inline in
   `tasks.md` rather than silently reordered, so the plan stayed honest
   about what actually happened and why.
+
+### Feature 003: Work Item Hierarchy
+
+- **A table can't cascade-delete into itself.** `WorkItem.ParentWorkItemId`
+  is the first foreign key in this codebase that points back at its own
+  table. SQL Server refuses `ON DELETE CASCADE` on a self-referencing
+  foreign key outright (error 1785) — not because of a "multiple paths"
+  conflict like Feature 002's `User` foreign keys, but because the engine
+  can't prove a self-referential cascade chain ever terminates. The fix is
+  the same shape as Feature 002's (`DeleteBehavior.Restrict`), but the
+  reason is different, and it means "delete this item's whole subtree" has
+  to be application code (`WorkItemService.DeleteAsync` walking descendant
+  ids level by level) rather than something the database does for free.
+- **Proving a case is impossible can delete more code than handling it
+  would have needed.** The spec calls for refusing cycles and
+  self/descendant parent selection. The instinct is to write an
+  ancestor-walk with a visited set. But the hierarchy's own rule — a valid
+  parent is always exactly one rank below its child (Epic < Story < Task <
+  SubTask), and Epic can never have a parent at all — means a rank can only
+  ever strictly decrease while walking up any parent chain, which makes
+  returning to a rank already visited mathematically impossible. The
+  ordinary "is this the required type, in the same project" check that the
+  feature needs anyway already enforces this, for free. No traversal
+  algorithm was written, tested, or is now sitting in the codebase waiting
+  to have a bug in it.
+- **A test can share a fixture's flaw with the code it's testing.** The
+  type-change guard has two independent checks — does the item's *existing
+  parent* still fit the new type, and do its *existing children* still fit
+  it — and a test meant to isolate the children-check used a setup where
+  the item's *own* parent was also incompatible with the new type. The
+  parent-check fired first, and the test failed asserting the wrong
+  exception type. The fix was to make the fixture data actually isolate
+  the condition under test (a parentless item), not to reorder the
+  production code's checks. Separately, a first full test-suite run that
+  same session reported 31 failures that a second, unchanged run didn't
+  reproduce — SQL-Server-backed tests each provision and drop their own
+  database, and running many of them in parallel intermittently exhausted
+  something at the database-server level. Telling that apart from a real
+  regression meant re-running before trusting either number.

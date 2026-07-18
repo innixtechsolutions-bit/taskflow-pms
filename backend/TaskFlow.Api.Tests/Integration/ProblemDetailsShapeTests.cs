@@ -188,4 +188,49 @@ public class ProblemDetailsShapeTests(TaskFlowApiFactory factory) : IClassFixtur
 
         AssertFullProblemDetailsShape(await response.Content.ReadFromJsonAsync<ProblemDetails>(), 404);
     }
+
+    // Feature 003 additions: hierarchy rule violations and the type-change guard are
+    // thrown from WorkItemService (business exceptions), same shape as the enum-value
+    // case above — a plain Detail message, not the Errors dictionary of an
+    // annotation-driven ValidationProblemDetails.
+    [Fact]
+    public async Task WorkItems_400_from_a_hierarchy_rule_violation_has_a_Detail_message()
+    {
+        var managerToken = await LoginAsSeededAdminAsync();
+        var createProject = AuthedRequest(HttpMethod.Post, "/api/projects", managerToken);
+        createProject.Content = JsonContent.Create(new { name = $"Project {Guid.NewGuid():N}" });
+        var projectResponse = await _client.SendAsync(createProject);
+        var project = await projectResponse.Content.ReadFromJsonAsync<ProjectDetailDto>();
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{project!.Id}/work-items", managerToken);
+        request.Content = JsonContent.Create(new { type = "SubTask", title = "Missing its required parent" });
+        var response = await _client.SendAsync(request);
+
+        AssertFullProblemDetailsShape(await response.Content.ReadFromJsonAsync<ProblemDetails>(), 400);
+    }
+
+    [Fact]
+    public async Task WorkItems_400_from_the_type_change_guard_has_a_Detail_message()
+    {
+        var managerToken = await LoginAsSeededAdminAsync();
+        var createProject = AuthedRequest(HttpMethod.Post, "/api/projects", managerToken);
+        createProject.Content = JsonContent.Create(new { name = $"Project {Guid.NewGuid():N}" });
+        var projectResponse = await _client.SendAsync(createProject);
+        var project = await projectResponse.Content.ReadFromJsonAsync<ProjectDetailDto>();
+
+        var createTask = AuthedRequest(HttpMethod.Post, $"/api/projects/{project!.Id}/work-items", managerToken);
+        createTask.Content = JsonContent.Create(new { type = "Task", title = "Has a subtask child" });
+        var taskResponse = await _client.SendAsync(createTask);
+        var task = await taskResponse.Content.ReadFromJsonAsync<WorkItemDto>();
+
+        var createSubTask = AuthedRequest(HttpMethod.Post, $"/api/projects/{project.Id}/work-items", managerToken);
+        createSubTask.Content = JsonContent.Create(new { type = "SubTask", title = "Child", parentWorkItemId = task!.Id });
+        await _client.SendAsync(createSubTask);
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{task.Id}", managerToken);
+        request.Content = JsonContent.Create(new { type = "Story", title = "Has a subtask child", parentWorkItemId = (int?)null });
+        var response = await _client.SendAsync(request);
+
+        AssertFullProblemDetailsShape(await response.Content.ReadFromJsonAsync<ProblemDetails>(), 400);
+    }
 }
