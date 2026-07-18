@@ -33,6 +33,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<AdminSeeder>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<ProjectService>();
+builder.Services.AddScoped<WorkItemService>();
 
 // AddMemoryCache registers the shared IMemoryCache that LoginAttemptTracker wraps.
 // The tracker itself is Singleton, not Scoped: it needs to accumulate failed attempts
@@ -109,6 +111,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
+
+// UseExceptionHandler covers unhandled *exceptions*; this covers the other half —
+// responses that already carry an error status code (4xx/5xx) but no body at all,
+// which is exactly what [Authorize]/[Authorize(Roles = ...)] produce on their own
+// (a bare 401/403 with nothing else) since they reject a request in the
+// authentication/authorization middleware, never reaching a controller action's own
+// Problem(...) call. Both routes end at the same AddProblemDetails() registration
+// above, so every error response — thrown, or framework-rejected — gets the same
+// RFC 7807 shape (FR-020), instead of only the errors an action method threw itself.
+app.UseStatusCodePages();
+
 app.UseHttpsRedirection();
 
 // CORS must run before authentication/authorization: the browser's preflight

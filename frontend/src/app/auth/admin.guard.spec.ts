@@ -10,6 +10,7 @@ import { adminGuard } from './admin.guard';
 import { AuthService, AuthState } from './auth.service';
 
 const validAdmin: AuthState = {
+  id: 1,
   token: 'a-token',
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
   fullName: 'Ada Lovelace',

@@ -1,5 +1,23 @@
 <!--
 Sync Impact Report
+- Version change: 1.0.0 → 1.1.0 (MINOR — new subsection added: Commit Convention,
+  materially expanding Development Workflow & Quality Gates guidance)
+- Modified principles: none
+- Added principles: none
+- Added sections: Development Workflow & Quality Gates → "Commit Convention"
+  subsection (Conventional Commits format, feat/US-story referencing + test-count
+  rule, one-logical-change-per-commit rule, commit-body-explains-why rule)
+- Expanded sections: Development Workflow & Quality Gates
+- Removed sections: none
+- Templates requiring updates:
+  - ✅ .specify/templates/tasks-template.md ("Commit after each task or logical
+    group" line already present and compatible — no edit needed)
+  - ✅ .specify/templates/plan-template.md (no commit-message-specific references)
+  - ✅ .specify/templates/spec-template.md (no commit-message-specific references)
+- Follow-up TODOs: none
+
+---
+Sync Impact Report (previous amendment, retained for history)
 - Version change: 1.0.0 → 1.0.0 (kept unchanged per explicit maintainer instruction,
   even though this amendment adds substantial new material; note that under the
   versioning policy below this content would normally warrant a MINOR bump —
@@ -259,6 +277,23 @@ undermine the learning goal even if it were faster.
   the next feature begins (Principle VIII); the agent MUST NOT auto-chain into
   the next feature.
 
+### Commit Convention
+
+- All commits follow Conventional Commits: `type: summary` (max ~70 chars).
+  Allowed types: `feat`, `fix`, `test`, `docs`, `chore`, `spec`, `refactor`.
+- `feat` commits reference the user story (e.g. `feat: US4 edit/delete work
+  item`) and include the passing test count when tests changed (e.g. "137/137
+  backend tests pass").
+- One logical change per commit — commit after each user story or logical
+  group, never one giant batch per feature.
+- The commit body, when used, explains WHY the change was made, not just what
+  changed — the diff itself already shows what changed.
+
+**Rationale**: Small, well-labeled commits make a feature's history reviewable
+story-by-story rather than as one undifferentiated diff, and a consistent
+`type:` prefix lets both the maintainer and tooling (e.g. changelog
+generation) scan history at a glance.
+
 ## Definition of Done (per feature)
 
 A feature is DONE only when:
@@ -295,4 +330,4 @@ with these principles; unjustified deviations MUST be rejected at review or
 the constitution MUST be amended first. Compliance is reviewed at each
 `/speckit-plan` invocation via the plan template's Constitution Check section.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-14 | **Last Amended**: 2026-07-14
+**Version**: 1.1.0 | **Ratified**: 2026-07-14 | **Last Amended**: 2026-07-17

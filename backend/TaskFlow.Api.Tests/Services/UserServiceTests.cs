@@ -109,4 +109,18 @@ public class UserServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<UserNotFoundException>(() =>
             sut.ChangeRoleAsync(admin.Id, 999999, "Developer"));
     }
+
+    [Fact]
+    public async Task GetAssignableUsersAsync_returns_every_users_id_and_full_name_only()
+    {
+        var a = AddUser("a@example.com");
+        var b = AddUser("b@example.com", Role.Manager);
+        var sut = CreateSut();
+
+        var result = await sut.GetAssignableUsersAsync();
+
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, u => u.Id == a.Id && u.FullName == "Test User");
+        Assert.Contains(result, u => u.Id == b.Id);
+    }
 }

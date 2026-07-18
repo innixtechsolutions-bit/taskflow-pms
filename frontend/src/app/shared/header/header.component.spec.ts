@@ -6,6 +6,7 @@ import { AuthService, AuthState, UserRole } from '../../auth/auth.service';
 
 function stateFor(role: UserRole): AuthState {
   return {
+    id: 1,
     token: 'a-token',
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
     fullName: 'Ada Lovelace',
@@ -64,4 +65,16 @@ describe('HeaderComponent', () => {
 
     expect(fixture.nativeElement.querySelector('a[href="/users"]')).toBeNull();
   });
+
+  it.each(['Developer', 'Manager', 'Admin'] as const)(
+    'shows a Projects navigation link for a %s',
+    (role) => {
+      configure(role);
+      const fixture = TestBed.createComponent(HeaderComponent);
+
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('a[href="/projects"]')).toBeTruthy();
+    }
+  );
 });

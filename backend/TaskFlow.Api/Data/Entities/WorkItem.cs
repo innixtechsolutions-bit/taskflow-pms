@@ -1,0 +1,65 @@
+namespace TaskFlow.Api.Data.Entities;
+
+// A label only in this feature — no parent/child hierarchy between types yet
+// (that arrives in a later feature), so a flat enum is all this slice needs
+// (constitution Principle III — Clarity Over Cleverness).
+public enum WorkItemType
+{
+    Epic,
+    Story,
+    Task,
+    SubTask
+}
+
+public enum WorkItemPriority
+{
+    Low,
+    Medium,
+    High,
+    Critical
+}
+
+// No restricted transitions in this feature — any status may be set to any
+// other directly; there is no state machine here (see data-model.md).
+public enum WorkItemStatus
+{
+    ToDo,
+    InProgress,
+    Done
+}
+
+public class WorkItem
+{
+    public int Id { get; set; }
+
+    // Immutable after creation (FR-014) — no service method ever assigns this
+    // after the entity is first created.
+    public int ProjectId { get; set; }
+
+    public Project? Project { get; set; }
+
+    public WorkItemType Type { get; set; }
+
+    public required string Title { get; set; }
+
+    public string? Description { get; set; }
+
+    public WorkItemPriority Priority { get; set; } = WorkItemPriority.Medium;
+
+    public WorkItemStatus Status { get; set; } = WorkItemStatus.ToDo;
+
+    // Optional: a work item need not be assigned to anyone.
+    public int? AssigneeUserId { get; set; }
+
+    public User? Assignee { get; set; }
+
+    public DateTime? DueDate { get; set; }
+
+    public int CreatedByUserId { get; set; }
+
+    public User? CreatedBy { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime UpdatedAt { get; set; }
+}

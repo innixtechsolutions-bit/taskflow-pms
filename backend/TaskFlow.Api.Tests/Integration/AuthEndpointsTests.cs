@@ -208,4 +208,29 @@ public class AuthEndpointsTests(TaskFlowApiFactory factory) : IClassFixture<Task
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // Feature 002 needs the frontend to compare "who am I" against a work item's
+    // creator/assignee ids (research.md §8) — Register/Login/Me must all agree on the
+    // same numeric id for that comparison to mean anything.
+    [Fact]
+    public async Task Register_Login_and_Me_all_return_the_same_caller_id()
+    {
+        var email = $"id-check-{Guid.NewGuid():N}@example.com";
+
+        var registerResponse = await _client.PostAsJsonAsync(
+            "/api/auth/register", new { fullName = "Grace Hopper", email, password = "Password1" });
+        var registerBody = await registerResponse.Content.ReadFromJsonAsync<AuthResponse>();
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password = "Password1" });
+        var loginBody = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>();
+
+        var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        meRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", loginBody!.Token);
+        var meResponse = await _client.SendAsync(meRequest);
+        var meBody = await meResponse.Content.ReadFromJsonAsync<MeResponse>();
+
+        Assert.True(registerBody!.Id > 0);
+        Assert.Equal(registerBody.Id, loginBody!.Id);
+        Assert.Equal(registerBody.Id, meBody!.Id);
+    }
 }

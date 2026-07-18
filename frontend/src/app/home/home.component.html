@@ -1,2 +1,6 @@
-<h1>Welcome, {{ authService.currentUser()?.fullName }}</h1>
-<p>You are signed in as {{ authService.currentUser()?.role }}.</p>
+<mat-card appearance="outlined">
+  <mat-card-content>
+    <h1>Welcome, {{ authService.currentUser()?.fullName }}</h1>
+    <p>You are signed in as {{ authService.currentUser()?.role }}.</p>
+  </mat-card-content>
+</mat-card>

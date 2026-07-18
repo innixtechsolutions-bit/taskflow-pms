@@ -1,0 +1,34 @@
+<div class="form-page">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>{{ isEditMode ? 'Edit project' : 'Create a project' }}</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <form (submit)="onSubmit($event)" novalidate>
+        @if (serverError()) {
+          <p class="server-error" role="alert">{{ serverError() }}</p>
+        }
+
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput id="name" type="text" [formField]="projectForm.name" />
+          @if (projectForm.name().touched() && projectForm.name().errors().length > 0) {
+            <mat-error>{{ projectForm.name().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Description</mat-label>
+          <textarea matInput id="description" [formField]="projectForm.description"></textarea>
+          @if (projectForm.description().touched() && projectForm.description().errors().length > 0) {
+            <mat-error>{{ projectForm.description().errors()[0].message }}</mat-error>
+          }
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" type="submit" [disabled]="submitting()">
+          {{ isEditMode ? 'Save changes' : 'Create project' }}
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -1,4 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTableModule } from '@angular/material/table';
 import { UserRole } from '../../auth/auth.service';
 import { UserListItem, UsersService } from '../users.service';
 
@@ -7,10 +9,16 @@ const ROLES: UserRole[] = ['Developer', 'Manager', 'Admin'];
 @Component({
   selector: 'app-users-list',
   standalone: true,
+  imports: [MatButtonModule, MatTableModule],
   templateUrl: './users-list.component.html',
 })
 export class UsersListComponent implements OnInit {
   private readonly usersService = inject(UsersService);
+
+  // Column order for mat-table's structural directives (template-supporting
+  // metadata, not behavior — the actual data fetching/role-change logic below
+  // is unchanged).
+  protected readonly displayedColumns = ['fullName', 'email', 'role', 'createdAt'];
 
   protected readonly roles = ROLES;
   protected readonly items = signal<UserListItem[]>([]);

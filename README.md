@@ -77,3 +77,45 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   non-Admin actually can't get past, verified by an integration test that
   calls the endpoint directly with a non-Admin token, bypassing the
   frontend entirely.
+
+### Feature 002: Projects & Work Items
+
+- **`AddProblemDetails()` alone doesn't touch every error response.**
+  Registering it in `Program.cs` is enough for unhandled *exceptions* and
+  for `[ApiController]`'s own validation failures, but a bare
+  `[Authorize(Roles = "Manager,Admin")]` rejection is handled entirely by
+  the authorization *middleware*, before any controller action (or its
+  `Problem(...)` calls) ever runs — and that middleware, on its own, returns
+  a 403 with a completely empty body. A Polish-phase test written to check
+  "every error response is a real `ProblemDetails`" caught this by actually
+  parsing the response body and finding nothing there to parse. The fix
+  was one line, `app.UseExceptionHandler()` followed by
+  `app.UseStatusCodePages()` — the second half of the pair, which converts
+  any already-error-coded-but-bodyless response into a `ProblemDetails`
+  through the same registration. It quietly fixed the identical gap in
+  Feature 001's own `[Authorize(Roles = "Admin")]` endpoints too, which had
+  never been tested against this specific angle (only their status codes,
+  never their body shape).
+- **SQL Server's "multiple cascade paths" rule forces a design decision, not
+  just a workaround.** `WorkItem` has two foreign keys into `User`
+  (creator, assignee) and one into `Project`, which itself has its own
+  foreign key into `User`. Making all of the `User`-pointing foreign keys
+  cascade would mean deleting a `User` could reach `WorkItem` two different
+  ways — directly, and indirectly through `Project` — which SQL Server
+  refuses to allow as a schema at all. The fix (`DeleteBehavior.Restrict`
+  on every foreign key that points at `User`) isn't a workaround for a
+  database limitation; it's the correct modeling choice regardless, since
+  this app has no user-deletion feature yet for those paths to protect
+  against.
+- **A task breakdown can miss a dependency that only becomes visible during
+  implementation.** `tasks.md` scheduled work-item edit/delete UI in one
+  phase and the actual itemized work-item list (with its filter/search/
+  pagination) in a later one — reasonable on paper, since each looked like
+  an independent slice. But an edit/delete *control* has nothing to attach
+  to without rows to render it next to, so the earlier phase silently
+  depended on output the later phase hadn't produced yet. Discovering this
+  while implementing (not while planning) meant pulling the listing
+  endpoint and a basic unfiltered rendering of it forward, then having the
+  later phase extend rather than originate the list — documented inline in
+  `tasks.md` rather than silently reordered, so the plan stayed honest
+  about what actually happened and why.
