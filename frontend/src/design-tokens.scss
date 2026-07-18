@@ -1,0 +1,77 @@
+// Design tokens for the app shell & design system (Feature 004).
+//
+// Two layers, deliberately:
+// - `$breakpoint-tablet-px` is a Sass variable, not a CSS custom property,
+//   because CSS custom properties cannot be referenced inside a `@media`
+//   query condition (not supported by the CSS spec) — anything that needs
+//   the tablet breakpoint in a media query must use this Sass value, and
+//   anything that needs it in TypeScript (CDK BreakpointObserver) mirrors
+//   the same number — see frontend/src/app/shared/breakpoints.ts.
+// - Everything else is a CSS custom property on `:root`, consumable from
+//   component CSS (`var(--token-name)`) and from `style` bindings (e.g. the
+//   avatar's per-user hashed color) without a Sass import in every file.
+$breakpoint-tablet-px: 1024px;
+
+:root {
+  // Primary / brand accent — purple, per visual-reference.png
+  --color-primary: #6d28d9;
+  --color-primary-contrast: #ffffff;
+
+  // Surfaces
+  --color-surface: #ffffff;
+  --color-surface-alt: #f8fafc;
+  --color-sidebar-bg: #0f172a;
+  --color-sidebar-text: #94a3b8;
+  --color-sidebar-text-active: #ffffff;
+  --color-border: #e2e8f0;
+
+  // Status colors (WorkItemStatus)
+  --color-status-todo-bg: #f1f5f9;
+  --color-status-todo-text: #475569;
+  --color-status-inprogress-bg: #dbeafe;
+  --color-status-inprogress-text: #1d4ed8;
+  --color-status-done-bg: #dcfce7;
+  --color-status-done-text: #15803d;
+
+  // Priority colors (WorkItemPriority)
+  --color-priority-low-bg: #f1f5f9;
+  --color-priority-low-text: #475569;
+  --color-priority-medium-bg: #fef3c7;
+  --color-priority-medium-text: #b45309;
+  --color-priority-high-bg: #ffedd5;
+  --color-priority-high-text: #c2410c;
+  --color-priority-critical-bg: #fee2e2;
+  --color-priority-critical-text: #b91c1c;
+
+  // Avatar accent palette — avatarColorFor() hashes a user id into one of these
+  --color-avatar-1: #6366f1;
+  --color-avatar-2: #ec4899;
+  --color-avatar-3: #14b8a6;
+  --color-avatar-4: #f59e0b;
+  --color-avatar-5: #8b5cf6;
+  --color-avatar-6: #10b981;
+  --color-avatar-7: #f43f5e;
+  --color-avatar-8: #3b82f6;
+
+  // Spacing scale
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  // Radius
+  --radius-card: 12px;
+  --radius-chip: 999px;
+
+  // Layout
+  --content-max-width: 1440px;
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 72px;
+
+  // Mirrors $breakpoint-tablet-px above for documentation only — CANNOT be
+  // used inside a @media condition; see breakpoints.ts for the TS source of
+  // truth used by CDK BreakpointObserver.
+  --breakpoint-tablet: #{$breakpoint-tablet-px};
+}

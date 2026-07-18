@@ -17,6 +17,13 @@ html {
       density: 0,
     )
   );
+
+  // Feature 004: align Material's own primary color with the design
+  // system's --color-primary token (design-tokens.scss) so Material
+  // components (buttons, focus rings, etc.) and custom shell/chip/avatar
+  // components share one visual accent instead of two different purples.
+  --mat-sys-primary: var(--color-primary);
+  --mat-sys-on-primary: var(--color-primary-contrast);
 }
 
 body {
