@@ -22,11 +22,12 @@ function baseCard(overrides: Partial<WorkItemBoardCard> = {}): WorkItemBoardCard
   };
 }
 
-function render(card: WorkItemBoardCard) {
+function render(card: WorkItemBoardCard, projectId = 1) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({ providers: [provideRouter([])] });
   const fixture = TestBed.createComponent(BoardCardComponent);
   fixture.componentRef.setInput('card', card);
+  fixture.componentRef.setInput('projectId', projectId);
   fixture.detectChanges();
   return fixture;
 }
@@ -92,5 +93,12 @@ describe('BoardCardComponent', () => {
 
     expect(withChildren.nativeElement.textContent).toContain('1/3 done');
     expect(noChildren.nativeElement.querySelector('.card-progress')).toBeNull();
+  });
+
+  it('links to the correct work item detail route (US5)', () => {
+    const fixture = render(baseCard({ id: 42 }), 7);
+
+    const link = fixture.nativeElement.querySelector('.card-link') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/projects/7/work-items/42');
   });
 });

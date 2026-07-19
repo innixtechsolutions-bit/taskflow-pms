@@ -23,7 +23,7 @@
           <app-empty-state icon="inbox" message="No items" />
         } @else {
           @for (item of column.items; track item.id) {
-            <app-board-card [card]="item" [dragDisabled]="!canDrag(item)" />
+            <app-board-card [card]="item" [projectId]="projectId()" [dragDisabled]="!canDrag(item)" />
           }
         }
       </div>

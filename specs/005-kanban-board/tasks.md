@@ -179,13 +179,13 @@ opens; navigate back, confirm Board view is still selected.
 
 ### Tests for User Story 5
 
-- [ ] T046 [P] [US5] Frontend test: extend `board-card.component.spec.ts` — clicking a card (not a drag gesture) links to the correct work item detail route
-- [ ] T047 [P] [US5] Frontend test: extend `project-detail.component.spec.ts` — with `?view=board` present on load, Board view is selected (confirms the T026 query-param mechanism also satisfies "return to the board" after a detail-page visit)
+- [x] T046 [P] [US5] Frontend test: extend `board-card.component.spec.ts` — clicking a card (not a drag gesture) links to the correct work item detail route
+- [x] T047 [P] [US5] Frontend test: extend `project-detail.component.spec.ts` — with `?view=board` present on load, Board view is selected (confirms the T026 query-param mechanism also satisfies "return to the board" after a detail-page visit)
 
 ### Implementation for User Story 5
 
-- [ ] T048 [US5] Wrap each card's clickable area (excluding the drag handle) in a `routerLink` to the work item detail route, in `frontend/src/app/projects/board/board-card.component.html` — makes T046 pass
-- [ ] T049 [US5] Verification-only (L2 — no new code expected): run T047 against T026's existing `view` query-param mechanism and confirm it already restores Board view after back-navigation from a card's detail page. If T047 fails, that means T026 didn't fully implement the mechanism — fix it there, not by adding parallel logic in this file. `frontend/src/app/projects/project-detail/project-detail.component.ts` — makes T047 pass
+- [x] T048 [US5] Wrap each card's clickable area (excluding the drag handle) in a `routerLink` to the work item detail route, in `frontend/src/app/projects/board/board-card.component.html` — makes T046 pass
+- [x] T049 [US5] Verification-only (L2 — no new code expected): run T047 against T026's existing `view` query-param mechanism and confirm it already restores Board view after back-navigation from a card's detail page. If T047 fails, that means T026 didn't fully implement the mechanism — fix it there, not by adding parallel logic in this file. `frontend/src/app/projects/project-detail/project-detail.component.ts` — makes T047 pass
 
 **Checkpoint**: Full click-through → detail → back cycle preserves
 Board view — quickstart.md section 5 passes.

@@ -12,6 +12,12 @@
   cursor: default;
 }
 
+.card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
 .card-title {
   margin: 0 0 var(--space-1);
   font-size: 13px;
