@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { Router } from '@angular/router';
 import { AuthService } from '../../auth/auth.service';
@@ -20,6 +20,11 @@ import { SidebarNavComponent } from '../sidebar-nav/sidebar-nav.component';
 export class AppShellComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+
+  // Sized here rather than in the sidebar's own CSS — SidebarNavComponent
+  // decides *whether* it's collapsed (breakpoint or manual toggle), but only
+  // the shell can resize its own <mat-sidenav> host element.
+  protected readonly sidebarCollapsed = signal(false);
 
   protected async onLogout(): Promise<void> {
     await this.authService.logout();

@@ -3,9 +3,11 @@ import { NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
 import {
@@ -16,7 +18,6 @@ import {
   WorkItemTreeNode,
 } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
-import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
@@ -46,10 +47,11 @@ function parseViewMode(value: string | null): ViewMode {
     MatButtonModule,
     MatCardModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
     MatSelectModule,
     MatTableModule,
-    PageHeaderComponent,
+    MatTabsModule,
     StatusChipComponent,
     PriorityChipComponent,
     UserAvatarComponent,
@@ -72,6 +74,10 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly displayedColumns = ['title', 'status', 'priority', 'actions'];
 
   protected readonly project = signal<ProjectDetail | null>(null);
+  // Feature 005 Polish: the description renders as a single truncated line by
+  // default (point 1 of the page-composition pass) — this just toggles the
+  // CSS class that lets it wrap to full height.
+  protected readonly descriptionExpanded = signal(false);
   protected readonly workItems = signal<WorkItem[]>([]);
   protected readonly assignableUsers = signal<UserLookupItem[]>([]);
 

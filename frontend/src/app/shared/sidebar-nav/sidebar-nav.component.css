@@ -14,6 +14,46 @@
   color: var(--color-sidebar-text-active);
 }
 
+.sidebar-product-name {
+  flex: 1;
+}
+
+.sidebar-collapse-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  background: none;
+  border: none;
+  border-radius: var(--radius-chip);
+  color: var(--color-sidebar-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.sidebar-collapse-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-sidebar-text-active);
+}
+
+.sidebar-collapse-toggle mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.collapsed .sidebar-brand {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.collapsed .sidebar-collapse-toggle {
+  margin-left: 0;
+}
+
 .sidebar-logo {
   display: inline-flex;
   align-items: center;

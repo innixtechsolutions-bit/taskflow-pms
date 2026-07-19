@@ -1,6 +1,6 @@
 <mat-sidenav-container class="shell-container">
-  <mat-sidenav mode="side" [opened]="true" class="shell-sidenav">
-    <app-sidebar-nav (logout)="onLogout()" />
+  <mat-sidenav mode="side" [opened]="true" class="shell-sidenav" [class.collapsed]="sidebarCollapsed()">
+    <app-sidebar-nav (logout)="onLogout()" (collapsedChange)="sidebarCollapsed.set($event)" />
   </mat-sidenav>
   <mat-sidenav-content class="shell-content">
     <div class="shell-content-inner" style="max-width: var(--content-max-width)">

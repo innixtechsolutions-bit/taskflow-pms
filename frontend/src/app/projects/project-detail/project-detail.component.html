@@ -1,54 +1,62 @@
 @if (project(); as p) {
-  <app-page-header [title]="p.name" [subtitle]="'Created by ' + p.createdByName + ' on ' + (p.createdAt | friendlyDate)">
+  <div class="project-header">
+    <div class="project-header-main">
+      <h1 class="project-title">{{ p.name }}</h1>
+      <span class="project-meta">Created by {{ p.createdByName }} on {{ p.createdAt | friendlyDate }}</span>
+    </div>
     @if (canManageProject()) {
-      <ng-container page-header-actions>
+      <div class="project-header-actions">
         <a mat-button class="project-edit-link" [routerLink]="['/projects', p.id, 'edit']">Edit project</a>
         <button mat-button type="button" class="project-delete-button" (click)="onDeleteProject()">Delete project</button>
-      </ng-container>
+      </div>
     }
-  </app-page-header>
-
-  @if (p.description) {
-    <mat-card appearance="outlined" class="project-description-card">
-      <mat-card-content>
-        <p class="project-description">{{ p.description }}</p>
-      </mat-card-content>
-    </mat-card>
-  }
-
-  <h2>Work items</h2>
-  <a mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">New work item</a>
-
-  <div class="view-toggle">
-    <button
-      mat-stroked-button
-      type="button"
-      class="flat-view-toggle"
-      [class.active]="viewMode() === 'flat'"
-      (click)="setViewMode('flat')"
-    >
-      Flat view
-    </button>
-    <button
-      mat-stroked-button
-      type="button"
-      class="tree-view-toggle"
-      [class.active]="viewMode() === 'tree'"
-      (click)="setViewMode('tree')"
-    >
-      Tree view
-    </button>
-    <button
-      mat-stroked-button
-      type="button"
-      class="board-view-toggle"
-      [class.active]="viewMode() === 'board'"
-      (click)="setViewMode('board')"
-    >
-      Board view
-    </button>
   </div>
 
+  @if (p.description) {
+    <div class="project-description-row">
+      <p class="project-description" [class.expanded]="descriptionExpanded()">{{ p.description }}</p>
+      <button type="button" class="description-toggle" (click)="descriptionExpanded.set(!descriptionExpanded())">
+        {{ descriptionExpanded() ? 'Show less' : 'Show more' }}
+      </button>
+    </div>
+  }
+
+  <div class="view-tab-row">
+    <nav mat-tab-nav-bar class="view-tab-nav" [tabPanel]="viewTabPanel" disableRipple>
+      <a
+        mat-tab-link
+        class="flat-view-toggle"
+        [class.active]="viewMode() === 'flat'"
+        [active]="viewMode() === 'flat'"
+        (click)="setViewMode('flat')"
+      >
+        Flat
+      </a>
+      <a
+        mat-tab-link
+        class="tree-view-toggle"
+        [class.active]="viewMode() === 'tree'"
+        [active]="viewMode() === 'tree'"
+        (click)="setViewMode('tree')"
+      >
+        Tree
+      </a>
+      <a
+        mat-tab-link
+        class="board-view-toggle"
+        [class.active]="viewMode() === 'board'"
+        [active]="viewMode() === 'board'"
+        (click)="setViewMode('board')"
+      >
+        Board
+      </a>
+    </nav>
+    <a mat-flat-button color="primary" class="new-work-item-button" [routerLink]="['/projects', p.id, 'work-items', 'new']">
+      New work item
+    </a>
+  </div>
+
+  <mat-tab-nav-panel #viewTabPanel>
   @if (viewMode() === 'board') {
     <app-board [projectId]="p.id" />
   }
@@ -95,7 +103,7 @@
 
   @if (viewMode() === 'flat') {
   <div class="work-item-filters">
-    <mat-form-field appearance="outline" class="filter-field">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
       <mat-label>Status</mat-label>
       <mat-select id="statusFilter" [value]="statusFilter()" (selectionChange)="onStatusFilterChange($event.value)">
         <mat-option value="">All statuses</mat-option>
@@ -105,7 +113,7 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="filter-field">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
       <mat-label>Type</mat-label>
       <mat-select id="typeFilter" [value]="typeFilter()" (selectionChange)="onTypeFilterChange($event.value)">
         <mat-option value="">All types</mat-option>
@@ -115,7 +123,7 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="filter-field">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
       <mat-label>Priority</mat-label>
       <mat-select id="priorityFilter" [value]="priorityFilter()" (selectionChange)="onPriorityFilterChange($event.value)">
         <mat-option value="">All priorities</mat-option>
@@ -125,7 +133,7 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="filter-field">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
       <mat-label>Assignee</mat-label>
       <mat-select id="assigneeFilter" [value]="assigneeFilter()" (selectionChange)="onAssigneeFilterChange($event.value)">
         <mat-option value="">All assignees</mat-option>
@@ -135,11 +143,13 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline" class="filter-field search-field">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field search-field">
       <mat-label>Search</mat-label>
       <input matInput id="searchFilter" type="text" [value]="searchInput()" (input)="searchInput.set($any($event.target).value)" />
+      <button matIconSuffix type="button" class="search-button" aria-label="Search" (click)="onSearch()">
+        <mat-icon>search</mat-icon>
+      </button>
     </mat-form-field>
-    <button mat-stroked-button type="button" class="search-button" (click)="onSearch()">Search</button>
   </div>
 
   @if (workItems().length === 0) {
@@ -195,4 +205,5 @@
     </div>
   }
   }
+  </mat-tab-nav-panel>
 }

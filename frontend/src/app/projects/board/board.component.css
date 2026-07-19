@@ -18,16 +18,26 @@
   min-width: 220px;
   max-width: 320px;
   max-height: calc(100dvh - 240px);
-  background-color: var(--color-surface-alt);
+  /* The page itself already sits on --color-surface-alt (shell.component.css),
+     so a lane in that exact same shade read as no container at all — just a
+     1px outline. Blending in a slice of --color-border gives the lane a
+     visibly stronger fill than the page behind it, while cards stay
+     --color-surface (white) so they keep popping against the lane, not
+     blend into it (both existing tokens, no new color introduced). The
+     inset shadow reinforces the "sunken tray" reading the border alone
+     doesn't quite achieve. */
+  background-color: color-mix(in srgb, var(--color-border) 30%, var(--color-surface-alt) 70%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.06);
 }
 
 .board-column-header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-3) var(--space-2);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .board-column-label {
@@ -73,7 +83,7 @@
 
 .board-column-body {
   overflow-y: auto;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
   flex: 1;
 }
 

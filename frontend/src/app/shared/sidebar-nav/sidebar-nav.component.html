@@ -4,6 +4,16 @@
     @if (!isCollapsed()) {
       <span class="sidebar-product-name">TaskFlow</span>
     }
+    <button
+      type="button"
+      class="sidebar-collapse-toggle"
+      (click)="toggleCollapsed()"
+      [matTooltip]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+      matTooltipPosition="right"
+      [attr.aria-label]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+    >
+      <mat-icon>menu</mat-icon>
+    </button>
   </div>
 
   <nav class="sidebar-links">
