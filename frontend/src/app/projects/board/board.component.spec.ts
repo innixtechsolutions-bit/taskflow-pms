@@ -1,10 +1,16 @@
 import { TestBed } from '@angular/core/testing';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
+import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { vi } from 'vitest';
 import { BoardComponent } from './board.component';
-import { WorkItemBoard, WorkItemsService } from '../work-items.service';
+import { WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
+
+function dropEvent(item: WorkItemBoardCard): CdkDragDrop<WorkItemBoardCard[]> {
+  return { item: { data: item } } as CdkDragDrop<WorkItemBoardCard[]>;
+}
 
 function sampleBoard(): WorkItemBoard {
   return {
@@ -47,17 +53,22 @@ function sampleBoard(): WorkItemBoard {
   };
 }
 
-function configure(getBoard = vi.fn().mockResolvedValue(sampleBoard()), authState = { id: 1, role: 'Developer' as const }) {
+function configure(
+  getBoard = vi.fn().mockResolvedValue(sampleBoard()),
+  authState = { id: 1, role: 'Developer' as const },
+  updateWorkItemStatus = vi.fn().mockResolvedValue(undefined)
+) {
+  const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [BoardComponent],
     providers: [
       provideRouter([]),
-      { provide: WorkItemsService, useValue: { getBoard, updateWorkItemStatus: vi.fn() } },
+      { provide: WorkItemsService, useValue: { getBoard, updateWorkItemStatus } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
-      { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
+      { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getBoard };
+  return { getBoard, updateWorkItemStatus, notificationService };
 }
 
 async function render(projectId = 1) {
@@ -67,6 +78,15 @@ async function render(projectId = 1) {
   await fixture.whenStable();
   fixture.detectChanges();
   return fixture;
+}
+
+// Finds which column (by its header label) a card with the given title is
+// currently rendered inside — a DOM-level way to assert "the card is back in
+// its source column", not just "absent from the target".
+function columnLabelContaining(fixture: { nativeElement: HTMLElement }, cardTitle: string): string | undefined {
+  const columns = Array.from(fixture.nativeElement.querySelectorAll('.board-column')) as HTMLElement[];
+  const column = columns.find((c) => c.textContent?.includes(cardTitle));
+  return column?.querySelector('.board-column-label')?.textContent ?? undefined;
 }
 
 describe('BoardComponent', () => {
@@ -109,5 +129,55 @@ describe('BoardComponent', () => {
     await render(42);
 
     expect(getBoard).toHaveBeenCalledWith(42);
+  });
+
+  it('moves a dragged card to the target column and persists the new status', async () => {
+    const { updateWorkItemStatus } = configure();
+    const fixture = await render();
+    const item = sampleBoard().items[0]; // 'A todo item', status: 'ToDo'
+
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: string) => void }).onDrop(dropEvent(item), 'InReview');
+    fixture.detectChanges();
+
+    expect(updateWorkItemStatus).toHaveBeenCalledWith(item.id, 'InReview');
+    expect(columnLabelContaining(fixture, item.title)).toBe('In Review');
+  });
+
+  // M3 (strengthened): asserts the card is found specifically back in its
+  // original/source column (not merely "absent from the target"), for both a
+  // generic failed PATCH and a 403-style rejection, and that the toast fires
+  // in both cases.
+  it.each([
+    ['a generic failed PATCH', new Error('network error')],
+    ['a 403 rejection', new HttpErrorResponse({ status: 403 })],
+  ])('reverts the card to its source column and shows an error toast on %s', async (_label, rejection) => {
+    const { notificationService } = configure(undefined, undefined, vi.fn().mockRejectedValue(rejection));
+    const fixture = await render();
+    const item = sampleBoard().items[0]; // 'A todo item', status: 'ToDo'
+
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: string) => void }).onDrop(dropEvent(item), 'InReview');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(columnLabelContaining(fixture, item.title)).toBe('To Do');
+    expect(notificationService.error).toHaveBeenCalled();
+  });
+
+  it('disables dragging for a card the current user cannot edit', async () => {
+    const board: WorkItemBoard = {
+      columns: sampleBoard().columns,
+      items: [{ ...sampleBoard().items[0], createdByUserId: 99, assigneeUserId: 99 }],
+    };
+    configure(vi.fn().mockResolvedValue(board), { id: 1, role: 'Developer' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.board-card.drag-disabled')).toBeTruthy();
+  });
+
+  it('leaves dragging enabled for a card the current user can edit', async () => {
+    configure();
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.board-card.drag-disabled')).toBeNull();
   });
 });

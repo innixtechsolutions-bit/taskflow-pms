@@ -34,3 +34,7 @@
   padding: 0 var(--space-3) var(--space-3);
   flex: 1;
 }
+
+.board-column-body .cdk-drag-placeholder {
+  opacity: 0.4;
+}

@@ -192,4 +192,11 @@ export class WorkItemsService {
   async getBoard(projectId: number): Promise<WorkItemBoard> {
     return firstValueFrom(this.http.get<WorkItemBoard>(`/api/projects/${projectId}/work-items/board`));
   }
+
+  // Field-scoped, not the full updateWorkItem() PUT — the board's drag interaction
+  // only ever changes status, and never carries fields (description,
+  // parentWorkItemId) it would otherwise risk clobbering (research.md #3).
+  async updateWorkItemStatus(id: number, status: WorkItemStatus): Promise<WorkItem> {
+    return firstValueFrom(this.http.patch<WorkItem>(`/api/work-items/${id}/status`, { status }));
+  }
 }

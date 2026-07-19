@@ -763,6 +763,62 @@ public class WorkItemServiceTests : SqlServerTestDatabase
             () => sut.UpdateAsync(1, "Admin", 999999, EditRequest()));
     }
 
+    // Feature 005 (Kanban Board) -- a field-scoped status update, introduced so
+    // the board's drag interaction never has to submit (and risk clobbering)
+    // fields it doesn't carry, like Description/ParentWorkItemId (research.md #3).
+    [Theory]
+    [InlineData(true, false, "Developer")] // creator
+    [InlineData(false, true, "Developer")] // current assignee
+    [InlineData(false, false, "Manager")]
+    [InlineData(false, false, "Admin")]
+    public async Task UpdateStatusAsync_allows_creator_assignee_or_manager_or_admin(bool asCreator, bool asAssignee, string callerRole)
+    {
+        var creator = AddUser("status-creator@example.com");
+        var assignee = AddUser("status-assignee@example.com");
+        var caller = asCreator ? creator : asAssignee ? assignee : AddUser($"status-caller-{callerRole}@example.com", Enum.Parse<Role>(callerRole));
+        var project = AddProject("Alpha", creator.Id);
+        var item = AddWorkItem(project.Id, creator.Id, assigneeUserId: assignee.Id, status: WorkItemStatus.ToDo);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateStatusAsync(caller.Id, callerRole, item.Id, "InReview");
+
+        Assert.Equal("InReview", result.Status);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_rejects_a_caller_who_is_neither_creator_assignee_nor_manager_or_admin()
+    {
+        var creator = AddUser("status-creator2@example.com");
+        var stranger = AddUser("status-stranger@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var item = AddWorkItem(project.Id, creator.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<NotAuthorizedToEditWorkItemException>(
+            () => sut.UpdateStatusAsync(stranger.Id, "Developer", item.Id, "Done"));
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_rejects_an_invalid_status_value()
+    {
+        var creator = AddUser("status-invalid@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var item = AddWorkItem(project.Id, creator.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidWorkItemStatusException>(
+            () => sut.UpdateStatusAsync(creator.Id, "Developer", item.Id, "NotAStatus"));
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_throws_for_an_unknown_work_item()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<WorkItemNotFoundException>(
+            () => sut.UpdateStatusAsync(1, "Admin", 999999, "Done"));
+    }
+
     [Theory]
     [InlineData(true, "Developer")] // creator
     [InlineData(false, "Manager")]

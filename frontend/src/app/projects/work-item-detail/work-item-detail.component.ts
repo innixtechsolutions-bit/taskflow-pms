@@ -9,6 +9,7 @@ import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { canEditWorkItem } from '../work-item-permissions';
 
 // Mirrors the backend's RequiredParentType mapping in reverse (data-model.md's
 // Hierarchy rules table) — the type a new child would need, given this item's type.
@@ -59,14 +60,15 @@ export class WorkItemDetailComponent implements OnInit {
   }
 
   // Broader than canDelete: also allows the item's current assignee (FR-016) — same
-  // rule project-detail's canEdit already applies to the flat/tree lists.
+  // rule project-detail's canEdit already applies to the flat/tree lists. Delegates
+  // to the shared canEditWorkItem() (Feature 005).
   protected canEdit(): boolean {
     const item = this.item();
     const userId = this.authService.currentUser()?.id;
     if (!item || userId === undefined) {
       return false;
     }
-    return item.createdByUserId === userId || item.assigneeUserId === userId || this.isManagerOrAdmin();
+    return canEditWorkItem(item, userId, this.authService.currentRole());
   }
 
   // Narrower than canEdit: the current assignee alone cannot delete (FR-017/FR-018).

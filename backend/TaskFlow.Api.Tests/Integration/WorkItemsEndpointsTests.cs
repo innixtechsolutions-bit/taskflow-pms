@@ -550,6 +550,86 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task UpdateStatus_returns_200_for_the_creator()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"status-creator-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", creatorToken);
+        request.Content = JsonContent.Create(new { status = "InReview" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        Assert.Equal("InReview", body!.Status);
+    }
+
+    // FR-015: the server independently refuses an unauthorized status change,
+    // called directly here with no board UI involved at all.
+    [Fact]
+    public async Task UpdateStatus_returns_403_for_an_unrelated_caller()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"status-creator2-{Guid.NewGuid():N}@example.com");
+        var strangerToken = await RegisterAndGetTokenAsync($"status-stranger-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", strangerToken);
+        request.Content = JsonContent.Create(new { status = "InReview" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var unchanged = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/work-items/{item.Id}", creatorToken));
+        var unchangedBody = await unchanged.Content.ReadFromJsonAsync<WorkItemDetailDto>();
+        Assert.Equal("ToDo", unchangedBody!.Status);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_400_for_an_invalid_status()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"status-invalid-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", creatorToken);
+        request.Content = JsonContent.Create(new { status = "NotAStatus" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_404_for_an_unknown_work_item()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var request = AuthedRequest(HttpMethod.Patch, "/api/work-items/999999/status", adminToken);
+        request.Content = JsonContent.Create(new { status = "Done" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_401_without_a_token()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"status-notoken-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/work-items/{item.Id}/status");
+        request.Content = JsonContent.Create(new { status = "Done" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_returns_200_with_the_full_item_for_any_authenticated_caller()
     {
         var adminToken = await LoginAsSeededAdminAsync();

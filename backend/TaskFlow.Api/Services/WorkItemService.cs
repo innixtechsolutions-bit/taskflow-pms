@@ -74,14 +74,7 @@ public class WorkItemService(AppDbContext dbContext)
     public async Task<WorkItemDto> UpdateAsync(int callerId, string callerRole, int id, WorkItemRequest request)
     {
         var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
-
-        var isCreator = workItem.CreatedByUserId == callerId;
-        var isCurrentAssignee = workItem.AssigneeUserId == callerId;
-        var isManagerOrAdmin = callerRole is "Manager" or "Admin";
-        if (!isCreator && !isCurrentAssignee && !isManagerOrAdmin)
-        {
-            throw new NotAuthorizedToEditWorkItemException();
-        }
+        EnsureCanEdit(workItem, callerId, callerRole);
 
         if (!Enum.TryParse<WorkItemType>(request.Type, ignoreCase: true, out var type))
         {
@@ -152,6 +145,44 @@ public class WorkItemService(AppDbContext dbContext)
         await dbContext.SaveChangesAsync();
 
         return await ToDtoAsync(workItem.Id);
+    }
+
+    // Feature 005 (Kanban Board). A field-scoped sibling to UpdateAsync above --
+    // reuses the exact same authorization rule (EnsureCanEdit) but only ever
+    // touches Status, so the board's drag interaction never has to submit (and
+    // risk silently clobbering) fields a card doesn't carry, like Description or
+    // ParentWorkItemId (research.md #3).
+    public async Task<WorkItemDto> UpdateStatusAsync(int callerId, string callerRole, int id, string status)
+    {
+        var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
+        EnsureCanEdit(workItem, callerId, callerRole);
+
+        if (!Enum.TryParse<WorkItemStatus>(status, ignoreCase: true, out var statusValue))
+        {
+            throw new InvalidWorkItemStatusException();
+        }
+
+        workItem.Status = statusValue;
+        workItem.UpdatedAt = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync();
+
+        return await ToDtoAsync(workItem.Id);
+    }
+
+    // Shared by UpdateAsync and UpdateStatusAsync -- "the caller is this item's
+    // creator or current assignee" isn't expressible as a role (research.md §1),
+    // so it's checked here once rather than duplicated between the two update
+    // paths.
+    private static void EnsureCanEdit(WorkItem workItem, int callerId, string callerRole)
+    {
+        var isCreator = workItem.CreatedByUserId == callerId;
+        var isCurrentAssignee = workItem.AssigneeUserId == callerId;
+        var isManagerOrAdmin = callerRole is "Manager" or "Admin";
+        if (!isCreator && !isCurrentAssignee && !isManagerOrAdmin)
+        {
+            throw new NotAuthorizedToEditWorkItemException();
+        }
     }
 
     public async Task<WorkItemDetailDto> GetByIdAsync(int id) => await ToDetailDtoAsync(id);

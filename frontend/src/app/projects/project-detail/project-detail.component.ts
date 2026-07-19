@@ -24,6 +24,7 @@ import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardComponent } from '../board/board.component';
+import { canEditWorkItem } from '../work-item-permissions';
 
 const STATUSES = ['ToDo', 'InProgress', 'InReview', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
@@ -220,12 +221,14 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   // Broader than canDelete: also allows the item's current assignee (FR-016).
+  // Delegates to the shared canEditWorkItem() (Feature 005) — this is its
+  // second call site, alongside work-item-detail and the board's drag check.
   protected canEdit(item: WorkItem): boolean {
     const userId = this.authService.currentUser()?.id;
     if (userId === undefined) {
       return false;
     }
-    return item.createdByUserId === userId || item.assigneeUserId === userId || this.isManagerOrAdmin();
+    return canEditWorkItem(item, userId, this.authService.currentRole());
   }
 
   // Narrower than canEdit: the current assignee alone cannot delete (FR-017/FR-018).

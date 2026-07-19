@@ -213,6 +213,31 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         }
     }
 
+    [HttpPatch("api/work-items/{id}/status")]
+    public async Task<ActionResult<WorkItemDto>> UpdateStatus(int id, UpdateWorkItemStatusRequest request)
+    {
+        var callerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var callerRole = User.FindFirstValue(ClaimTypes.Role)!;
+
+        try
+        {
+            var updated = await workItemService.UpdateStatusAsync(callerId, callerRole, id, request.Status);
+            return Ok(updated);
+        }
+        catch (WorkItemNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (NotAuthorizedToEditWorkItemException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status403Forbidden, detail: ex.Message);
+        }
+        catch (InvalidWorkItemStatusException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+    }
+
     [HttpDelete("api/work-items/{id}")]
     public async Task<IActionResult> Delete(int id)
     {

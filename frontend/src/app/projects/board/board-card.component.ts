@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+import { CdkDrag } from '@angular/cdk/drag-drop';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
@@ -15,12 +16,14 @@ import { isOverdue } from './overdue';
 @Component({
   selector: 'app-board-card',
   standalone: true,
-  imports: [PriorityChipComponent, UserAvatarComponent, FriendlyDatePipe],
+  imports: [PriorityChipComponent, UserAvatarComponent, FriendlyDatePipe, CdkDrag],
   templateUrl: './board-card.component.html',
   styleUrl: './board-card.component.css',
 })
 export class BoardCardComponent {
   readonly card = input.required<WorkItemBoardCard>();
+  // Drag is disabled per-card by the board (canEditWorkItem), not decided here.
+  readonly dragDisabled = input(false);
 
   protected readonly isOverdue = computed(() => isOverdue(this.card().dueDate, this.card().status));
   protected readonly hasChildren = computed(() => this.card().directChildrenCount > 0);
