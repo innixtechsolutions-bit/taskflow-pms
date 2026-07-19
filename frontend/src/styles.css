@@ -202,7 +202,7 @@ table[mat-table] {
   padding: 0;
 }
 
-/* The Flat/Tree/Board switch, restyled as an underlined mat-tab-nav-bar row
+/* The Board/List/Tree switch, restyled as an underlined mat-tab-nav-bar row
    (Jira's Board/List tabs) instead of three stroked pill buttons — "New work
    item" moves onto the same row, right-aligned, instead of its own line
    above everything. */

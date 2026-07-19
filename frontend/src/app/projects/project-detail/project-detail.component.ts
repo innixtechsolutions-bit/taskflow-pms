@@ -35,7 +35,7 @@ type ViewMode = 'flat' | 'tree' | 'board';
 const VIEW_MODES: ViewMode[] = ['flat', 'tree', 'board'];
 
 function parseViewMode(value: string | null): ViewMode {
-  return VIEW_MODES.includes(value as ViewMode) ? (value as ViewMode) : 'flat';
+  return VIEW_MODES.includes(value as ViewMode) ? (value as ViewMode) : 'board';
 }
 
 @Component({
@@ -96,12 +96,13 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly pageSize = 20;
   protected readonly totalCount = signal(0);
 
-  // Flat is the default (Feature 002's unchanged behavior, FR-023); Tree/Board are
-  // opt-in via the toggle. Initialized from the `view` query param (not just a
-  // plain signal default) and kept in sync with it on every change (setViewMode
-  // below) so the selection survives navigating to a card's detail page and back
-  // (FR-019/US5, Feature 005) — a plain component-instance signal would reset to
-  // 'flat' when the router recreates this component on return navigation.
+  // Board is the default view (Feature 005 Polish: promoted from opt-in to
+  // primary); List/Tree remain available via the tab row. Initialized from the
+  // `view` query param (not just a plain signal default) and kept in sync with it
+  // on every change (setViewMode below) so the selection survives navigating to a
+  // card's detail page and back (FR-019/US5, Feature 005) — a plain
+  // component-instance signal would reset to 'board' when the router recreates
+  // this component on return navigation.
   protected readonly viewMode = signal<ViewMode>(parseViewMode(this.route.snapshot.queryParamMap.get('view')));
   protected readonly treeNodes = signal<WorkItemTreeNode[]>([]);
   // Tracks which parent rows are collapsed rather than which are expanded, so a

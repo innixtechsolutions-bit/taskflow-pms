@@ -45,6 +45,16 @@ describe('ProjectsListComponent', () => {
     expect(text).toContain('Mobile App');
   });
 
+  // Feature 005 Polish: Board is now the default project view, so opening a project
+  // from this list should land there directly rather than on List.
+  it('links each project to its Board view by default', async () => {
+    configure();
+    const fixture = await render();
+
+    const link = fixture.nativeElement.querySelector('td a') as HTMLAnchorElement;
+    expect(link.getAttribute('href')).toBe('/projects/1?view=board');
+  });
+
   it('renders the created date in friendly format, never raw ISO (SC-006)', async () => {
     configure();
     const fixture = await render();

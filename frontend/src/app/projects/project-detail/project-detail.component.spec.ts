@@ -68,7 +68,12 @@ function configure(
   deleteProject = vi.fn().mockResolvedValue(undefined),
   getAssignableUsers = vi.fn().mockResolvedValue([]),
   getWorkItemsTree = vi.fn().mockResolvedValue([]),
-  getWorkItemDetail = vi.fn().mockResolvedValue({ totalDescendantCount: 0 })
+  getWorkItemDetail = vi.fn().mockResolvedValue({ totalDescendantCount: 0 }),
+  // Most tests in this file exercise Flat-list-specific behavior (filters, edit/delete
+  // controls, pagination) that predates Feature 005 Polish's board-as-default change —
+  // they set up the route as if Flat were already active rather than asserting on
+  // whichever view happens to be the app-wide default.
+  view = 'flat'
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
@@ -90,7 +95,7 @@ function configure(
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       {
         provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }), queryParamMap: convertToParamMap({}) } },
+        useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }), queryParamMap: convertToParamMap({ view }) } },
       },
       { provide: NotificationService, useValue: notificationService },
     ],
@@ -520,15 +525,7 @@ const treeData = [
 ];
 
 describe('ProjectDetailComponent tree view', () => {
-  it('defaults to the Flat view (Feature 002 behavior unchanged)', async () => {
-    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem()])));
-    const fixture = await render();
-
-    expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.tree-view')).toBeNull();
-  });
-
-  it('switches to Tree view and back via the toggle', async () => {
+  it('switches to Tree view and back to List via the toggles', async () => {
     configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem()])), undefined, undefined, undefined, undefined, vi.fn().mockResolvedValue(treeData));
     const fixture = await render();
 
@@ -626,6 +623,56 @@ describe('ProjectDetailComponent board view', () => {
 
     expect(fixture.nativeElement.querySelector('app-board')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeNull();
+  });
+
+  // Feature 005 Polish: Board is now the default view — a project opened without an
+  // explicit `view` query param (e.g. a link that predates this change, or one typed by
+  // hand) should land on Board, not List.
+  it('defaults to the Board view when no `view` query param is present', async () => {
+    const notificationService = { success: vi.fn(), error: vi.fn() };
+    TestBed.configureTestingModule({
+      imports: [ProjectDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ProjectsService, useValue: { getProject: vi.fn().mockResolvedValue(sampleProject) } },
+        {
+          provide: WorkItemsService,
+          useValue: {
+            getWorkItems: vi.fn().mockResolvedValue(emptyPage()),
+            getAssignableUsers: vi.fn().mockResolvedValue([]),
+            getWorkItemsTree: vi.fn().mockResolvedValue([]),
+            getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
+          },
+        },
+        { provide: AuthService, useValue: { currentUser: () => ({ id: 1, role: 'Developer' }), currentRole: () => 'Developer' } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }), queryParamMap: convertToParamMap({}) } },
+        },
+        { provide: NotificationService, useValue: notificationService },
+      ],
+    });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('app-board')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.board-view-toggle')?.classList).toContain('active');
+    expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.tree-view')).toBeNull();
+  });
+
+  it('orders the view tabs Board, List, Tree, with Board first', async () => {
+    configure();
+    const fixture = await render();
+
+    const tabs = Array.from(fixture.nativeElement.querySelectorAll('.view-tab-nav a')) as HTMLAnchorElement[];
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Board', 'List', 'Tree']);
+  });
+
+  it('labels the former "Flat" tab as "List"', async () => {
+    configure();
+    const fixture = await render();
+
+    expect((fixture.nativeElement.querySelector('.flat-view-toggle') as HTMLElement).textContent?.trim()).toBe('List');
   });
 
   it('starts on the Board view when the `view` query param is `board` (FR-019/US5)', async () => {

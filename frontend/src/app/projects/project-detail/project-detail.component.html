@@ -25,12 +25,21 @@
     <nav mat-tab-nav-bar class="view-tab-nav" [tabPanel]="viewTabPanel" disableRipple>
       <a
         mat-tab-link
+        class="board-view-toggle"
+        [class.active]="viewMode() === 'board'"
+        [active]="viewMode() === 'board'"
+        (click)="setViewMode('board')"
+      >
+        Board
+      </a>
+      <a
+        mat-tab-link
         class="flat-view-toggle"
         [class.active]="viewMode() === 'flat'"
         [active]="viewMode() === 'flat'"
         (click)="setViewMode('flat')"
       >
-        Flat
+        List
       </a>
       <a
         mat-tab-link
@@ -40,15 +49,6 @@
         (click)="setViewMode('tree')"
       >
         Tree
-      </a>
-      <a
-        mat-tab-link
-        class="board-view-toggle"
-        [class.active]="viewMode() === 'board'"
-        [active]="viewMode() === 'board'"
-        (click)="setViewMode('board')"
-      >
-        Board
       </a>
     </nav>
     <a mat-flat-button color="primary" class="new-work-item-button" [routerLink]="['/projects', p.id, 'work-items', 'new']">
