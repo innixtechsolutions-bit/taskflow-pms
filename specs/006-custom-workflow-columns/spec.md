@@ -77,9 +77,14 @@ Developer and confirm the screen is not reachable.
 2. **Given** a Developer, **When** they look for a way to reach a
    project's Workflow management screen, **Then** no such entry point
    is shown to them.
-3. **Given** a Developer, **When** they call the workflow-management API
-   directly (bypassing the UI), **Then** the server refuses the
-   request.
+3. **Given** a Developer, **When** they call any workflow-**mutation**
+   API directly (add, rename, reorder, or delete a status — bypassing
+   the UI), **Then** the server refuses the request. The read-only
+   status list itself is available to any authenticated user regardless
+   of role (it is the same data every user's board, dropdowns, and
+   filters already depend on, per FR-020/US1) — only the mutation
+   actions and the management screen's own entry point are
+   Manager/Admin-restricted.
 
 ---
 
@@ -290,12 +295,16 @@ remaining Done-category) column and confirm it is refused.
   project's own status list; the prior system-wide fixed status field
   MUST no longer be used (a one-way migration with no dual-write
   period).
-- **FR-008**: Only a Manager or Admin MUST be able to view or use a
-  project's workflow-management screen; the entry point MUST be hidden
-  from other roles, and the server MUST independently refuse any
-  workflow-management request (view, add, rename, reorder, delete) made
-  by a user who is not a Manager or Admin, regardless of what the UI
-  allows.
+- **FR-008**: Only a Manager or Admin MUST be able to open or use a
+  project's Workflow **management screen**; its entry point MUST be
+  hidden from other roles, and the server MUST independently refuse any
+  status **mutation** request (add, rename, reorder, delete) made by a
+  user who is not a Manager or Admin, regardless of what the UI allows.
+  The underlying read-only status list (name/category/color/position per
+  status) is available to **any authenticated user** regardless of
+  role — it is the same data FR-020 already requires every user's board,
+  dropdowns, and filters to consume, so it MUST NOT be restricted to
+  Manager/Admin.
 - **FR-009**: The workflow-management screen MUST show a project's
   statuses in position order, each with its name, category, and the
   current count of work items in that status.
@@ -408,10 +417,12 @@ remaining Done-category) column and confirm it is refused.
   item moves and the column deletion together, or change nothing at
   all — no state where items moved but the column remains, or vice
   versa.
-- **SC-006**: 100% of workflow-management attempts (view, add, rename,
+- **SC-006**: 100% of workflow-**mutation** attempts (add, rename,
   reorder, delete) by a non-Manager/Admin user are refused, both when
-  attempted through the UI and when attempted directly against the
-  API.
+  attempted through the UI and when attempted directly against the API;
+  that same user's read-only status-list request (the one the board,
+  dropdowns, and filters already depend on) succeeds 100% of the time,
+  regardless of role.
 - **SC-007**: Two projects configured with different workflows (verified
   with at least 2 concurrently-configured projects) display and behave
   fully independently — changing one project's columns produces zero

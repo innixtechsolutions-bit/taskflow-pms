@@ -94,7 +94,15 @@ change so far — see Complexity Tracking.
   server-enforced independent of the UI hiding the entry point from other
   roles (FR-008) — an endpoint test calls each mutation route as a
   Developer and asserts 403, mirroring the existing pattern already used
-  for `ProjectsController`'s Create/Update/Delete.
+  for `ProjectsController`'s Create/Update/Delete. The read-only status
+  list endpoint is intentionally open to any authenticated user (FR-008,
+  FR-020) since the board/dropdowns/filters need it regardless of role —
+  not a gap, a deliberate scope boundary. The migration's
+  `migrationBuilder.Sql()` data backfill (research.md #4) is the one
+  place this feature writes SQL directly; it is justified there as
+  developer-authored, static, non-user-input seed data — a different
+  category from the "raw SQL requires justification" rule this principle
+  states for application queries built from request input.
 - **III. Clarity Over Cleverness**: PASS. Reordering resequences every
   status's `Position` as plain sequential integers on every reorder/add/
   delete action — no fractional-position or gap-based scheme, which would
