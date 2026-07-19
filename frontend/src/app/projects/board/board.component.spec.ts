@@ -180,4 +180,16 @@ describe('BoardComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.board-card.drag-disabled')).toBeNull();
   });
+
+  it("each column's + Add link targets the work-item-form route with the project id and that column's status", async () => {
+    configure();
+    const fixture = await render(42);
+
+    const links = Array.from(
+      fixture.nativeElement.querySelectorAll('.board-column-add')
+    ) as HTMLAnchorElement[];
+    expect(links.length).toBe(4);
+    // Third column is In Review per sampleBoard()'s column order.
+    expect(links[2].getAttribute('href')).toBe('/projects/42/work-items/new?status=InReview');
+  });
 });

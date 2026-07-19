@@ -156,13 +156,13 @@ form opens with Status pre-selected to In Review.
 
 ### Tests for User Story 4
 
-- [ ] T042 [P] [US4] Frontend test: extend `work-item-form.component.spec.ts` — a `status` query param pre-selects the Status field on create
-- [ ] T043 [P] [US4] Frontend test: extend `board.component.spec.ts` — each column's "+ Add" link targets the work-item-form route with the correct project id and that column's status as a query param
+- [x] T042 [P] [US4] Frontend test: extend `work-item-form.component.spec.ts` — a `status` query param pre-selects the Status field on create
+- [x] T043 [P] [US4] Frontend test: extend `board.component.spec.ts` — each column's "+ Add" link targets the work-item-form route with the correct project id and that column's status as a query param
 
 ### Implementation for User Story 4
 
-- [ ] T044 [US4] Read an optional `status` query param in `WorkItemFormComponent.ngOnInit` (parallel to the existing `type`/`parentWorkItemId` handling) to pre-select Status, in `frontend/src/app/projects/work-item-form/work-item-form.component.ts` — makes T042 pass
-- [ ] T045 [US4] Add a "+ Add" affordance per column, linking to the work-item-form route with the project id and that column's status as a query param, in `frontend/src/app/projects/board/board.component.html` — depends on T044; makes T043 pass
+- [x] T044 [US4] Read an optional `status` query param in `WorkItemFormComponent.ngOnInit` (parallel to the existing `type`/`parentWorkItemId` handling) to pre-select Status, in `frontend/src/app/projects/work-item-form/work-item-form.component.ts` — makes T042 pass
+- [x] T045 [US4] Add a "+ Add" affordance per column, linking to the work-item-form route with the project id and that column's status as a query param, in `frontend/src/app/projects/board/board.component.html` — depends on T044; makes T043 pass
 
 **Checkpoint**: Creating from a column pre-selects the right status —
 quickstart.md section 4 passes.

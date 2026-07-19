@@ -100,11 +100,17 @@ export class WorkItemFormComponent implements OnInit {
       // the user to rediscover which type/parent combination they came here to create.
       const typeParam = this.route.snapshot.queryParamMap.get('type');
       const parentWorkItemIdParam = this.route.snapshot.queryParamMap.get('parentWorkItemId');
+      // Set when arriving via a board column's "+ Add" affordance (FR-017/US4) —
+      // pre-selects that column's status so the item lands back in the same column.
+      const statusParam = this.route.snapshot.queryParamMap.get('status');
       if (typeParam) {
         this.type.set(typeParam);
       }
       if (parentWorkItemIdParam) {
         this.parentWorkItemId.set(parentWorkItemIdParam);
+      }
+      if (statusParam) {
+        this.status.set(statusParam);
       }
     }
     void this.loadAssignableUsers();

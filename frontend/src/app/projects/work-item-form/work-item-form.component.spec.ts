@@ -37,7 +37,8 @@ async function chooseOption(loader: HarnessLoader, label: string, optionText: st
 function configure(
   createWorkItem = vi.fn(),
   getAssignableUsers = vi.fn().mockResolvedValue(sampleUsers),
-  getParentCandidates = vi.fn().mockResolvedValue(sampleCandidates)
+  getParentCandidates = vi.fn().mockResolvedValue(sampleCandidates),
+  queryParams: Record<string, string> = {}
 ) {
   TestBed.configureTestingModule({
     imports: [WorkItemFormComponent],
@@ -47,7 +48,10 @@ function configure(
       {
         provide: ActivatedRoute,
         useValue: {
-          snapshot: { paramMap: convertToParamMap({ projectId: '1' }), queryParamMap: convertToParamMap({}) },
+          snapshot: {
+            paramMap: convertToParamMap({ projectId: '1' }),
+            queryParamMap: convertToParamMap(queryParams),
+          },
         },
       },
       { provide: NotificationService, useValue: { success: vi.fn(), error: vi.fn() } },
@@ -94,6 +98,13 @@ describe('WorkItemFormComponent (create mode)', () => {
     expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Task');
     expect(await (await selectByLabel(loader, 'Priority')).getValueText()).toBe('Medium');
     expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('ToDo');
+  });
+
+  it("pre-selects the Status field from a 'status' query param (board's + Add affordance, US4)", async () => {
+    configure(undefined, undefined, undefined, { status: 'InReview' });
+    const { loader } = await render();
+
+    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('InReview');
   });
 
   it('lists assignable users fetched from the server', async () => {

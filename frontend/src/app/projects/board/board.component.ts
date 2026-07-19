@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
@@ -22,7 +23,7 @@ interface BoardColumnView {
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [EmptyStateComponent, BoardCardComponent, DragDropModule],
+  imports: [EmptyStateComponent, BoardCardComponent, DragDropModule, RouterLink],
   templateUrl: './board.component.html',
   styleUrl: './board.component.css',
 })

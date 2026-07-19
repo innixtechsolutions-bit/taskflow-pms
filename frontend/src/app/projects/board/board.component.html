@@ -4,6 +4,14 @@
       <div class="board-column-header">
         <span class="board-column-label">{{ column.label }}</span>
         <span class="board-column-count">{{ column.items.length }}</span>
+        <a
+          class="board-column-add"
+          [routerLink]="['/projects', projectId(), 'work-items', 'new']"
+          [queryParams]="{ status: column.status }"
+          title="Add to {{ column.label }}"
+          aria-label="Add to {{ column.label }}"
+          >+</a
+        >
       </div>
       <div
         class="board-column-body"
