@@ -20,6 +20,11 @@
   color: var(--color-status-inprogress-text);
 }
 
+.chip--status-inreview {
+  background-color: var(--color-status-inreview-bg);
+  color: var(--color-status-inreview-text);
+}
+
 .chip--status-done {
   background-color: var(--color-status-done-bg);
   color: var(--color-status-done-text);

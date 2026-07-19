@@ -4,6 +4,7 @@ import { WorkItemStatus } from '../../projects/work-items.service';
 const STATUS_LABELS: Record<WorkItemStatus, string> = {
   ToDo: 'To Do',
   InProgress: 'In Progress',
+  InReview: 'In Review',
   Done: 'Done',
 };
 
@@ -16,6 +17,8 @@ function classFor(status: WorkItemStatus): string {
       return 'chip--status-todo';
     case 'InProgress':
       return 'chip--status-inprogress';
+    case 'InReview':
+      return 'chip--status-inreview';
     case 'Done':
       return 'chip--status-done';
   }

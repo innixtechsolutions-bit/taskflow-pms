@@ -24,7 +24,7 @@ import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 
-const STATUSES = ['ToDo', 'InProgress', 'Done'];
+const STATUSES = ['ToDo', 'InProgress', 'InReview', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 

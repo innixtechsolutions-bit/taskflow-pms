@@ -13,16 +13,17 @@ describe('StatusChipComponent', () => {
   it('renders the correct label for each status value', () => {
     expect(render('ToDo').nativeElement.textContent).toContain('To Do');
     expect(render('InProgress').nativeElement.textContent).toContain('In Progress');
+    expect(render('InReview').nativeElement.textContent).toContain('In Review');
     expect(render('Done').nativeElement.textContent).toContain('Done');
   });
 
   it('applies a distinct color class per status value', () => {
-    const classes = (['ToDo', 'InProgress', 'Done'] as const).map((status) => {
+    const classes = (['ToDo', 'InProgress', 'InReview', 'Done'] as const).map((status) => {
       const chip = render(status).nativeElement.querySelector('.chip');
       return Array.from(chip.classList as DOMTokenList).find((c) => c.startsWith('chip--'));
     });
 
-    expect(new Set(classes).size).toBe(3);
+    expect(new Set(classes).size).toBe(4);
     expect(classes.every(Boolean)).toBe(true);
   });
 

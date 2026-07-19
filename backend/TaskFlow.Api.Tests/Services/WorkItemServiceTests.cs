@@ -814,6 +814,47 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     }
 
     [Fact]
+    public async Task CreateAsync_accepts_InReview_as_a_status()
+    {
+        var user = AddUser("inreview-create@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.Status = "InReview";
+
+        var result = await sut.CreateAsync(user.Id, project.Id, request);
+
+        Assert.Equal("InReview", result.Status);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_accepts_InReview_as_a_status()
+    {
+        var user = AddUser("inreview-update@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id, status: WorkItemStatus.InProgress);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(user.Id, "Developer", item.Id, EditRequest(status: "InReview"));
+
+        Assert.Equal("InReview", result.Status);
+    }
+
+    [Fact]
+    public async Task GetWorkItemsAsync_filters_by_InReview_status()
+    {
+        var user = AddUser("inreview-filter@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var match = AddWorkItem(project.Id, user.Id, status: WorkItemStatus.InReview, title: "In review item");
+        AddWorkItem(project.Id, user.Id, status: WorkItemStatus.InProgress, title: "Not in review");
+        var sut = CreateSut();
+
+        var result = await sut.GetWorkItemsAsync(project.Id, 1, 20, "InReview", null, null, null, null);
+
+        Assert.Equal(match.Id, result.Items.Single().Id);
+    }
+
+    [Fact]
     public async Task GetWorkItemsAsync_throws_for_an_unparseable_status_filter()
     {
         var user = AddUser("badfilter@example.com");

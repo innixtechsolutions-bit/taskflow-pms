@@ -21,10 +21,14 @@ public enum WorkItemPriority
 
 // No restricted transitions in this feature — any status may be set to any
 // other directly; there is no state machine here (see data-model.md).
+// InReview added by Feature 005 (Kanban Board) — a plain enum addition, no
+// migration: Status is a HasConversion<string>() column with no constraint
+// on which strings are valid (research.md #1).
 public enum WorkItemStatus
 {
     ToDo,
     InProgress,
+    InReview,
     Done
 }
 

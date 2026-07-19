@@ -7,7 +7,7 @@ import { firstValueFrom } from 'rxjs';
 // narrowing these from `string` lets StatusChipComponent/PriorityChipComponent
 // switch exhaustively, so a new enum value without a matching chip case is a
 // compile error instead of a silently uncolored chip.
-export type WorkItemStatus = 'ToDo' | 'InProgress' | 'Done';
+export type WorkItemStatus = 'ToDo' | 'InProgress' | 'InReview' | 'Done';
 export type WorkItemPriority = 'Low' | 'Medium' | 'High' | 'Critical';
 
 export interface WorkItemRequest {

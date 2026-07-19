@@ -120,6 +120,25 @@ public class ProjectServiceTests : SqlServerTestDatabase
         Assert.Equal(2, result.Items.Single().OpenWorkItemCount);
     }
 
+    // Feature 005 regression guard: In Review is not Done, so it must already be
+    // counted as open under the existing "!= Done" definition (research.md #7) —
+    // this test exists to prove that stays true, not because the production code
+    // needs a code change for it.
+    [Fact]
+    public async Task GetProjectsAsync_open_work_item_count_includes_InReview_items()
+    {
+        var user = AddUser("creator@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, WorkItemStatus.ToDo);
+        AddWorkItem(project.Id, user.Id, WorkItemStatus.InReview);
+        AddWorkItem(project.Id, user.Id, WorkItemStatus.Done);
+        var sut = CreateSut();
+
+        var result = await sut.GetProjectsAsync(page: 1, pageSize: 20);
+
+        Assert.Equal(2, result.Items.Single().OpenWorkItemCount);
+    }
+
     [Fact]
     public async Task GetProjectByIdAsync_returns_the_total_work_item_count_regardless_of_status()
     {

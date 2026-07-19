@@ -618,6 +618,26 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task GetWorkItems_filters_by_the_InReview_status()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"lister-inreview-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(token, projectId, title: "Needs review");
+        var editRequest = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", token);
+        editRequest.Content = JsonContent.Create(new { type = "Task", title = item.Title, status = "InReview" });
+        await _client.SendAsync(editRequest);
+        await CreateWorkItemAsync(token, projectId, title: "Still in progress");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items?status=InReview", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<WorkItemDto>>();
+        Assert.Equal("Needs review", body!.Items.Single().Title);
+    }
+
+    [Fact]
     public async Task GetWorkItems_returns_404_for_an_unknown_project()
     {
         var token = await RegisterAndGetTokenAsync($"lister-noproject-{Guid.NewGuid():N}@example.com");

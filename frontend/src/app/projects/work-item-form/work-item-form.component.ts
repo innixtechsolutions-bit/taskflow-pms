@@ -17,7 +17,7 @@ interface TitleFormModel {
 
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const STATUSES = ['ToDo', 'InProgress', 'Done'];
+const STATUSES = ['ToDo', 'InProgress', 'InReview', 'Done'];
 
 // A date <input>/the API's dueDate field both want 'YYYY-MM-DD'; MatDatepicker
 // wants a Date. Built from local year/month/day rather than toISOString() (which

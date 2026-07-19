@@ -30,6 +30,11 @@ $breakpoint-tablet-px: 1024px;
   --color-status-todo-text: #475569;
   --color-status-inprogress-bg: #dbeafe;
   --color-status-inprogress-text: #1d4ed8;
+  // In Review (Feature 005) — purple/violet family, matching --color-primary's
+  // hue, deliberately distinct from the blue (In Progress) / green (Done)
+  // pair already in use, per spec.md's explicit color-language direction.
+  --color-status-inreview-bg: #ede9fe;
+  --color-status-inreview-text: #6d28d9;
   --color-status-done-bg: #dcfce7;
   --color-status-done-text: #15803d;
 
