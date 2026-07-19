@@ -1,15 +1,26 @@
 .board-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  padding: var(--space-3);
+  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-2);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   cursor: grab;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.board-card:hover {
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+  border-color: var(--color-primary);
 }
 
 .board-card.drag-disabled {
   cursor: default;
+}
+
+.board-card.drag-disabled:hover {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  border-color: var(--color-border);
 }
 
 .card-link {
@@ -28,29 +39,39 @@
   overflow: hidden;
 }
 
-.card-type {
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0 0 var(--space-2);
+}
+
+.card-key,
+.card-type {
   font-size: 11px;
-  color: #64748b;
+  font-weight: 600;
+  color: #94a3b8;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
-.card-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+.card-priority {
+  margin-left: auto;
 }
 
-.unassigned-indicator {
-  font-size: 11px;
-  color: #94a3b8;
-  font-style: italic;
+.card-progress {
+  margin: 0 0 var(--space-1);
+  font-size: 12px;
+  color: #64748b;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-1);
 }
 
 .card-due-date {
-  margin: var(--space-2) 0 0;
   font-size: 12px;
   color: #64748b;
 }
@@ -60,8 +81,16 @@
   font-weight: 600;
 }
 
-.card-progress {
-  margin: var(--space-1) 0 0;
-  font-size: 12px;
-  color: #64748b;
+.card-footer app-user-avatar,
+.card-footer .unassigned-indicator {
+  margin-left: auto;
+}
+
+.unassigned-indicator {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--color-border);
+  flex-shrink: 0;
 }

@@ -58,11 +58,13 @@ describe('BoardCardComponent', () => {
     expect(fixture.nativeElement.querySelector('.unassigned-indicator')).toBeNull();
   });
 
-  it('renders an "Unassigned" indicator when there is no assignee', () => {
+  it('renders an "Unassigned" placeholder avatar when there is no assignee', () => {
     const fixture = render(baseCard({ assigneeUserId: null, assigneeName: null }));
 
     expect(fixture.nativeElement.querySelector('app-user-avatar')).toBeNull();
-    expect(fixture.nativeElement.textContent).toContain('Unassigned');
+    const indicator = fixture.nativeElement.querySelector('.unassigned-indicator');
+    expect(indicator).toBeTruthy();
+    expect(indicator.getAttribute('title')).toBe('Unassigned');
   });
 
   it('renders the due date in friendly format, never raw ISO', () => {

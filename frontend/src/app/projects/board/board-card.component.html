@@ -7,25 +7,28 @@
 >
   <a class="card-link" [routerLink]="['/projects', projectId(), 'work-items', card().id]">
     <p class="card-title">{{ card().title }}</p>
-    <p class="card-type">{{ card().type }}</p>
 
     <div class="card-meta">
-      <app-priority-chip [priority]="card().priority" />
-      @if (card().assigneeName) {
-        <app-user-avatar [fullName]="card().assigneeName!" />
-      } @else {
-        <span class="unassigned-indicator">Unassigned</span>
-      }
+      <span class="card-key">#{{ card().id }}</span>
+      <span class="card-type">{{ card().type }}</span>
+      <app-priority-chip class="card-priority" [priority]="card().priority" />
     </div>
-
-    @if (card().dueDate) {
-      <p class="card-due-date" [class.due-date-overdue]="isOverdue()">
-        {{ card().dueDate | friendlyDate }}
-      </p>
-    }
 
     @if (hasChildren()) {
       <p class="card-progress">{{ card().directChildrenDoneCount }}/{{ card().directChildrenCount }} done</p>
     }
+
+    <div class="card-footer">
+      @if (card().dueDate) {
+        <span class="card-due-date" [class.due-date-overdue]="isOverdue()">
+          {{ card().dueDate | friendlyDate }}
+        </span>
+      }
+      @if (card().assigneeName) {
+        <app-user-avatar [fullName]="card().assigneeName!" />
+      } @else {
+        <span class="unassigned-indicator" title="Unassigned" aria-label="Unassigned"></span>
+      }
+    </div>
   </a>
 </div>

@@ -6,12 +6,20 @@
   padding-bottom: var(--space-2);
 }
 
+/* Equal-width lanes that share the available width and only fall back to a
+   min-width (triggering the board's own horizontal scroll) once there's
+   genuinely no room left — rather than a fixed per-column width that forces
+   a scrollbar on an ordinary laptop viewport even when there'd be room to
+   shrink. */
 .board-column {
   display: flex;
   flex-direction: column;
-  flex: 0 0 280px;
+  flex: 1 1 0;
+  min-width: 220px;
+  max-width: 320px;
   max-height: calc(100dvh - 240px);
   background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
 }
 
@@ -19,30 +27,47 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3);
-  font-weight: 700;
-  font-size: 13px;
+  padding: var(--space-3) var(--space-3) var(--space-2);
 }
 
 .board-column-label {
   flex: 1;
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .board-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px var(--space-2);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-chip);
   color: #64748b;
   font-weight: 600;
+  font-size: 11px;
 }
 
 .board-column-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-chip);
   color: #64748b;
   text-decoration: none;
   font-weight: 700;
   font-size: 16px;
   line-height: 1;
-  padding: 0 var(--space-1);
 }
 
 .board-column-add:hover {
+  background-color: var(--color-surface);
   color: var(--color-primary);
 }
 
