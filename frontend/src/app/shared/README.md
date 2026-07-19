@@ -15,10 +15,12 @@ component's CSS or from `style` bindings) plus one Sass variable,
 number (a `@media` query condition can't read a CSS custom property).
 
 Categories: primary/brand, surface, sidebar, status color (one pair of
-bg/text per `WorkItemStatus` value), priority color (one pair per
-`WorkItemPriority` value), an 8-color avatar accent palette, a spacing scale
-(`--space-1` through `--space-6`), corner radius, and layout (content
-max-width, sidebar width, tablet breakpoint).
+bg/text per `WorkItemStatus` value — `todo`, `inprogress`, `inreview`,
+`done`; `inreview` was added by Feature 005 in a violet/purple hue,
+deliberately distinct from `inprogress`'s blue and `done`'s green), priority
+color (one pair per `WorkItemPriority` value), an 8-color avatar accent
+palette, a spacing scale (`--space-1` through `--space-6`), corner radius,
+and layout (content max-width, sidebar width, tablet breakpoint).
 
 **Rule**: no component hard-codes a color, spacing, or radius value for
 these concepts — if you need one, add or reuse a token instead.

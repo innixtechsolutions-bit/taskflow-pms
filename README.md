@@ -207,3 +207,48 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   each component's own unit test (one assertion per enum value) is
   sufficient. Centralizing a mapping is a way of making a consistency
   requirement literally impossible to violate, not just less likely.
+
+### Feature 005: Kanban Board
+
+- **A DTO field's *shape*, not just its presence, decides whether a future
+  feature is a one-file change or a cross-cutting one.** The original plan
+  had the board endpoint return `columns: string[]` (bare status names),
+  with the frontend deriving each column's display label from
+  `StatusChipComponent`'s own map — reasonable, since that map already
+  existed and was the single source of truth for status labels elsewhere.
+  Caught before implementation: a future per-project custom column (Feature
+  006) wouldn't have a matching frontend label, because the frontend would
+  still be guessing labels from a fixed enum instead of reading whatever
+  the backend actually sent. The fix was to change the field to
+  `{status, label}[]`, computed server-side — a few lines of backend code,
+  but it changes what "adding a column" means for every future feature:
+  purely a backend change, never a matching frontend edit. The lesson: when
+  a field's data clearly *could* vary later, check whether its current
+  shape encodes an assumption (here, "the frontend already knows every
+  possible status") that the variability would break.
+- **Comparing dates as strings sidesteps a real UTC/local timezone bug.**
+  The obvious way to check "is this due date before today" is
+  `new Date(dueDate) < new Date()` — but due dates arrive from the API as
+  UTC-midnight ISO strings, and constructing a `Date` from one and reading
+  its local getters (`.getDate()`, etc.) silently applies a UTC→local
+  conversion that can shift the calendar date by a day for any user behind
+  UTC. A due date of "2026-07-19" can read back as July 18 in local time,
+  making an item overdue a day early. The fix never constructs a `Date`
+  from the due date at all: it reads the first 10 characters of the ISO
+  string (`YYYY-MM-DD`) and string-compares that against a `today` string
+  built from `Date.prototype`'s local getters on the *current* moment only
+  (which has no timezone ambiguity, since "today" is being asked, not
+  parsed). Two different techniques for two different purposes — parsing
+  a stored date vs. reading the current moment — quietly need two different
+  approaches to stay correct.
+- **A browser click survives being wrapped in a drag directive, because
+  "click" and "drag" are already distinguished upstream.** Making a Kanban
+  card both draggable (`cdkDrag`) and clickable-to-detail (`routerLink`)
+  looked like it might need an explicit gesture check — some way to tell
+  "the user picked this up and dropped it three pixels later" apart from
+  "the user clicked it." It doesn't: `cdkDrag` only initiates a drag once
+  pointer movement crosses its own threshold, so a genuine click (press and
+  release with no meaningful movement) is never intercepted and reaches
+  the nested `routerLink` as an ordinary click event. No custom
+  click-vs-drag disambiguation code was needed — nor, per the same
+  reasoning, was any needed to keep a disabled-drag card's link clickable.

@@ -194,11 +194,11 @@ Board view — quickstart.md section 5 passes.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T050 [P] Add the new In Review tokens to the token table in `frontend/src/app/shared/README.md`
-- [ ] T051 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass — SC-006
-- [ ] T052 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass — SC-006
-- [ ] T053 Cross-cutting checkpoint: confirm no ad-hoc In Review color exists outside `design-tokens.scss`/`StatusChipComponent` (grep for hard-coded purple/violet hex elsewhere) — SC-007
-- [ ] T054 Add a "Feature 005: Kanban Board" entry to `README.md`'s "What I learned" log, matching the style of Features 001-004's entries, per the constitution's Definition of Done item 5
+- [x] T050 [P] Add the new In Review tokens to the token table in `frontend/src/app/shared/README.md`
+- [x] T051 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass — SC-006
+- [x] T052 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass — SC-006
+- [x] T053 Cross-cutting checkpoint: confirm no ad-hoc In Review color exists outside `design-tokens.scss`/`StatusChipComponent` (grep for hard-coded purple/violet hex elsewhere) — SC-007
+- [x] T054 Add a "Feature 005: Kanban Board" entry to `README.md`'s "What I learned" log, matching the style of Features 001-004's entries, per the constitution's Definition of Done item 5
 - [ ] T055 Walk through `quickstart.md` sections 1-7 manually in a running app (backend + `ng serve`), including the direct-`PATCH`-bypassing-the-UI permission check (section 3.4) and the keyboard-focus check (section 7)
 
 ---

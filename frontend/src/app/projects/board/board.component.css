@@ -43,7 +43,7 @@
 }
 
 .board-column-add:hover {
-  color: var(--color-primary, #1e40af);
+  color: var(--color-primary);
 }
 
 .board-column-body {
