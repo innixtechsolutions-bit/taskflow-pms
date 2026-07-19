@@ -16,8 +16,29 @@
   width: var(--sidebar-width-collapsed);
 }
 
+/* mat-sidenav-container normally reflows .shell-content's margin-left
+   itself, but only in response to its own drawer lifecycle events (open/
+   close, mode change, window resize) — see MatDrawerContainer.
+   updateContentMargins()'s call sites. Toggling a CSS class to animate
+   .shell-sidenav's *width* (above) isn't one of those triggers, so without
+   this override the content margin silently keeps the sidebar's previous
+   width, leaving a dead band of space (or a gap) once the rail's real
+   width no longer matches Material's stale computed margin. `!important`
+   is required here because Material sets that margin via an inline
+   [style.margin-left.px] binding, which otherwise always wins over an
+   external stylesheet rule regardless of specificity. Driving both the
+   sidenav's width and the content's margin off the same `.collapsed`
+   class (via this sibling selector — no second signal binding needed)
+   keeps them perfectly in sync, including for the breakpoint-driven
+   auto-collapse, since that sets the same class through the same signal. */
 .shell-content {
   background-color: var(--color-surface-alt);
+  margin-left: var(--sidebar-width) !important;
+  transition: margin-left 150ms ease;
+}
+
+.shell-sidenav.collapsed ~ .shell-content {
+  margin-left: var(--sidebar-width-collapsed) !important;
 }
 
 .shell-content-inner {
