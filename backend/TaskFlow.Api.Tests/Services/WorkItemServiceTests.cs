@@ -24,6 +24,10 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         return user;
     }
 
+    // Feature 006 — every project now owns its own workflow; test projects get the
+    // same standard four statuses ProjectService.CreateAsync seeds in production, so
+    // AddWorkItem's default ("To Do") and every EditRequest/filter call below always
+    // has a real row to resolve.
     private Project AddProject(string name, int creatorId)
     {
         var project = new Project
@@ -34,12 +38,23 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         };
         Db.Projects.Add(project);
         Db.SaveChanges();
+
+        Db.WorkflowStatuses.AddRange(
+            new WorkflowStatus { ProjectId = project.Id, Name = "To Do", Position = 0, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Slate },
+            new WorkflowStatus { ProjectId = project.Id, Name = "In Progress", Position = 1, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Blue },
+            new WorkflowStatus { ProjectId = project.Id, Name = "In Review", Position = 2, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Violet },
+            new WorkflowStatus { ProjectId = project.Id, Name = "Done", Position = 3, Category = WorkflowStatusCategory.Done, ColorKey = ChipColor.Green });
+        Db.SaveChanges();
+
         return project;
     }
 
+    private int StatusId(int projectId, string statusName) =>
+        Db.WorkflowStatuses.Single(s => s.ProjectId == projectId && s.Name == statusName).Id;
+
     private WorkItem AddWorkItem(
         int projectId, int creatorId, int? assigneeUserId = null,
-        WorkItemStatus status = WorkItemStatus.ToDo, WorkItemPriority priority = WorkItemPriority.Medium,
+        string status = "To Do", WorkItemPriority priority = WorkItemPriority.Medium,
         WorkItemType type = WorkItemType.Task, string title = "Some work", DateTime? updatedAt = null)
     {
         var workItem = new WorkItem
@@ -47,7 +62,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
             ProjectId = projectId,
             Type = type,
             Title = title,
-            Status = status,
+            WorkflowStatusId = StatusId(projectId, status),
             Priority = priority,
             AssigneeUserId = assigneeUserId,
             CreatedByUserId = creatorId,
@@ -238,6 +253,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var story = new WorkItem
         {
             ProjectId = project.Id, Type = WorkItemType.Story, Title = "Story", CreatedByUserId = user.Id,
+            WorkflowStatusId = StatusId(project.Id, "To Do"),
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id
         };
         Db.WorkItems.Add(story);
@@ -245,6 +261,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var task = new WorkItem
         {
             ProjectId = project.Id, Type = WorkItemType.Task, Title = "Task", CreatedByUserId = user.Id,
+            WorkflowStatusId = StatusId(project.Id, "To Do"),
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = story.Id
         };
         Db.WorkItems.Add(task);
@@ -268,13 +285,15 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var user = AddUser("tree-counts@example.com");
         var project = AddProject("Alpha", user.Id);
         var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var doneId = StatusId(project.Id, "Done");
+        var toDoId = StatusId(project.Id, "To Do");
         for (var i = 0; i < 5; i++)
         {
             Db.WorkItems.Add(new WorkItem
             {
                 ProjectId = project.Id, Type = WorkItemType.Story, Title = $"Story {i}", CreatedByUserId = user.Id,
                 CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id,
-                Status = i < 3 ? WorkItemStatus.Done : WorkItemStatus.ToDo
+                WorkflowStatusId = i < 3 ? doneId : toDoId
             });
         }
         Db.SaveChanges();
@@ -285,6 +304,32 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var epicNode = Assert.Single(tree);
         Assert.Equal(5, epicNode.DirectChildrenCount);
         Assert.Equal(3, epicNode.DirectChildrenDoneCount);
+    }
+
+    // Feature 006/FR-019 — done-ness is reasoned about via Category, never the literal
+    // status name, so a renamed/custom Done-category status still counts as done.
+    [Fact]
+    public async Task GetTreeAsync_counts_a_renamed_Done_category_status_as_done()
+    {
+        var user = AddUser("tree-category@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var doneStatus = Db.WorkflowStatuses.Single(s => s.ProjectId == project.Id && s.Name == "Done");
+        doneStatus.Name = "Complete";
+        Db.SaveChanges();
+        Db.WorkItems.Add(new WorkItem
+        {
+            ProjectId = project.Id, Type = WorkItemType.Story, Title = "Renamed-done child", CreatedByUserId = user.Id,
+            CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id,
+            WorkflowStatusId = doneStatus.Id
+        });
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var tree = await sut.GetTreeAsync(project.Id);
+
+        var epicNode = Assert.Single(tree);
+        Assert.Equal(1, epicNode.DirectChildrenDoneCount);
     }
 
     [Fact]
@@ -326,11 +371,11 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetTreeAsync(999999));
     }
 
-    // M1: Columns are {status, label} pairs computed server-side, not bare status
-    // strings — the board component must never need its own status->label map
-    // (research.md #2, revised).
+    // Feature 006 — columns come from the calling project's own ordered WorkflowStatus
+    // list, not a fixed system-wide enum; two projects with different statuses return
+    // different column sets (spec.md US1/FR-006/FR-017).
     [Fact]
-    public async Task GetBoardAsync_returns_the_four_columns_in_order_with_labels()
+    public async Task GetBoardAsync_returns_the_projects_own_columns_in_position_order()
     {
         var user = AddUser("board-columns@example.com");
         var project = AddProject("Alpha", user.Id);
@@ -339,8 +384,25 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var board = await sut.GetBoardAsync(project.Id);
 
         Assert.Equal(
-            new[] { ("ToDo", "To Do"), ("InProgress", "In Progress"), ("InReview", "In Review"), ("Done", "Done") },
-            board.Columns.Select(c => (c.Status, c.Label)).ToArray());
+            new[] { ("To Do", "Open"), ("In Progress", "Open"), ("In Review", "Open"), ("Done", "Done") },
+            board.Columns.Select(c => (c.Name, c.Category)).ToArray());
+    }
+
+    [Fact]
+    public async Task GetBoardAsync_returns_different_column_sets_for_different_projects()
+    {
+        var user = AddUser("board-independence@example.com");
+        var projectA = AddProject("Alpha", user.Id);
+        var projectB = AddProject("Beta", user.Id);
+        Db.WorkflowStatuses.Add(new WorkflowStatus { ProjectId = projectB.Id, Name = "QA", Position = 2, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Amber });
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var boardA = await sut.GetBoardAsync(projectA.Id);
+        var boardB = await sut.GetBoardAsync(projectB.Id);
+
+        Assert.DoesNotContain(boardA.Columns, c => c.Name == "QA");
+        Assert.Contains(boardB.Columns, c => c.Name == "QA");
     }
 
     [Fact]
@@ -349,9 +411,9 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var user = AddUser("board-counts@example.com");
         var project = AddProject("Alpha", user.Id);
         var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
-        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story", WorkItemStatus.InProgress);
-        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task A", WorkItemStatus.Done);
-        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task B", WorkItemStatus.ToDo);
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story", "In Progress");
+        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task A", "Done");
+        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task B", "To Do");
         var sut = CreateSut();
 
         var board = await sut.GetBoardAsync(project.Id);
@@ -407,13 +469,13 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetBoardAsync(999999));
     }
 
-    private WorkItem AddChildWorkItem(int projectId, int parentId, int creatorId, WorkItemType type, string title, WorkItemStatus status = WorkItemStatus.ToDo, int? assigneeUserId = null)
+    private WorkItem AddChildWorkItem(int projectId, int parentId, int creatorId, WorkItemType type, string title, string status = "To Do", int? assigneeUserId = null)
     {
         var workItem = new WorkItem
         {
             ProjectId = projectId, Type = type, Title = title, CreatedByUserId = creatorId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = parentId,
-            Status = status, AssigneeUserId = assigneeUserId
+            WorkflowStatusId = StatusId(projectId, status), AssigneeUserId = assigneeUserId
         };
         Db.WorkItems.Add(workItem);
         Db.SaveChanges();
@@ -625,6 +687,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var story = new WorkItem
         {
             ProjectId = project.Id, Type = WorkItemType.Story, Title = "Story", CreatedByUserId = stranger.Id,
+            WorkflowStatusId = StatusId(project.Id, "To Do"),
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, ParentWorkItemId = epic.Id
         };
         Db.WorkItems.Add(story);
@@ -646,7 +709,8 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var result = await sut.CreateAsync(user.Id, project.Id, ValidRequest());
 
         Assert.Equal("Medium", result.Priority);
-        Assert.Equal("ToDo", result.Status);
+        Assert.Equal("To Do", result.StatusName);
+        Assert.Equal("Open", result.StatusCategory);
     }
 
     [Fact]
@@ -713,11 +777,27 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<InvalidWorkItemTypeException>(() => sut.CreateAsync(user.Id, project.Id, request));
     }
 
-    private static WorkItemRequest EditRequest(string title = "Updated title", string status = "Done") => new()
+    // Feature 006 — a StatusId belonging to a *different* project must be rejected;
+    // status is identity-based, and identities aren't shared across projects
+    // (research.md #7/FR-018).
+    [Fact]
+    public async Task CreateAsync_rejects_a_statusId_belonging_to_a_different_project()
+    {
+        var user = AddUser("cross-project-status@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var otherProject = AddProject("Beta", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.StatusId = StatusId(otherProject.Id, "To Do");
+
+        await Assert.ThrowsAsync<InvalidWorkItemStatusException>(() => sut.CreateAsync(user.Id, project.Id, request));
+    }
+
+    private static WorkItemRequest EditRequest(int? statusId = null, string title = "Updated title") => new()
     {
         Type = "Task",
         Title = title,
-        Status = status
+        StatusId = statusId
     };
 
     [Theory]
@@ -734,10 +814,10 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var item = AddWorkItem(project.Id, creator.Id, assigneeUserId: assignee.Id, updatedAt: DateTime.UtcNow.AddDays(-1));
         var sut = CreateSut();
 
-        var result = await sut.UpdateAsync(caller.Id, callerRole, item.Id, EditRequest());
+        var result = await sut.UpdateAsync(caller.Id, callerRole, item.Id, EditRequest(StatusId(project.Id, "Done")));
 
         Assert.Equal("Updated title", result.Title);
-        Assert.Equal("Done", result.Status);
+        Assert.Equal("Done", result.StatusName);
         Assert.True(result.UpdatedAt > item.CreatedAt);
     }
 
@@ -777,12 +857,12 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var assignee = AddUser("status-assignee@example.com");
         var caller = asCreator ? creator : asAssignee ? assignee : AddUser($"status-caller-{callerRole}@example.com", Enum.Parse<Role>(callerRole));
         var project = AddProject("Alpha", creator.Id);
-        var item = AddWorkItem(project.Id, creator.Id, assigneeUserId: assignee.Id, status: WorkItemStatus.ToDo);
+        var item = AddWorkItem(project.Id, creator.Id, assigneeUserId: assignee.Id, status: "To Do");
         var sut = CreateSut();
 
-        var result = await sut.UpdateStatusAsync(caller.Id, callerRole, item.Id, "InReview");
+        var result = await sut.UpdateStatusAsync(caller.Id, callerRole, item.Id, StatusId(project.Id, "In Review"));
 
-        Assert.Equal("InReview", result.Status);
+        Assert.Equal("In Review", result.StatusName);
     }
 
     [Fact]
@@ -795,19 +875,20 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var sut = CreateSut();
 
         await Assert.ThrowsAsync<NotAuthorizedToEditWorkItemException>(
-            () => sut.UpdateStatusAsync(stranger.Id, "Developer", item.Id, "Done"));
+            () => sut.UpdateStatusAsync(stranger.Id, "Developer", item.Id, StatusId(project.Id, "Done")));
     }
 
     [Fact]
-    public async Task UpdateStatusAsync_rejects_an_invalid_status_value()
+    public async Task UpdateStatusAsync_rejects_a_statusId_belonging_to_a_different_project()
     {
         var creator = AddUser("status-invalid@example.com");
         var project = AddProject("Alpha", creator.Id);
+        var otherProject = AddProject("Beta", creator.Id);
         var item = AddWorkItem(project.Id, creator.Id);
         var sut = CreateSut();
 
         await Assert.ThrowsAsync<InvalidWorkItemStatusException>(
-            () => sut.UpdateStatusAsync(creator.Id, "Developer", item.Id, "NotAStatus"));
+            () => sut.UpdateStatusAsync(creator.Id, "Developer", item.Id, StatusId(otherProject.Id, "Done")));
     }
 
     [Fact]
@@ -816,7 +897,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var sut = CreateSut();
 
         await Assert.ThrowsAsync<WorkItemNotFoundException>(
-            () => sut.UpdateStatusAsync(1, "Admin", 999999, "Done"));
+            () => sut.UpdateStatusAsync(1, "Admin", 999999, 1));
     }
 
     [Theory]
@@ -880,7 +961,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         AddWorkItem(project.Id, user.Id, title: "Middle", updatedAt: DateTime.UtcNow.AddMinutes(-1));
         var sut = CreateSut();
 
-        var result = await sut.GetWorkItemsAsync(project.Id, page: 1, pageSize: 20, status: null, type: null, priority: null, assigneeUserId: null, search: null);
+        var result = await sut.GetWorkItemsAsync(project.Id, page: 1, pageSize: 20, statusId: null, type: null, priority: null, assigneeUserId: null, search: null);
 
         Assert.Equal(3, result.TotalCount);
         Assert.Equal("Newest", result.Items[0].Title);
@@ -894,15 +975,16 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var user = AddUser("filterer@example.com");
         var assignee = AddUser("assignee3@example.com");
         var project = AddProject("Alpha", user.Id);
-        var match = AddWorkItem(project.Id, user.Id, assigneeUserId: assignee.Id, status: WorkItemStatus.InProgress, priority: WorkItemPriority.High, type: WorkItemType.Story, title: "Match");
-        AddWorkItem(project.Id, user.Id, status: WorkItemStatus.ToDo, priority: WorkItemPriority.Low, type: WorkItemType.Task, title: "NoMatch");
+        var match = AddWorkItem(project.Id, user.Id, assigneeUserId: assignee.Id, status: "In Progress", priority: WorkItemPriority.High, type: WorkItemType.Story, title: "Match");
+        AddWorkItem(project.Id, user.Id, status: "To Do", priority: WorkItemPriority.Low, type: WorkItemType.Task, title: "NoMatch");
+        var inProgressId = StatusId(project.Id, "In Progress");
         var sut = CreateSut();
 
-        var byStatus = await sut.GetWorkItemsAsync(project.Id, 1, 20, "InProgress", null, null, null, null);
+        var byStatus = await sut.GetWorkItemsAsync(project.Id, 1, 20, inProgressId, null, null, null, null);
         var byType = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, "Story", null, null, null);
         var byPriority = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, "High", null, null);
         var byAssignee = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, assignee.Id, null);
-        var combined = await sut.GetWorkItemsAsync(project.Id, 1, 20, "InProgress", "Story", "High", assignee.Id, null);
+        var combined = await sut.GetWorkItemsAsync(project.Id, 1, 20, inProgressId, "Story", "High", assignee.Id, null);
 
         Assert.Equal(match.Id, byStatus.Items.Single().Id);
         Assert.Equal(match.Id, byType.Items.Single().Id);
@@ -957,11 +1039,11 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var project = AddProject("Alpha", user.Id);
         var sut = CreateSut();
         var request = ValidRequest();
-        request.Status = "InReview";
+        request.StatusId = StatusId(project.Id, "In Review");
 
         var result = await sut.CreateAsync(user.Id, project.Id, request);
 
-        Assert.Equal("InReview", result.Status);
+        Assert.Equal("In Review", result.StatusName);
     }
 
     [Fact]
@@ -969,12 +1051,12 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     {
         var user = AddUser("inreview-update@example.com");
         var project = AddProject("Alpha", user.Id);
-        var item = AddWorkItem(project.Id, user.Id, status: WorkItemStatus.InProgress);
+        var item = AddWorkItem(project.Id, user.Id, status: "In Progress");
         var sut = CreateSut();
 
-        var result = await sut.UpdateAsync(user.Id, "Developer", item.Id, EditRequest(status: "InReview"));
+        var result = await sut.UpdateAsync(user.Id, "Developer", item.Id, EditRequest(StatusId(project.Id, "In Review")));
 
-        Assert.Equal("InReview", result.Status);
+        Assert.Equal("In Review", result.StatusName);
     }
 
     [Fact]
@@ -982,24 +1064,29 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     {
         var user = AddUser("inreview-filter@example.com");
         var project = AddProject("Alpha", user.Id);
-        var match = AddWorkItem(project.Id, user.Id, status: WorkItemStatus.InReview, title: "In review item");
-        AddWorkItem(project.Id, user.Id, status: WorkItemStatus.InProgress, title: "Not in review");
+        var match = AddWorkItem(project.Id, user.Id, status: "In Review", title: "In review item");
+        AddWorkItem(project.Id, user.Id, status: "In Progress", title: "Not in review");
         var sut = CreateSut();
 
-        var result = await sut.GetWorkItemsAsync(project.Id, 1, 20, "InReview", null, null, null, null);
+        var result = await sut.GetWorkItemsAsync(project.Id, 1, 20, StatusId(project.Id, "In Review"), null, null, null, null);
 
         Assert.Equal(match.Id, result.Items.Single().Id);
     }
 
+    // Feature 006 — a statusId with no matching row just returns an empty result,
+    // the same behavior an unmatched assigneeUserId filter already has; there is no
+    // "unparseable status string" concept anymore now that status is identity-based.
     [Fact]
-    public async Task GetWorkItemsAsync_throws_for_an_unparseable_status_filter()
+    public async Task GetWorkItemsAsync_returns_empty_for_a_statusId_that_matches_nothing()
     {
         var user = AddUser("badfilter@example.com");
         var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Some item");
         var sut = CreateSut();
 
-        await Assert.ThrowsAsync<InvalidWorkItemStatusException>(
-            () => sut.GetWorkItemsAsync(project.Id, 1, 20, "NotAStatus", null, null, null, null));
+        var result = await sut.GetWorkItemsAsync(project.Id, 1, 20, 999999, null, null, null, null);
+
+        Assert.Empty(result.Items);
     }
 
     // User Story 5 (non-regression): Feature 002's flat filter/search/pagination
@@ -1012,13 +1099,14 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var user = AddUser("regression-hierarchy@example.com");
         var project = AddProject("Alpha", user.Id);
         var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic root");
-        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story child", WorkItemStatus.InProgress);
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story child", "In Progress");
         var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task grandchild");
-        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "Deeply nested subtask", WorkItemStatus.Done);
-        AddWorkItem(project.Id, user.Id, type: WorkItemType.Task, title: "Standalone done task", status: WorkItemStatus.Done);
+        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "Deeply nested subtask", "Done");
+        AddWorkItem(project.Id, user.Id, type: WorkItemType.Task, title: "Standalone done task", status: "Done");
+        var doneId = StatusId(project.Id, "Done");
         var sut = CreateSut();
 
-        var byStatus = await sut.GetWorkItemsAsync(project.Id, 1, 20, "Done", null, null, null, null);
+        var byStatus = await sut.GetWorkItemsAsync(project.Id, 1, 20, doneId, null, null, null, null);
         var bySearch = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, null, "nested");
         var all = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, null, null);
 

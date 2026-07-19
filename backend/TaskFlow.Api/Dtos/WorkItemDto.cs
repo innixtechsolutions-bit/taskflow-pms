@@ -1,5 +1,8 @@
 namespace TaskFlow.Api.Dtos;
 
+// Status is flattened (StatusId/StatusName/StatusCategory/StatusColorKey), not a
+// nested object -- the same convention this DTO already uses for AssigneeUserId/
+// AssigneeName (Feature 006).
 public record WorkItemDto(
     int Id,
     int ProjectId,
@@ -7,7 +10,10 @@ public record WorkItemDto(
     string Title,
     string? Description,
     string Priority,
-    string Status,
+    int StatusId,
+    string StatusName,
+    string StatusCategory,
+    string StatusColorKey,
     int? AssigneeUserId,
     string? AssigneeName,
     DateTime? DueDate,

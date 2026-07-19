@@ -19,19 +19,6 @@ public enum WorkItemPriority
     Critical
 }
 
-// No restricted transitions in this feature — any status may be set to any
-// other directly; there is no state machine here (see data-model.md).
-// InReview added by Feature 005 (Kanban Board) — a plain enum addition, no
-// migration: Status is a HasConversion<string>() column with no constraint
-// on which strings are valid (research.md #1).
-public enum WorkItemStatus
-{
-    ToDo,
-    InProgress,
-    InReview,
-    Done
-}
-
 public class WorkItem
 {
     public int Id { get; set; }
@@ -50,7 +37,13 @@ public class WorkItem
 
     public WorkItemPriority Priority { get; set; } = WorkItemPriority.Medium;
 
-    public WorkItemStatus Status { get; set; } = WorkItemStatus.ToDo;
+    // Feature 006 — replaces the prior system-wide fixed WorkItemStatus enum. Always
+    // references a row belonging to this item's own ProjectId (enforced in
+    // WorkItemService, not the database — a column can't express "same project as
+    // ProjectId above").
+    public int WorkflowStatusId { get; set; }
+
+    public WorkflowStatus? WorkflowStatus { get; set; }
 
     // Optional: a work item need not be assigned to anyone.
     public int? AssigneeUserId { get; set; }

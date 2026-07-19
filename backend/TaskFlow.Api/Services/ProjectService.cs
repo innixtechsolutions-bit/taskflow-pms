@@ -28,6 +28,15 @@ public class ProjectService(AppDbContext dbContext)
         };
 
         dbContext.Projects.Add(project);
+
+        // Feature 006 — every project owns its own workflow; a new one starts with the
+        // standard four statuses (FR-005), added to the same SaveChangesAsync() batch
+        // as the project itself so both are created atomically.
+        project.WorkflowStatuses.Add(new WorkflowStatus { Project = project, Name = "To Do", Position = 0, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Slate });
+        project.WorkflowStatuses.Add(new WorkflowStatus { Project = project, Name = "In Progress", Position = 1, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Blue });
+        project.WorkflowStatuses.Add(new WorkflowStatus { Project = project, Name = "In Review", Position = 2, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Violet });
+        project.WorkflowStatuses.Add(new WorkflowStatus { Project = project, Name = "Done", Position = 3, Category = WorkflowStatusCategory.Done, ColorKey = ChipColor.Green });
+
         await dbContext.SaveChangesAsync();
 
         return new ProjectDetailDto(project.Id, project.Name, project.Description, creator!.FullName, project.CreatedAt, TotalWorkItemCount: 0);
@@ -46,7 +55,7 @@ public class ProjectService(AppDbContext dbContext)
                 p.Name,
                 p.CreatedBy!.FullName,
                 p.CreatedAt,
-                p.WorkItems.Count(w => w.Status != WorkItemStatus.Done)))
+                p.WorkItems.Count(w => w.WorkflowStatus!.Category != WorkflowStatusCategory.Done)))
             .ToListAsync();
 
         return new PagedResult<ProjectListItemDto>(items, page, pageSize, totalCount);

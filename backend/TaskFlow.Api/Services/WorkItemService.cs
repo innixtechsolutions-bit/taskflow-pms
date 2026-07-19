@@ -28,11 +28,7 @@ public class WorkItemService(AppDbContext dbContext)
             throw new InvalidWorkItemPriorityException();
         }
 
-        var status = WorkItemStatus.ToDo;
-        if (!string.IsNullOrWhiteSpace(request.Status) && !Enum.TryParse(request.Status, ignoreCase: true, out status))
-        {
-            throw new InvalidWorkItemStatusException();
-        }
+        var statusId = await ResolveStatusIdAsync(projectId, request.StatusId);
 
         if (request.AssigneeUserId.HasValue)
         {
@@ -53,7 +49,7 @@ public class WorkItemService(AppDbContext dbContext)
             Title = request.Title,
             Description = request.Description,
             Priority = priority,
-            Status = status,
+            WorkflowStatusId = statusId,
             AssigneeUserId = request.AssigneeUserId,
             DueDate = request.DueDate,
             CreatedByUserId = creatorUserId,
@@ -87,11 +83,7 @@ public class WorkItemService(AppDbContext dbContext)
             throw new InvalidWorkItemPriorityException();
         }
 
-        var status = WorkItemStatus.ToDo;
-        if (!string.IsNullOrWhiteSpace(request.Status) && !Enum.TryParse(request.Status, ignoreCase: true, out status))
-        {
-            throw new InvalidWorkItemStatusException();
-        }
+        var statusId = await ResolveStatusIdAsync(workItem.ProjectId, request.StatusId);
 
         if (request.AssigneeUserId.HasValue)
         {
@@ -136,7 +128,7 @@ public class WorkItemService(AppDbContext dbContext)
         workItem.Title = request.Title;
         workItem.Description = request.Description;
         workItem.Priority = priority;
-        workItem.Status = status;
+        workItem.WorkflowStatusId = statusId;
         workItem.AssigneeUserId = request.AssigneeUserId;
         workItem.DueDate = request.DueDate;
         workItem.UpdatedAt = DateTime.UtcNow;
@@ -152,22 +144,47 @@ public class WorkItemService(AppDbContext dbContext)
     // touches Status, so the board's drag interaction never has to submit (and
     // risk silently clobbering) fields a card doesn't carry, like Description or
     // ParentWorkItemId (research.md #3).
-    public async Task<WorkItemDto> UpdateStatusAsync(int callerId, string callerRole, int id, string status)
+    public async Task<WorkItemDto> UpdateStatusAsync(int callerId, string callerRole, int id, int statusId)
     {
         var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
         EnsureCanEdit(workItem, callerId, callerRole);
 
-        if (!Enum.TryParse<WorkItemStatus>(status, ignoreCase: true, out var statusValue))
-        {
-            throw new InvalidWorkItemStatusException();
-        }
-
-        workItem.Status = statusValue;
+        // Rejects a statusId that doesn't belong to this item's own project -- an
+        // explicit id, unlike Create/Update, so no "default when omitted" case here.
+        workItem.WorkflowStatusId = await ResolveStatusIdAsync(workItem.ProjectId, statusId);
         workItem.UpdatedAt = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync();
 
         return await ToDtoAsync(workItem.Id);
+    }
+
+    // Shared by Create/Update/UpdateStatus. A null requestedStatusId means "use the
+    // project's default" -- its first Open-category status by position, mirroring
+    // this field's old "defaults to ToDo" behavior before Feature 006. An explicit
+    // value must belong to the target project (Feature 006/FR-018/research.md #7 --
+    // status is identity-based, and identities aren't shared across projects).
+    private async Task<int> ResolveStatusIdAsync(int projectId, int? requestedStatusId)
+    {
+        if (requestedStatusId.HasValue)
+        {
+            var belongsToProject = await dbContext.WorkflowStatuses
+                .AnyAsync(s => s.Id == requestedStatusId.Value && s.ProjectId == projectId);
+            if (!belongsToProject)
+            {
+                throw new InvalidWorkItemStatusException();
+            }
+            return requestedStatusId.Value;
+        }
+
+        var defaultStatus = await dbContext.WorkflowStatuses
+            .Where(s => s.ProjectId == projectId && s.Category == WorkflowStatusCategory.Open)
+            .OrderBy(s => s.Position)
+            .FirstOrDefaultAsync();
+        // FR-003 guarantees every project always has >=1 Open-category status, so this
+        // should never be null in practice -- InvalidWorkItemStatusException here would
+        // only mean the project itself doesn't exist, which callers already check first.
+        return defaultStatus?.Id ?? throw new InvalidWorkItemStatusException();
     }
 
     // Shared by UpdateAsync and UpdateStatusAsync -- "the caller is this item's
@@ -250,7 +267,10 @@ public class WorkItemService(AppDbContext dbContext)
                 w.Title,
                 w.Description,
                 Priority = w.Priority.ToString(),
-                Status = w.Status.ToString(),
+                StatusId = w.WorkflowStatusId,
+                StatusName = w.WorkflowStatus!.Name,
+                StatusCategory = w.WorkflowStatus.Category.ToString(),
+                StatusColorKey = w.WorkflowStatus.ColorKey.ToString(),
                 w.AssigneeUserId,
                 AssigneeName = w.Assignee != null ? w.Assignee.FullName : null,
                 w.DueDate,
@@ -267,14 +287,17 @@ public class WorkItemService(AppDbContext dbContext)
             .Where(w => w.ParentWorkItemId == id)
             .OrderByDescending(w => w.UpdatedAt)
             .Select(w => new WorkItemChildDto(
-                w.Id, w.Title, w.Type.ToString(), w.Status.ToString(), w.Assignee != null ? w.Assignee.FullName : null))
+                w.Id, w.Title, w.Type.ToString(), w.WorkflowStatusId, w.WorkflowStatus!.Name,
+                w.WorkflowStatus.Category.ToString(), w.WorkflowStatus.ColorKey.ToString(),
+                w.Assignee != null ? w.Assignee.FullName : null))
             .ToListAsync();
 
         var descendantIds = await CollectDescendantIdsAsync(id);
 
         return new WorkItemDetailDto(
             workItem.Id, workItem.ProjectId, workItem.Type, workItem.Title, workItem.Description,
-            workItem.Priority, workItem.Status, workItem.AssigneeUserId, workItem.AssigneeName,
+            workItem.Priority, workItem.StatusId, workItem.StatusName, workItem.StatusCategory, workItem.StatusColorKey,
+            workItem.AssigneeUserId, workItem.AssigneeName,
             workItem.DueDate, workItem.CreatedByUserId, workItem.CreatedByName, workItem.CreatedAt, workItem.UpdatedAt,
             workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children);
     }
@@ -284,7 +307,7 @@ public class WorkItemService(AppDbContext dbContext)
     // with the full filter/search set.
     public async Task<PagedResult<WorkItemDto>> GetWorkItemsAsync(
         int projectId, int page, int pageSize,
-        string? status, string? type, string? priority, int? assigneeUserId, string? search)
+        int? statusId, string? type, string? priority, int? assigneeUserId, string? search)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
         if (!projectExists)
@@ -299,13 +322,9 @@ public class WorkItemService(AppDbContext dbContext)
         // (research.md §4).
         var query = dbContext.WorkItems.Where(w => w.ProjectId == projectId);
 
-        if (!string.IsNullOrWhiteSpace(status))
+        if (statusId.HasValue)
         {
-            if (!Enum.TryParse<WorkItemStatus>(status, ignoreCase: true, out var statusValue))
-            {
-                throw new InvalidWorkItemStatusException();
-            }
-            query = query.Where(w => w.Status == statusValue);
+            query = query.Where(w => w.WorkflowStatusId == statusId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(type))
@@ -354,7 +373,10 @@ public class WorkItemService(AppDbContext dbContext)
                 w.Title,
                 w.Description,
                 w.Priority.ToString(),
-                w.Status.ToString(),
+                w.WorkflowStatusId,
+                w.WorkflowStatus!.Name,
+                w.WorkflowStatus.Category.ToString(),
+                w.WorkflowStatus.ColorKey.ToString(),
                 w.AssigneeUserId,
                 w.Assignee != null ? w.Assignee.FullName : null,
                 w.DueDate,
@@ -378,7 +400,10 @@ public class WorkItemService(AppDbContext dbContext)
                 w.Title,
                 w.Description,
                 w.Priority.ToString(),
-                w.Status.ToString(),
+                w.WorkflowStatusId,
+                w.WorkflowStatus!.Name,
+                w.WorkflowStatus.Category.ToString(),
+                w.WorkflowStatus.ColorKey.ToString(),
                 w.AssigneeUserId,
                 w.Assignee != null ? w.Assignee.FullName : null,
                 w.DueDate,
@@ -447,7 +472,7 @@ public class WorkItemService(AppDbContext dbContext)
         }
     }
 
-    private record WorkItemTreeRow(int Id, string Type, string Title, string Status, string Priority, string? AssigneeName, int? ParentWorkItemId);
+    private record WorkItemTreeRow(int Id, string Type, string Title, int StatusId, string StatusName, string StatusCategory, string StatusColorKey, string Priority, string? AssigneeName, int? ParentWorkItemId);
 
     public async Task<List<WorkItemTreeNodeDto>> GetTreeAsync(int projectId)
     {
@@ -472,7 +497,10 @@ public class WorkItemService(AppDbContext dbContext)
                 w.Id,
                 w.Type.ToString(),
                 w.Title,
-                w.Status.ToString(),
+                w.WorkflowStatusId,
+                w.WorkflowStatus!.Name,
+                w.WorkflowStatus.Category.ToString(),
+                w.WorkflowStatus.ColorKey.ToString(),
                 w.Priority.ToString(),
                 w.Assignee != null ? w.Assignee.FullName : null,
                 w.ParentWorkItemId))
@@ -490,16 +518,18 @@ public class WorkItemService(AppDbContext dbContext)
     private static WorkItemTreeNodeDto BuildTreeNode(WorkItemTreeRow row, Dictionary<int, List<WorkItemTreeRow>> childrenByParent)
     {
         var childRows = childrenByParent.TryGetValue(row.Id, out var found) ? found : [];
-        var doneCount = childRows.Count(c => c.Status == "Done");
+        // Category, not name (FR-019/spec.md) — a renamed or custom Done-category
+        // status still counts as done here.
+        var doneCount = childRows.Count(c => c.StatusCategory == nameof(WorkflowStatusCategory.Done));
         var childNodes = childRows.Select(c => BuildTreeNode(c, childrenByParent)).ToList();
 
         return new WorkItemTreeNodeDto(
-            row.Id, row.Type, row.Title, row.Status, row.Priority, row.AssigneeName,
-            childRows.Count, doneCount, childNodes);
+            row.Id, row.Type, row.Title, row.StatusId, row.StatusName, row.StatusCategory, row.StatusColorKey,
+            row.Priority, row.AssigneeName, childRows.Count, doneCount, childNodes);
     }
 
     private record WorkItemBoardRow(
-        int Id, string Type, string Title, string Status, string Priority,
+        int Id, string Type, string Title, int StatusId, string StatusName, string StatusCategory, string StatusColorKey, string Priority,
         int? AssigneeUserId, string? AssigneeName, DateTime? DueDate, DateTime UpdatedAt,
         int CreatedByUserId, int? ParentWorkItemId);
 
@@ -523,7 +553,10 @@ public class WorkItemService(AppDbContext dbContext)
                 w.Id,
                 w.Type.ToString(),
                 w.Title,
-                w.Status.ToString(),
+                w.WorkflowStatusId,
+                w.WorkflowStatus!.Name,
+                w.WorkflowStatus.Category.ToString(),
+                w.WorkflowStatus.ColorKey.ToString(),
                 w.Priority.ToString(),
                 w.AssigneeUserId,
                 w.Assignee != null ? w.Assignee.FullName : null,
@@ -541,35 +574,23 @@ public class WorkItemService(AppDbContext dbContext)
         var items = rows.Select(row =>
         {
             var childRows = childrenByParent.TryGetValue(row.Id, out var found) ? found : [];
-            var doneCount = childRows.Count(c => c.Status == "Done");
+            var doneCount = childRows.Count(c => c.StatusCategory == nameof(WorkflowStatusCategory.Done));
             return new WorkItemBoardCardDto(
-                row.Id, row.Type, row.Title, row.Status, row.Priority,
+                row.Id, row.Type, row.Title, row.StatusId, row.StatusName, row.StatusCategory, row.StatusColorKey, row.Priority,
                 row.AssigneeUserId, row.AssigneeName, row.DueDate, row.UpdatedAt,
                 row.CreatedByUserId, childRows.Count, doneCount);
         }).ToList();
 
-        // Enum.GetValues preserves declaration order (ToDo, InProgress, InReview,
-        // Done), so this list is already the board's intended column order without
-        // a separately-maintained array that could drift from the enum itself.
-        var columns = Enum.GetValues<WorkItemStatus>()
-            .Select(status => new BoardColumnDto(status.ToString(), BoardColumnLabel(status)))
-            .ToList();
+        // Feature 006 — columns come from this project's own WorkflowStatus rows,
+        // ordered by Position, instead of a fixed system-wide enum (FR-006/FR-017).
+        var columns = await dbContext.WorkflowStatuses
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.Position)
+            .Select(s => new BoardColumnDto(s.Id, s.Name, s.Category.ToString(), s.ColorKey.ToString()))
+            .ToListAsync();
 
         return new WorkItemBoardDto(columns, items);
     }
-
-    // Mirrors the frontend's StatusChipComponent label map exactly (M1) -- the
-    // one place this feature intentionally accepts label text existing in two
-    // places, since chips and board columns are conceptually different things
-    // long-term (research.md #2, revised).
-    private static string BoardColumnLabel(WorkItemStatus status) => status switch
-    {
-        WorkItemStatus.ToDo => "To Do",
-        WorkItemStatus.InProgress => "In Progress",
-        WorkItemStatus.InReview => "In Review",
-        WorkItemStatus.Done => "Done",
-        _ => throw new ArgumentOutOfRangeException(nameof(status))
-    };
 
     public async Task<List<WorkItemLookupItemDto>> GetParentCandidatesAsync(int projectId, string type)
     {

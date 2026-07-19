@@ -24,6 +24,10 @@ public class ProjectServiceTests : SqlServerTestDatabase
         return user;
     }
 
+    // Feature 006 — mirrors ProjectService.CreateAsync's own seeding (T004 proves that
+    // seeding directly against the SUT; every other test here bypasses the service
+    // layer to set up fixtures, so this helper replicates the same standard four
+    // statuses by hand so AddWorkItem always has a real row to reference).
     private Project AddProject(string name, int creatorId, DateTime? createdAt = null)
     {
         var project = new Project
@@ -34,17 +38,28 @@ public class ProjectServiceTests : SqlServerTestDatabase
         };
         Db.Projects.Add(project);
         Db.SaveChanges();
+
+        Db.WorkflowStatuses.AddRange(
+            new WorkflowStatus { ProjectId = project.Id, Name = "To Do", Position = 0, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Slate },
+            new WorkflowStatus { ProjectId = project.Id, Name = "In Progress", Position = 1, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Blue },
+            new WorkflowStatus { ProjectId = project.Id, Name = "In Review", Position = 2, Category = WorkflowStatusCategory.Open, ColorKey = ChipColor.Violet },
+            new WorkflowStatus { ProjectId = project.Id, Name = "Done", Position = 3, Category = WorkflowStatusCategory.Done, ColorKey = ChipColor.Green });
+        Db.SaveChanges();
+
         return project;
     }
 
-    private void AddWorkItem(int projectId, int creatorId, WorkItemStatus status = WorkItemStatus.ToDo)
+    private int StatusId(int projectId, string statusName) =>
+        Db.WorkflowStatuses.Single(s => s.ProjectId == projectId && s.Name == statusName).Id;
+
+    private void AddWorkItem(int projectId, int creatorId, string status = "To Do")
     {
         Db.WorkItems.Add(new WorkItem
         {
             ProjectId = projectId,
             Type = WorkItemType.Task,
             Title = "Some work",
-            Status = status,
+            WorkflowStatusId = StatusId(projectId, status),
             CreatedByUserId = creatorId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -73,6 +88,27 @@ public class ProjectServiceTests : SqlServerTestDatabase
         Assert.Equal(0, result.TotalWorkItemCount);
         var stored = Db.Projects.Single();
         Assert.Equal(manager.Id, stored.CreatedByUserId);
+    }
+
+    // Feature 006/FR-005 — a newly created project starts with the standard four
+    // statuses, in order, with the right categories — this is what every other
+    // status-aware surface (board, dropdowns, filters) depends on existing from
+    // the moment a project is created.
+    [Fact]
+    public async Task CreateAsync_seeds_the_standard_four_statuses()
+    {
+        var manager = AddUser("manager-seed@example.com", Role.Manager);
+        var sut = CreateSut();
+
+        var result = await sut.CreateAsync(manager.Id, ValidRequest());
+
+        var statuses = Db.WorkflowStatuses
+            .Where(s => s.ProjectId == result.Id)
+            .OrderBy(s => s.Position)
+            .ToList();
+        Assert.Equal(
+            new[] { ("To Do", WorkflowStatusCategory.Open), ("In Progress", WorkflowStatusCategory.Open), ("In Review", WorkflowStatusCategory.Open), ("Done", WorkflowStatusCategory.Done) },
+            statuses.Select(s => (s.Name, s.Category)).ToArray());
     }
 
     [Fact]
@@ -110,9 +146,9 @@ public class ProjectServiceTests : SqlServerTestDatabase
     {
         var user = AddUser("creator@example.com");
         var project = AddProject("Alpha", user.Id);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.ToDo);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.InProgress);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.Done);
+        AddWorkItem(project.Id, user.Id, "To Do");
+        AddWorkItem(project.Id, user.Id, "In Progress");
+        AddWorkItem(project.Id, user.Id, "Done");
         var sut = CreateSut();
 
         var result = await sut.GetProjectsAsync(page: 1, pageSize: 20);
@@ -121,17 +157,17 @@ public class ProjectServiceTests : SqlServerTestDatabase
     }
 
     // Feature 005 regression guard: In Review is not Done, so it must already be
-    // counted as open under the existing "!= Done" definition (research.md #7) —
-    // this test exists to prove that stays true, not because the production code
-    // needs a code change for it.
+    // counted as open under the existing "!= Done category" definition (research.md
+    // #7) — this test exists to prove that stays true, not because the production
+    // code needs a change for it.
     [Fact]
     public async Task GetProjectsAsync_open_work_item_count_includes_InReview_items()
     {
         var user = AddUser("creator@example.com");
         var project = AddProject("Alpha", user.Id);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.ToDo);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.InReview);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.Done);
+        AddWorkItem(project.Id, user.Id, "To Do");
+        AddWorkItem(project.Id, user.Id, "In Review");
+        AddWorkItem(project.Id, user.Id, "Done");
         var sut = CreateSut();
 
         var result = await sut.GetProjectsAsync(page: 1, pageSize: 20);
@@ -139,13 +175,35 @@ public class ProjectServiceTests : SqlServerTestDatabase
         Assert.Equal(2, result.Items.Single().OpenWorkItemCount);
     }
 
+    // Feature 006/FR-019/US1 — open-item counting reasons about a status's Category,
+    // never its literal name: a renamed Done-category status is still excluded, and
+    // an oddly-named Open-category status is still included.
+    [Fact]
+    public async Task GetProjectsAsync_open_work_item_count_uses_category_not_status_name()
+    {
+        var user = AddUser("category-count@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var doneStatus = Db.WorkflowStatuses.Single(s => s.ProjectId == project.Id && s.Name == "Done");
+        doneStatus.Name = "Complete";
+        var todoStatus = Db.WorkflowStatuses.Single(s => s.ProjectId == project.Id && s.Name == "To Do");
+        todoStatus.Name = "Backlog";
+        Db.SaveChanges();
+        AddWorkItem(project.Id, user.Id, "Backlog");
+        AddWorkItem(project.Id, user.Id, "Complete");
+        var sut = CreateSut();
+
+        var result = await sut.GetProjectsAsync(page: 1, pageSize: 20);
+
+        Assert.Equal(1, result.Items.Single().OpenWorkItemCount);
+    }
+
     [Fact]
     public async Task GetProjectByIdAsync_returns_the_total_work_item_count_regardless_of_status()
     {
         var user = AddUser("creator@example.com");
         var project = AddProject("Alpha", user.Id);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.ToDo);
-        AddWorkItem(project.Id, user.Id, WorkItemStatus.Done);
+        AddWorkItem(project.Id, user.Id, "To Do");
+        AddWorkItem(project.Id, user.Id, "Done");
         var sut = CreateSut();
 
         var result = await sut.GetProjectByIdAsync(project.Id);

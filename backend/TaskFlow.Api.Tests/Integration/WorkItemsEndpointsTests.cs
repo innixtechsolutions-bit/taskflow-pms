@@ -52,6 +52,17 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         return body!.Items.Single(u => u.Email == email).Id;
     }
 
+    // Feature 006 — status is identity-based, so tests that need to set a work item
+    // to a particular status first resolve that status's id from the project's own
+    // list (seeded with the standard four by ProjectService.CreateAsync), rather than
+    // a fixed string name.
+    private async Task<int> FindStatusIdAsync(string token, int projectId, string statusName)
+    {
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", token));
+        var body = await response.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        return body!.Single(s => s.Name == statusName).Id;
+    }
+
     [Fact]
     public async Task Create_returns_201_on_success()
     {
@@ -67,7 +78,8 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
         Assert.Equal("Fix the login bug", body!.Title);
         Assert.Equal("Medium", body.Priority);
-        Assert.Equal("ToDo", body.Status);
+        Assert.Equal("To Do", body.StatusName);
+        Assert.Equal("Open", body.StatusCategory);
     }
 
     [Fact]
@@ -332,8 +344,8 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<WorkItemBoardDto>();
         Assert.Equal(4, body!.Columns.Count);
-        // M1: each column carries its display label, not just the raw status value.
-        Assert.Contains(body.Columns, c => c.Status == "InReview" && c.Label == "In Review");
+        // Feature 006 — columns come from this project's own WorkflowStatus rows.
+        Assert.Contains(body.Columns, c => c.Name == "In Review" && c.Category == "Open");
         Assert.Contains(body.Items, i => i.Id == itemId);
     }
 
@@ -477,15 +489,16 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
         var creatorToken = await RegisterAndGetTokenAsync($"editor-creator-{Guid.NewGuid():N}@example.com");
         var item = await CreateWorkItemAsync(creatorToken, projectId);
+        var doneStatusId = await FindStatusIdAsync(creatorToken, projectId, "Done");
 
         var request = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", creatorToken);
-        request.Content = JsonContent.Create(new { type = "Task", title = "Updated title", status = "Done" });
+        request.Content = JsonContent.Create(new { type = "Task", title = "Updated title", statusId = doneStatusId });
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
         Assert.Equal("Updated title", body!.Title);
-        Assert.Equal("Done", body.Status);
+        Assert.Equal("Done", body.StatusName);
     }
 
     [Fact]
@@ -556,14 +569,15 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
         var creatorToken = await RegisterAndGetTokenAsync($"status-creator-{Guid.NewGuid():N}@example.com");
         var item = await CreateWorkItemAsync(creatorToken, projectId);
+        var inReviewId = await FindStatusIdAsync(creatorToken, projectId, "In Review");
 
         var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", creatorToken);
-        request.Content = JsonContent.Create(new { status = "InReview" });
+        request.Content = JsonContent.Create(new { statusId = inReviewId });
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
-        Assert.Equal("InReview", body!.Status);
+        Assert.Equal("In Review", body!.StatusName);
     }
 
     // FR-015: the server independently refuses an unauthorized status change,
@@ -576,27 +590,32 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var creatorToken = await RegisterAndGetTokenAsync($"status-creator2-{Guid.NewGuid():N}@example.com");
         var strangerToken = await RegisterAndGetTokenAsync($"status-stranger-{Guid.NewGuid():N}@example.com");
         var item = await CreateWorkItemAsync(creatorToken, projectId);
+        var inReviewId = await FindStatusIdAsync(creatorToken, projectId, "In Review");
 
         var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", strangerToken);
-        request.Content = JsonContent.Create(new { status = "InReview" });
+        request.Content = JsonContent.Create(new { statusId = inReviewId });
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var unchanged = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/work-items/{item.Id}", creatorToken));
         var unchangedBody = await unchanged.Content.ReadFromJsonAsync<WorkItemDetailDto>();
-        Assert.Equal("ToDo", unchangedBody!.Status);
+        Assert.Equal("To Do", unchangedBody!.StatusName);
     }
 
+    // Feature 006 — "invalid" now means "doesn't belong to this item's project"
+    // (status is identity-based), not an unparseable enum name.
     [Fact]
-    public async Task UpdateStatus_returns_400_for_an_invalid_status()
+    public async Task UpdateStatus_returns_400_for_a_statusId_from_a_different_project()
     {
         var adminToken = await LoginAsSeededAdminAsync();
         var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var otherProjectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
         var creatorToken = await RegisterAndGetTokenAsync($"status-invalid-{Guid.NewGuid():N}@example.com");
         var item = await CreateWorkItemAsync(creatorToken, projectId);
+        var otherProjectStatusId = await FindStatusIdAsync(adminToken, otherProjectId, "Done");
 
         var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", creatorToken);
-        request.Content = JsonContent.Create(new { status = "NotAStatus" });
+        request.Content = JsonContent.Create(new { statusId = otherProjectStatusId });
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -608,7 +627,7 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var adminToken = await LoginAsSeededAdminAsync();
 
         var request = AuthedRequest(HttpMethod.Patch, "/api/work-items/999999/status", adminToken);
-        request.Content = JsonContent.Create(new { status = "Done" });
+        request.Content = JsonContent.Create(new { statusId = 1 });
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -623,7 +642,7 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var item = await CreateWorkItemAsync(creatorToken, projectId);
 
         var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/work-items/{item.Id}/status");
-        request.Content = JsonContent.Create(new { status = "Done" });
+        request.Content = JsonContent.Create(new { statusId = 1 });
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -745,13 +764,14 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
         var token = await RegisterAndGetTokenAsync($"lister-inreview-{Guid.NewGuid():N}@example.com");
         var item = await CreateWorkItemAsync(token, projectId, title: "Needs review");
+        var inReviewId = await FindStatusIdAsync(token, projectId, "In Review");
         var editRequest = AuthedRequest(HttpMethod.Put, $"/api/work-items/{item.Id}", token);
-        editRequest.Content = JsonContent.Create(new { type = "Task", title = item.Title, status = "InReview" });
+        editRequest.Content = JsonContent.Create(new { type = "Task", title = item.Title, statusId = inReviewId });
         await _client.SendAsync(editRequest);
         await CreateWorkItemAsync(token, projectId, title: "Still in progress");
 
         var response = await _client.SendAsync(AuthedRequest(
-            HttpMethod.Get, $"/api/projects/{projectId}/work-items?status=InReview", token));
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items?statusId={inReviewId}", token));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<PagedResult<WorkItemDto>>();
@@ -768,15 +788,18 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    // Feature 006 — statusId is an int, so ASP.NET Core's own model binding (not
+    // application code) now rejects a non-numeric value via [ApiController]'s
+    // automatic 400 response.
     [Fact]
-    public async Task GetWorkItems_returns_400_for_an_unparseable_status_filter()
+    public async Task GetWorkItems_returns_400_for_a_non_numeric_statusId_filter()
     {
         var adminToken = await LoginAsSeededAdminAsync();
         var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
         var token = await RegisterAndGetTokenAsync($"lister-badfilter-{Guid.NewGuid():N}@example.com");
 
         var response = await _client.SendAsync(AuthedRequest(
-            HttpMethod.Get, $"/api/projects/{projectId}/work-items?status=NotAStatus", token));
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items?statusId=NotAStatus", token));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

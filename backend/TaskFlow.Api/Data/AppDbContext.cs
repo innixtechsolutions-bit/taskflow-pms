@@ -14,6 +14,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<WorkItem> WorkItems => Set<WorkItem>();
 
+    public DbSet<WorkflowStatus> WorkflowStatuses => Set<WorkflowStatus>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -89,11 +91,41 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(w => w.ParentWorkItemId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Same readable-text-over-int rationale as User.Role above, for all three
-            // of this entity's enums.
+            // Same readable-text-over-int rationale as User.Role above, for both of
+            // this entity's remaining enums (Status became a FK in Feature 006).
             entity.Property(w => w.Type).HasConversion<string>();
             entity.Property(w => w.Priority).HasConversion<string>();
-            entity.Property(w => w.Status).HasConversion<string>();
+
+            // Every board/filter query groups or filters on this — same rationale as
+            // the ProjectId/ParentWorkItemId indexes above.
+            entity.HasIndex(w => w.WorkflowStatusId);
+
+            // Restrict, not Cascade: the database is a safety net only.
+            // ProjectStatusService.DeleteAsync always reassigns every referencing
+            // WorkItem's WorkflowStatusId before removing a WorkflowStatus row, so this
+            // should never actually fire in practice (data-model.md).
+            entity.HasOne(w => w.WorkflowStatus)
+                .WithMany()
+                .HasForeignKey(w => w.WorkflowStatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<WorkflowStatus>(entity =>
+        {
+            // Case-insensitive per project (relies on SQL Server's default collation,
+            // same mechanism as Project.Name/User.Email) -- not globally unique, since
+            // two different projects may each have a "QA" column (FR-002).
+            entity.HasIndex(s => new { s.ProjectId, s.Name }).IsUnique();
+
+            // Deleting a project deletes its statuses -- consistent with the existing
+            // Project -> WorkItem cascade just above.
+            entity.HasOne(s => s.Project)
+                .WithMany(p => p.WorkflowStatuses)
+                .HasForeignKey(s => s.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.Property(s => s.Category).HasConversion<string>();
+            entity.Property(s => s.ColorKey).HasConversion<string>();
         });
     }
 }

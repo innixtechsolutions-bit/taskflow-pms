@@ -1,12 +1,10 @@
 namespace TaskFlow.Api.Dtos;
 
-// The Kanban board's response shape (Feature 005). Columns are {status, label}
-// pairs computed server-side, not bare status strings -- the frontend renders
-// column headers purely from this array and never derives a label itself, so
-// a future per-project column list (custom-columns feature) is a pure backend
-// change, never a board-component one (research.md #2, revised during triage).
+// The Kanban board's response shape (Feature 005). Columns come from the calling
+// project's own ordered WorkflowStatus list (Feature 006) -- the frontend renders
+// column headers purely from this array and never derives one itself.
 public record WorkItemBoardDto(
     List<BoardColumnDto> Columns,
     List<WorkItemBoardCardDto> Items);
 
-public record BoardColumnDto(string Status, string Label);
+public record BoardColumnDto(int StatusId, string Name, string Category, string ColorKey);
