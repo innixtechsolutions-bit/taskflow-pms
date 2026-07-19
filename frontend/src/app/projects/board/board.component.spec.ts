@@ -15,17 +15,20 @@ function dropEvent(item: WorkItemBoardCard): CdkDragDrop<WorkItemBoardCard[]> {
 function sampleBoard(): WorkItemBoard {
   return {
     columns: [
-      { status: 'ToDo', label: 'To Do' },
-      { status: 'InProgress', label: 'In Progress' },
-      { status: 'InReview', label: 'In Review' },
-      { status: 'Done', label: 'Done' },
+      { statusId: 1, name: 'To Do', category: 'Open', colorKey: 'Slate' },
+      { statusId: 2, name: 'In Progress', category: 'Open', colorKey: 'Blue' },
+      { statusId: 3, name: 'In Review', category: 'Open', colorKey: 'Violet' },
+      { statusId: 4, name: 'Done', category: 'Done', colorKey: 'Green' },
     ],
     items: [
       {
         id: 1,
         type: 'Task',
         title: 'A todo item',
-        status: 'ToDo',
+        statusId: 1,
+        statusName: 'To Do',
+        statusCategory: 'Open',
+        statusColorKey: 'Slate',
         priority: 'Medium',
         assigneeUserId: null,
         assigneeName: null,
@@ -39,7 +42,10 @@ function sampleBoard(): WorkItemBoard {
         id: 2,
         type: 'Task',
         title: 'An in-progress item',
-        status: 'InProgress',
+        statusId: 2,
+        statusName: 'In Progress',
+        statusCategory: 'Open',
+        statusColorKey: 'Blue',
         priority: 'High',
         assigneeUserId: 1,
         assigneeName: 'Ada Lovelace',
@@ -90,7 +96,7 @@ function columnLabelContaining(fixture: { nativeElement: HTMLElement }, cardTitl
 }
 
 describe('BoardComponent', () => {
-  it('renders 4 columns from the backend-supplied column list, using each label verbatim', async () => {
+  it('renders 4 columns from the backend-supplied column list, using each name verbatim', async () => {
     configure();
     const fixture = await render();
 
@@ -134,12 +140,12 @@ describe('BoardComponent', () => {
   it('moves a dragged card to the target column and persists the new status', async () => {
     const { updateWorkItemStatus } = configure();
     const fixture = await render();
-    const item = sampleBoard().items[0]; // 'A todo item', status: 'ToDo'
+    const item = sampleBoard().items[0]; // 'A todo item', statusId: 1
 
-    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: string) => void }).onDrop(dropEvent(item), 'InReview');
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: number) => void }).onDrop(dropEvent(item), 3);
     fixture.detectChanges();
 
-    expect(updateWorkItemStatus).toHaveBeenCalledWith(item.id, 'InReview');
+    expect(updateWorkItemStatus).toHaveBeenCalledWith(item.id, 3);
     expect(columnLabelContaining(fixture, item.title)).toBe('In Review');
   });
 
@@ -153,9 +159,9 @@ describe('BoardComponent', () => {
   ])('reverts the card to its source column and shows an error toast on %s', async (_label, rejection) => {
     const { notificationService } = configure(undefined, undefined, vi.fn().mockRejectedValue(rejection));
     const fixture = await render();
-    const item = sampleBoard().items[0]; // 'A todo item', status: 'ToDo'
+    const item = sampleBoard().items[0]; // 'A todo item', statusId: 1
 
-    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: string) => void }).onDrop(dropEvent(item), 'InReview');
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: number) => void }).onDrop(dropEvent(item), 3);
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -181,7 +187,7 @@ describe('BoardComponent', () => {
     expect(fixture.nativeElement.querySelector('.board-card.drag-disabled')).toBeNull();
   });
 
-  it("each column's + Add link targets the work-item-form route with the project id and that column's status", async () => {
+  it("each column's + Add link targets the work-item-form route with the project id and that column's statusId", async () => {
     configure();
     const fixture = await render(42);
 
@@ -189,7 +195,7 @@ describe('BoardComponent', () => {
       fixture.nativeElement.querySelectorAll('.board-column-add')
     ) as HTMLAnchorElement[];
     expect(links.length).toBe(4);
-    // Third column is In Review per sampleBoard()'s column order.
-    expect(links[2].getAttribute('href')).toBe('/projects/42/work-items/new?status=InReview');
+    // Third column is In Review (statusId 3) per sampleBoard()'s column order.
+    expect(links[2].getAttribute('href')).toBe('/projects/42/work-items/new?statusId=3');
   });
 });

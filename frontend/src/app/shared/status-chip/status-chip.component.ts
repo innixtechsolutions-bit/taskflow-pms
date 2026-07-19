@@ -1,26 +1,32 @@
 import { Component, computed, input } from '@angular/core';
-import { WorkItemStatus } from '../../projects/work-items.service';
+import { ChipColor } from '../../projects/work-items.service';
 
-const STATUS_LABELS: Record<WorkItemStatus, string> = {
-  ToDo: 'To Do',
-  InProgress: 'In Progress',
-  InReview: 'In Review',
-  Done: 'Done',
-};
-
-// Exhaustive switch, not a lookup object, so a new WorkItemStatus value
-// without a matching case is a compile error rather than an uncolored chip
-// (spec.md edge case: "status value with no defined chip color").
-function classFor(status: WorkItemStatus): string {
-  switch (status) {
-    case 'ToDo':
-      return 'chip--status-todo';
-    case 'InProgress':
-      return 'chip--status-inprogress';
-    case 'InReview':
-      return 'chip--status-inreview';
-    case 'Done':
-      return 'chip--status-done';
+// Exhaustive switch, not a lookup object, so a new ChipColor member without a
+// matching case is a compile error rather than an uncolored chip (Feature 006 —
+// re-keyed from status name to ColorKey, since status names are no longer a closed
+// set the compiler can reason about, but colors still are).
+function classFor(colorKey: ChipColor): string {
+  switch (colorKey) {
+    case 'Slate':
+      return 'chip--color-slate';
+    case 'Blue':
+      return 'chip--color-blue';
+    case 'Violet':
+      return 'chip--color-violet';
+    case 'Amber':
+      return 'chip--color-amber';
+    case 'Teal':
+      return 'chip--color-teal';
+    case 'Rose':
+      return 'chip--color-rose';
+    case 'Indigo':
+      return 'chip--color-indigo';
+    case 'Cyan':
+      return 'chip--color-cyan';
+    case 'Green':
+      return 'chip--color-green';
+    case 'Emerald':
+      return 'chip--color-emerald';
   }
 }
 
@@ -31,8 +37,8 @@ function classFor(status: WorkItemStatus): string {
   styleUrl: '../chip.css',
 })
 export class StatusChipComponent {
-  readonly status = input.required<WorkItemStatus>();
+  readonly name = input.required<string>();
+  readonly colorKey = input.required<ChipColor>();
 
-  protected readonly label = computed(() => STATUS_LABELS[this.status()]);
-  protected readonly colorClass = computed(() => classFor(this.status()));
+  protected readonly colorClass = computed(() => classFor(this.colorKey()));
 }

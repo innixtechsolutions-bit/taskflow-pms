@@ -60,9 +60,9 @@
 
         <mat-form-field appearance="outline">
           <mat-label>Status</mat-label>
-          <mat-select id="status" [value]="status()" (selectionChange)="status.set($event.value)">
-            @for (s of statuses; track s) {
-              <mat-option [value]="s">{{ s }}</mat-option>
+          <mat-select id="status" [value]="statusId()" (selectionChange)="statusId.set($event.value)">
+            @for (s of statuses(); track s.id) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>

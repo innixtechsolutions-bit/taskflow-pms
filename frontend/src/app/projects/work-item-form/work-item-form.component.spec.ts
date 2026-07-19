@@ -6,13 +6,23 @@ import { MatSelectHarness } from '@angular/material/select/testing';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { vi } from 'vitest';
 import { WorkItemFormComponent } from './work-item-form.component';
-import { WorkItemsService } from '../work-items.service';
+import { ProjectStatus, WorkItemsService } from '../work-items.service';
 import { NotificationService } from '../../shared/notification.service';
 
 const sampleUsers = [
   { id: 1, fullName: 'Ada Lovelace' },
   { id: 2, fullName: 'Grace Hopper' },
 ];
+
+// Feature 006 — the standard four, matching what ProjectService.CreateAsync seeds.
+function sampleStatuses(): ProjectStatus[] {
+  return [
+    { id: 1, name: 'To Do', category: 'Open', colorKey: 'Slate', position: 0, itemCount: 0 },
+    { id: 2, name: 'In Progress', category: 'Open', colorKey: 'Blue', position: 1, itemCount: 0 },
+    { id: 3, name: 'In Review', category: 'Open', colorKey: 'Violet', position: 2, itemCount: 0 },
+    { id: 4, name: 'Done', category: 'Done', colorKey: 'Green', position: 3, itemCount: 0 },
+  ];
+}
 
 function setInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   el.value = value;
@@ -38,13 +48,14 @@ function configure(
   createWorkItem = vi.fn(),
   getAssignableUsers = vi.fn().mockResolvedValue(sampleUsers),
   getParentCandidates = vi.fn().mockResolvedValue(sampleCandidates),
-  queryParams: Record<string, string> = {}
+  queryParams: Record<string, string> = {},
+  getStatuses = vi.fn().mockResolvedValue(sampleStatuses())
 ) {
   TestBed.configureTestingModule({
     imports: [WorkItemFormComponent],
     providers: [
       provideRouter([]),
-      { provide: WorkItemsService, useValue: { createWorkItem, getAssignableUsers, getParentCandidates } },
+      { provide: WorkItemsService, useValue: { createWorkItem, getAssignableUsers, getParentCandidates, getStatuses } },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -58,7 +69,7 @@ function configure(
       provideNativeDateAdapter(),
     ],
   });
-  return { createWorkItem, getAssignableUsers, getParentCandidates };
+  return { createWorkItem, getAssignableUsers, getParentCandidates, getStatuses };
 }
 
 async function render(): Promise<{ fixture: ReturnType<typeof TestBed.createComponent>; loader: HarnessLoader }> {
@@ -83,7 +94,7 @@ describe('WorkItemFormComponent (create mode)', () => {
 
     expect(createWorkItem).toHaveBeenCalledWith(
       1,
-      expect.objectContaining({ title: 'Fix the login bug', type: 'Task', priority: 'Medium', status: 'ToDo' })
+      expect.objectContaining({ title: 'Fix the login bug', type: 'Task', priority: 'Medium', statusId: 1 })
     );
     expect(notificationService.success).toHaveBeenCalled();
   });
@@ -97,14 +108,14 @@ describe('WorkItemFormComponent (create mode)', () => {
     // underlying concern, now via mat-select instead of a native <select>).
     expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Task');
     expect(await (await selectByLabel(loader, 'Priority')).getValueText()).toBe('Medium');
-    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('ToDo');
+    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('To Do');
   });
 
-  it("pre-selects the Status field from a 'status' query param (board's + Add affordance, US4)", async () => {
-    configure(undefined, undefined, undefined, { status: 'InReview' });
+  it("pre-selects the Status field from a 'statusId' query param (board's + Add affordance, US4/FR-018)", async () => {
+    configure(undefined, undefined, undefined, { statusId: '3' });
     const { loader } = await render();
 
-    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('InReview');
+    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('In Review');
   });
 
   it('lists assignable users fetched from the server', async () => {
@@ -161,7 +172,10 @@ const existingItem = {
   title: 'Existing item',
   description: 'Some description',
   priority: 'High',
-  status: 'InProgress',
+  statusId: 2,
+  statusName: 'In Progress',
+  statusCategory: 'Open',
+  statusColorKey: 'Blue',
   assigneeUserId: 2,
   assigneeName: 'Grace Hopper',
   dueDate: '2026-08-01T00:00:00.000Z',
@@ -188,6 +202,7 @@ function configureEdit(
           updateWorkItem,
           getAssignableUsers: vi.fn().mockResolvedValue(sampleUsers),
           getParentCandidates,
+          getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
         },
       },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '7' }) } } },
@@ -207,7 +222,7 @@ describe('WorkItemFormComponent (edit mode)', () => {
     expect((root.querySelector('#title') as HTMLInputElement).value).toBe('Existing item');
     expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Story');
     expect(await (await selectByLabel(loader, 'Priority')).getValueText()).toBe('High');
-    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('InProgress');
+    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('In Progress');
     expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Grace Hopper');
   });
 

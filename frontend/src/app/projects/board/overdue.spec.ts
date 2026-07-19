@@ -12,27 +12,25 @@ describe('isOverdue', () => {
     vi.useRealTimers();
   });
 
-  it('is true for a due date strictly before today on a non-Done item', () => {
-    expect(isOverdue('2026-07-17T00:00:00Z', 'ToDo')).toBe(true);
-    expect(isOverdue('2026-07-17T00:00:00Z', 'InProgress')).toBe(true);
-    expect(isOverdue('2026-07-17T00:00:00Z', 'InReview')).toBe(true);
+  it('is true for a due date strictly before today on a non-Done-category item', () => {
+    expect(isOverdue('2026-07-17T00:00:00Z', 'Open')).toBe(true);
   });
 
   it('is false for a due date equal to today, no matter the time of day (due-today boundary)', () => {
-    expect(isOverdue('2026-07-18T00:00:00Z', 'ToDo')).toBe(false);
-    expect(isOverdue('2026-07-18T23:59:59Z', 'ToDo')).toBe(false);
+    expect(isOverdue('2026-07-18T00:00:00Z', 'Open')).toBe(false);
+    expect(isOverdue('2026-07-18T23:59:59Z', 'Open')).toBe(false);
   });
 
   it('is false for a future due date', () => {
-    expect(isOverdue('2026-07-19T00:00:00Z', 'ToDo')).toBe(false);
+    expect(isOverdue('2026-07-19T00:00:00Z', 'Open')).toBe(false);
   });
 
-  it('is false whenever status is Done, regardless of how far past the due date is', () => {
+  it('is false whenever the status category is Done, regardless of how far past the due date is', () => {
     expect(isOverdue('2020-01-01T00:00:00Z', 'Done')).toBe(false);
   });
 
   it('is false when there is no due date', () => {
-    expect(isOverdue(null, 'ToDo')).toBe(false);
+    expect(isOverdue(null, 'Open')).toBe(false);
   });
 
   // The naive `new Date(dueDate).getDate()` approach converts a UTC instant to
@@ -44,6 +42,6 @@ describe('isOverdue', () => {
   // string's literal digits instead of converting through local getters is
   // what data-model.md's isOverdue algorithm specifically avoids.
   it('reads the date literally off the ISO string rather than converting to local time first', () => {
-    expect(isOverdue('2026-07-18T00:00:00Z', 'ToDo')).toBe(false);
+    expect(isOverdue('2026-07-18T00:00:00Z', 'Open')).toBe(false);
   });
 });

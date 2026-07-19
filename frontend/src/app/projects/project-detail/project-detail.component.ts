@@ -11,6 +11,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProjectDetail, ProjectsService } from '../projects.service';
 import {
+  ProjectStatus,
   UserLookupItem,
   WorkItem,
   WorkItemsFilter,
@@ -27,7 +28,6 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
 import { BoardComponent } from '../board/board.component';
 import { canEditWorkItem } from '../work-item-permissions';
 
-const STATUSES = ['ToDo', 'InProgress', 'InReview', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
@@ -81,7 +81,8 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly workItems = signal<WorkItem[]>([]);
   protected readonly assignableUsers = signal<UserLookupItem[]>([]);
 
-  protected readonly statuses = STATUSES;
+  // Feature 006 — sourced from the project's own workflow columns, not a fixed list.
+  protected readonly statuses = signal<ProjectStatus[]>([]);
   protected readonly types = TYPES;
   protected readonly priorities = PRIORITIES;
 
@@ -115,10 +116,15 @@ export class ProjectDetailComponent implements OnInit {
     void this.loadWorkItems();
     void this.loadAssignableUsers();
     void this.loadTree();
+    void this.loadStatuses();
   }
 
   private async loadProject(): Promise<void> {
     this.project.set(await this.projectsService.getProject(this.projectId));
+  }
+
+  private async loadStatuses(): Promise<void> {
+    this.statuses.set(await this.workItemsService.getStatuses(this.projectId));
   }
 
   private async loadTree(): Promise<void> {
@@ -161,7 +167,7 @@ export class ProjectDetailComponent implements OnInit {
     return {
       page: this.page(),
       pageSize: this.pageSize,
-      status: this.statusFilter() || undefined,
+      statusId: this.statusFilter() ? Number(this.statusFilter()) : undefined,
       type: this.typeFilter() || undefined,
       priority: this.priorityFilter() || undefined,
       assigneeUserId: this.assigneeFilter() ? Number(this.assigneeFilter()) : undefined,

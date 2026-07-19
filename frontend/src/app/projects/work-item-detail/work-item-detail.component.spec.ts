@@ -13,7 +13,10 @@ const detailWithParentAndChildren = {
   title: 'The Story',
   description: null,
   priority: 'Medium',
-  status: 'InProgress',
+  statusId: 2,
+  statusName: 'In Progress',
+  statusCategory: 'Open',
+  statusColorKey: 'Blue',
   assigneeUserId: null,
   assigneeName: null,
   dueDate: null,
@@ -25,7 +28,7 @@ const detailWithParentAndChildren = {
   parentTitle: 'The Epic',
   totalDescendantCount: 3,
   children: [
-    { id: 10, title: 'Child Task', type: 'Task', status: 'ToDo', assigneeName: 'Grace Hopper' },
+    { id: 10, title: 'Child Task', type: 'Task', statusId: 1, statusName: 'To Do', statusCategory: 'Open', statusColorKey: 'Slate', assigneeName: 'Grace Hopper' },
   ],
 };
 
@@ -71,7 +74,9 @@ describe('WorkItemDetailComponent', () => {
     configure();
     const fixture = await render();
 
-    expect(fixture.nativeElement.querySelector('app-status-chip.work-item-status')).toBeTruthy();
+    const statusChip = fixture.nativeElement.querySelector('app-status-chip.work-item-status');
+    expect(statusChip).toBeTruthy();
+    expect(statusChip.textContent).toContain('In Progress');
     expect(fixture.nativeElement.querySelector('app-priority-chip.work-item-priority')).toBeTruthy();
   });
 
@@ -98,6 +103,7 @@ describe('WorkItemDetailComponent', () => {
     const childLink = fixture.nativeElement.querySelector('.child-link') as HTMLAnchorElement;
     expect(childLink.textContent).toContain('Child Task');
     expect(fixture.nativeElement.textContent).toContain('Grace Hopper');
+    expect(fixture.nativeElement.textContent).toContain('To Do');
   });
 
   it('pre-selects this item as parent when starting a new child (FR-019)', async () => {

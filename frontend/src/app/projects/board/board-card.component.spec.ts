@@ -9,7 +9,10 @@ function baseCard(overrides: Partial<WorkItemBoardCard> = {}): WorkItemBoardCard
     id: 1,
     type: 'Task',
     title: 'Fix the login bug',
-    status: 'ToDo',
+    statusId: 1,
+    statusName: 'To Do',
+    statusCategory: 'Open',
+    statusColorKey: 'Slate',
     priority: 'High',
     assigneeUserId: null,
     assigneeName: null,
@@ -76,8 +79,8 @@ describe('BoardCardComponent', () => {
   });
 
   it('flags an overdue due date visually', () => {
-    const overdue = render(baseCard({ dueDate: '2026-07-01T00:00:00Z', status: 'ToDo' }));
-    const notOverdue = render(baseCard({ dueDate: '2026-07-01T00:00:00Z', status: 'Done' }));
+    const overdue = render(baseCard({ dueDate: '2026-07-01T00:00:00Z', statusCategory: 'Open' }));
+    const notOverdue = render(baseCard({ dueDate: '2026-07-01T00:00:00Z', statusCategory: 'Done' }));
 
     expect(overdue.nativeElement.querySelector('.due-date-overdue')).toBeTruthy();
     expect(notOverdue.nativeElement.querySelector('.due-date-overdue')).toBeNull();

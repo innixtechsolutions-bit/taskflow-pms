@@ -1,15 +1,15 @@
 <div class="board" cdkDropListGroup>
-  @for (column of columns(); track column.status) {
+  @for (column of columns(); track column.statusId) {
     <div class="board-column">
       <div class="board-column-header">
-        <span class="board-column-label">{{ column.label }}</span>
+        <span class="board-column-label">{{ column.name }}</span>
         <span class="board-column-count">{{ column.items.length }}</span>
         <a
           class="board-column-add"
           [routerLink]="['/projects', projectId(), 'work-items', 'new']"
-          [queryParams]="{ status: column.status }"
-          title="Add to {{ column.label }}"
-          aria-label="Add to {{ column.label }}"
+          [queryParams]="{ statusId: column.statusId }"
+          title="Add to {{ column.name }}"
+          aria-label="Add to {{ column.name }}"
           >+</a
         >
       </div>
@@ -17,7 +17,7 @@
         class="board-column-body"
         cdkDropList
         [cdkDropListData]="column.items"
-        (cdkDropListDropped)="onDrop($event, column.status)"
+        (cdkDropListDropped)="onDrop($event, column.statusId)"
       >
         @if (column.items.length === 0) {
           <app-empty-state icon="inbox" message="No items" />

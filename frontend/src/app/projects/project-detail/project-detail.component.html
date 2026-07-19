@@ -70,7 +70,7 @@
       }
       <a class="tree-item-title" [routerLink]="['/projects', p.id, 'work-items', node.id]">{{ node.title }}</a>
       <span class="tree-item-type">{{ node.type }}</span>
-      <app-status-chip class="tree-item-status" [status]="node.status" />
+      <app-status-chip class="tree-item-status" [name]="node.statusName" [colorKey]="node.statusColorKey" />
       <app-priority-chip class="tree-item-priority" [priority]="node.priority" />
       @if (node.assigneeName) {
         <app-user-avatar class="tree-item-assignee" [fullName]="node.assigneeName" [showName]="true" />
@@ -107,8 +107,8 @@
       <mat-label>Status</mat-label>
       <mat-select id="statusFilter" [value]="statusFilter()" (selectionChange)="onStatusFilterChange($event.value)">
         <mat-option value="">All statuses</mat-option>
-        @for (s of statuses; track s) {
-          <mat-option [value]="s">{{ s }}</mat-option>
+        @for (s of statuses(); track s.id) {
+          <mat-option [value]="s.id.toString()">{{ s.name }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
@@ -172,7 +172,7 @@
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
         <td mat-cell *matCellDef="let item" class="work-item-status">
-          <app-status-chip [status]="item.status" />
+          <app-status-chip [name]="item.statusName" [colorKey]="item.statusColorKey" />
         </td>
       </ng-container>
 

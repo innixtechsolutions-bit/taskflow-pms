@@ -2,25 +2,40 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-// Mirrors backend/TaskFlow.Api/Data/Entities/WorkItem.cs's WorkItemStatus/
-// WorkItemPriority enums by value name (Feature 004, FR-009/data-model.md) —
-// narrowing these from `string` lets StatusChipComponent/PriorityChipComponent
-// switch exhaustively, so a new enum value without a matching chip case is a
-// compile error instead of a silently uncolored chip.
-export type WorkItemStatus = 'ToDo' | 'InProgress' | 'InReview' | 'Done';
+// Feature 006 — status is no longer a fixed system-wide set, so it can no longer be a
+// TypeScript string-literal union (that only works for closed sets). Category stays a
+// closed 2-value set — it's what the system reasons about (open-item counts, tree
+// "n/m done", overdue highlighting); ColorKey is the design system's fixed, curated
+// chip palette (research.md #3) — both remain narrow unions.
+export type WorkItemStatusCategory = 'Open' | 'Done';
+export type ChipColor = 'Slate' | 'Blue' | 'Violet' | 'Amber' | 'Teal' | 'Rose' | 'Indigo' | 'Cyan' | 'Green' | 'Emerald';
 export type WorkItemPriority = 'Low' | 'Medium' | 'High' | 'Critical';
+
+// A project's own workflow column (Feature 006) — replaces the fixed WorkItemStatus
+// union everywhere a project's status list is needed (dropdowns, filters, the
+// Workflow management screen, board column headers).
+export interface ProjectStatus {
+  id: number;
+  name: string;
+  category: WorkItemStatusCategory;
+  colorKey: ChipColor;
+  position: number;
+  itemCount: number;
+}
 
 export interface WorkItemRequest {
   type: string;
   title: string;
   description?: string;
   priority?: string;
-  status?: string;
+  statusId?: number;
   assigneeUserId?: number;
   dueDate?: string;
   parentWorkItemId?: number;
 }
 
+// Status fields are flattened (statusId/statusName/statusCategory/statusColorKey),
+// not a nested object — mirrors the backend DTO shape 1:1, no client-side mapping.
 export interface WorkItem {
   id: number;
   projectId: number;
@@ -28,7 +43,10 @@ export interface WorkItem {
   title: string;
   description: string | null;
   priority: WorkItemPriority;
-  status: WorkItemStatus;
+  statusId: number;
+  statusName: string;
+  statusCategory: WorkItemStatusCategory;
+  statusColorKey: ChipColor;
   assigneeUserId: number | null;
   assigneeName: string | null;
   dueDate: string | null;
@@ -53,7 +71,10 @@ export interface WorkItemChild {
   id: number;
   title: string;
   type: string;
-  status: WorkItemStatus;
+  statusId: number;
+  statusName: string;
+  statusCategory: WorkItemStatusCategory;
+  statusColorKey: ChipColor;
   assigneeName: string | null;
 }
 
@@ -67,7 +88,10 @@ export interface WorkItemTreeNode {
   id: number;
   type: string;
   title: string;
-  status: WorkItemStatus;
+  statusId: number;
+  statusName: string;
+  statusCategory: WorkItemStatusCategory;
+  statusColorKey: ChipColor;
   priority: WorkItemPriority;
   assigneeName: string | null;
   directChildrenCount: number;
@@ -85,26 +109,31 @@ export interface PagedResult<T> {
 export interface WorkItemsFilter {
   page?: number;
   pageSize?: number;
-  status?: string;
+  statusId?: number;
   type?: string;
   priority?: string;
   assigneeUserId?: number;
   search?: string;
 }
 
-// Feature 005 (Kanban Board). BoardColumn carries its display label from the
-// backend (M1) — the board never derives a column's label itself, so a
-// future per-project column list is a pure backend change.
+// Feature 005 (Kanban Board). Columns come from the project's own ordered
+// WorkflowStatus list (Feature 006) — the board never derives a column's
+// name/color itself.
 export interface BoardColumn {
-  status: WorkItemStatus;
-  label: string;
+  statusId: number;
+  name: string;
+  category: WorkItemStatusCategory;
+  colorKey: ChipColor;
 }
 
 export interface WorkItemBoardCard {
   id: number;
   type: string;
   title: string;
-  status: WorkItemStatus;
+  statusId: number;
+  statusName: string;
+  statusCategory: WorkItemStatusCategory;
+  statusColorKey: ChipColor;
   priority: WorkItemPriority;
   assigneeUserId: number | null;
   assigneeName: string | null;
@@ -135,7 +164,7 @@ export class WorkItemsService {
     const params: Record<string, string | number> = {};
     if (filter.page) params['page'] = filter.page;
     if (filter.pageSize) params['pageSize'] = filter.pageSize;
-    if (filter.status) params['status'] = filter.status;
+    if (filter.statusId) params['statusId'] = filter.statusId;
     if (filter.type) params['type'] = filter.type;
     if (filter.priority) params['priority'] = filter.priority;
     if (filter.assigneeUserId) params['assigneeUserId'] = filter.assigneeUserId;
@@ -196,7 +225,14 @@ export class WorkItemsService {
   // Field-scoped, not the full updateWorkItem() PUT — the board's drag interaction
   // only ever changes status, and never carries fields (description,
   // parentWorkItemId) it would otherwise risk clobbering (research.md #3).
-  async updateWorkItemStatus(id: number, status: WorkItemStatus): Promise<WorkItem> {
-    return firstValueFrom(this.http.patch<WorkItem>(`/api/work-items/${id}/status`, { status }));
+  async updateWorkItemStatus(id: number, statusId: number): Promise<WorkItem> {
+    return firstValueFrom(this.http.patch<WorkItem>(`/api/work-items/${id}/status`, { statusId }));
+  }
+
+  // Feature 006 — a project's own workflow columns, in position order. Used by the
+  // work-item form's Status dropdown, project-detail's status filter, the board's
+  // column list, and the Workflow management screen.
+  async getStatuses(projectId: number): Promise<ProjectStatus[]> {
+    return firstValueFrom(this.http.get<ProjectStatus[]>(`/api/projects/${projectId}/statuses`));
   }
 }

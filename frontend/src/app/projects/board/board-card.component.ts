@@ -29,6 +29,6 @@ export class BoardCardComponent {
   // Drag is disabled per-card by the board (canEditWorkItem), not decided here.
   readonly dragDisabled = input(false);
 
-  protected readonly isOverdue = computed(() => isOverdue(this.card().dueDate, this.card().status));
+  protected readonly isOverdue = computed(() => isOverdue(this.card().dueDate, this.card().statusCategory));
   protected readonly hasChildren = computed(() => this.card().directChildrenCount > 0);
 }

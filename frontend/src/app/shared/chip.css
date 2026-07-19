@@ -10,24 +10,57 @@
   white-space: nowrap;
 }
 
-.chip--status-todo {
-  background-color: var(--color-status-todo-bg);
-  color: var(--color-status-todo-text);
+/* Feature 006 — status chip color is keyed by a status's ColorKey (a fixed, curated
+   palette member chosen at creation), never its name, since names are now per-project
+   and renameable. */
+.chip--color-slate {
+  background-color: var(--color-chip-slate-bg);
+  color: var(--color-chip-slate-text);
 }
 
-.chip--status-inprogress {
-  background-color: var(--color-status-inprogress-bg);
-  color: var(--color-status-inprogress-text);
+.chip--color-blue {
+  background-color: var(--color-chip-blue-bg);
+  color: var(--color-chip-blue-text);
 }
 
-.chip--status-inreview {
-  background-color: var(--color-status-inreview-bg);
-  color: var(--color-status-inreview-text);
+.chip--color-violet {
+  background-color: var(--color-chip-violet-bg);
+  color: var(--color-chip-violet-text);
 }
 
-.chip--status-done {
-  background-color: var(--color-status-done-bg);
-  color: var(--color-status-done-text);
+.chip--color-amber {
+  background-color: var(--color-chip-amber-bg);
+  color: var(--color-chip-amber-text);
+}
+
+.chip--color-teal {
+  background-color: var(--color-chip-teal-bg);
+  color: var(--color-chip-teal-text);
+}
+
+.chip--color-rose {
+  background-color: var(--color-chip-rose-bg);
+  color: var(--color-chip-rose-text);
+}
+
+.chip--color-indigo {
+  background-color: var(--color-chip-indigo-bg);
+  color: var(--color-chip-indigo-text);
+}
+
+.chip--color-cyan {
+  background-color: var(--color-chip-cyan-bg);
+  color: var(--color-chip-cyan-text);
+}
+
+.chip--color-green {
+  background-color: var(--color-chip-green-bg);
+  color: var(--color-chip-green-text);
+}
+
+.chip--color-emerald {
+  background-color: var(--color-chip-emerald-bg);
+  color: var(--color-chip-emerald-text);
 }
 
 .chip--priority-low {

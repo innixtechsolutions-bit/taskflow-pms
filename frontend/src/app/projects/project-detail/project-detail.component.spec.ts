@@ -5,7 +5,7 @@ import { MatSelectHarness } from '@angular/material/select/testing';
 import { vi } from 'vitest';
 import { ProjectDetailComponent } from './project-detail.component';
 import { ProjectsService } from '../projects.service';
-import { WorkItem, WorkItemsService } from '../work-items.service';
+import { ProjectStatus, WorkItem, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 
@@ -39,6 +39,17 @@ function pageOf(items: WorkItem[]) {
   return { items, page: 1, pageSize: 20, totalCount: items.length };
 }
 
+// Feature 006 — the standard four, matching what ProjectService.CreateAsync seeds
+// in production; ids are stable so tests can reference "Done"'s id (4) directly.
+function sampleStatuses(): ProjectStatus[] {
+  return [
+    { id: 1, name: 'To Do', category: 'Open', colorKey: 'Slate', position: 0, itemCount: 0 },
+    { id: 2, name: 'In Progress', category: 'Open', colorKey: 'Blue', position: 1, itemCount: 0 },
+    { id: 3, name: 'In Review', category: 'Open', colorKey: 'Violet', position: 2, itemCount: 0 },
+    { id: 4, name: 'Done', category: 'Done', colorKey: 'Green', position: 3, itemCount: 0 },
+  ];
+}
+
 function sampleItem(overrides: Partial<WorkItem> = {}): WorkItem {
   return {
     id: 1,
@@ -47,7 +58,10 @@ function sampleItem(overrides: Partial<WorkItem> = {}): WorkItem {
     title: 'Fix the login bug',
     description: null,
     priority: 'Medium',
-    status: 'ToDo',
+    statusId: 1,
+    statusName: 'To Do',
+    statusCategory: 'Open',
+    statusColorKey: 'Slate',
     assigneeUserId: null,
     assigneeName: null,
     dueDate: null,
@@ -73,7 +87,8 @@ function configure(
   // controls, pagination) that predates Feature 005 Polish's board-as-default change —
   // they set up the route as if Flat were already active rather than asserting on
   // whichever view happens to be the app-wide default.
-  view = 'flat'
+  view = 'flat',
+  getStatuses = vi.fn().mockResolvedValue(sampleStatuses())
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
@@ -89,6 +104,7 @@ function configure(
           getAssignableUsers,
           getWorkItemsTree,
           getWorkItemDetail,
+          getStatuses,
           getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
         },
       },
@@ -145,7 +161,7 @@ describe('ProjectDetailComponent', () => {
   });
 
   it('renders status and priority as chips, not plain text', async () => {
-    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem({ status: 'InProgress', priority: 'High' })])));
+    configure(undefined, vi.fn().mockResolvedValue(pageOf([sampleItem({ statusId: 2, statusName: 'In Progress', priority: 'High' })])));
     const fixture = await render();
 
     expect(fixture.nativeElement.querySelector('app-status-chip')).toBeTruthy();
@@ -417,7 +433,7 @@ describe('ProjectDetailComponent filter, search, and pagination', () => {
     const getWorkItems = vi
       .fn()
       .mockResolvedValueOnce(pageOf([sampleItem({ id: 1 })]))
-      .mockResolvedValueOnce(pageOf([sampleItem({ id: 2, status: 'Done' })]));
+      .mockResolvedValueOnce(pageOf([sampleItem({ id: 2, statusId: 4, statusName: 'Done', statusCategory: 'Done' })]));
     configure(undefined, getWorkItems);
     const fixture = await render();
 
@@ -425,7 +441,7 @@ describe('ProjectDetailComponent filter, search, and pagination', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ status: 'Done', page: 1 }));
+    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ statusId: 4, page: 1 }));
   });
 
   it('searches by title when the search button is clicked', async () => {
@@ -492,7 +508,10 @@ const treeData = [
     id: 1,
     type: 'Epic',
     title: 'Epic One',
-    status: 'ToDo',
+    statusId: 1,
+    statusName: 'To Do',
+    statusCategory: 'Open',
+    statusColorKey: 'Slate',
     priority: 'Medium',
     assigneeName: null,
     directChildrenCount: 1,
@@ -502,7 +521,10 @@ const treeData = [
         id: 2,
         type: 'Story',
         title: 'Story One',
-        status: 'InProgress',
+        statusId: 2,
+        statusName: 'In Progress',
+        statusCategory: 'Open',
+        statusColorKey: 'Blue',
         priority: 'High',
         assigneeName: null,
         directChildrenCount: 0,
@@ -515,7 +537,10 @@ const treeData = [
     id: 3,
     type: 'Task',
     title: 'Standalone Task',
-    status: 'ToDo',
+    statusId: 1,
+    statusName: 'To Do',
+    statusCategory: 'Open',
+    statusColorKey: 'Slate',
     priority: 'Low',
     assigneeName: null,
     directChildrenCount: 0,
@@ -641,6 +666,7 @@ describe('ProjectDetailComponent board view', () => {
             getWorkItems: vi.fn().mockResolvedValue(emptyPage()),
             getAssignableUsers: vi.fn().mockResolvedValue([]),
             getWorkItemsTree: vi.fn().mockResolvedValue([]),
+            getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
           },
         },
@@ -688,6 +714,7 @@ describe('ProjectDetailComponent board view', () => {
             getWorkItems: vi.fn().mockResolvedValue(emptyPage()),
             getAssignableUsers: vi.fn().mockResolvedValue([]),
             getWorkItemsTree: vi.fn().mockResolvedValue([]),
+            getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
           },
         },

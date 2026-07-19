@@ -1,24 +1,23 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
+import { BoardColumn, WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardCardComponent } from './board-card.component';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 import { canEditWorkItem } from '../work-item-permissions';
 
-interface BoardColumnView {
-  status: WorkItemBoardCard['status'];
-  label: string;
+interface BoardColumnView extends BoardColumn {
   items: WorkItemBoardCard[];
 }
 
 /**
  * The Kanban board: columns rendered purely from the backend's ordered
- * column list (M1 — no client-side status->label lookup anywhere in this
- * component), each with a header (label + count), its cards, and a
- * per-column empty state (FR-005-FR-008, FR-021).
+ * column list (a project's own WorkflowStatus rows, Feature 006 — no
+ * client-side status->name lookup anywhere in this component), each with a
+ * header (name + count), its cards, and a per-column empty state
+ * (FR-005-FR-008, FR-021).
  */
 @Component({
   selector: 'app-board',
@@ -42,9 +41,8 @@ export class BoardComponent implements OnInit {
       return [];
     }
     return board.columns.map((column) => ({
-      status: column.status,
-      label: column.label,
-      items: board.items.filter((item) => item.status === column.status),
+      ...column,
+      items: board.items.filter((item) => item.statusId === column.statusId),
     }));
   });
 
@@ -73,20 +71,25 @@ export class BoardComponent implements OnInit {
   // CDK's transferArrayItem/moveItemInArray helpers don't apply here), then
   // persists via PATCH; reverts to the original board state and shows an
   // error toast if the PATCH fails (M3).
-  protected onDrop(event: CdkDragDrop<WorkItemBoardCard[]>, targetStatus: WorkItemBoardCard['status']): void {
+  protected onDrop(event: CdkDragDrop<WorkItemBoardCard[]>, targetStatusId: number): void {
     const item = event.item.data as WorkItemBoardCard;
     const previousBoard = this.board();
-    if (!previousBoard || item.status === targetStatus) {
+    if (!previousBoard || item.statusId === targetStatusId) {
       return;
     }
 
+    const targetColumn = previousBoard.columns.find((c) => c.statusId === targetStatusId)!;
     const optimisticBoard: WorkItemBoard = {
       ...previousBoard,
-      items: previousBoard.items.map((i) => (i.id === item.id ? { ...i, status: targetStatus } : i)),
+      items: previousBoard.items.map((i) =>
+        i.id === item.id
+          ? { ...i, statusId: targetColumn.statusId, statusName: targetColumn.name, statusCategory: targetColumn.category, statusColorKey: targetColumn.colorKey }
+          : i
+      ),
     };
     this.board.set(optimisticBoard);
 
-    this.workItemsService.updateWorkItemStatus(item.id, targetStatus).catch(() => {
+    this.workItemsService.updateWorkItemStatus(item.id, targetStatusId).catch(() => {
       this.board.set(previousBoard);
       this.notificationService.error(`Could not move "${item.title}". Please try again.`);
     });

@@ -14,13 +14,15 @@ component's CSS or from `style` bindings) plus one Sass variable,
 `$breakpoint-tablet-px`, for the one place a value has to be a compile-time
 number (a `@media` query condition can't read a CSS custom property).
 
-Categories: primary/brand, surface, sidebar, status color (one pair of
-bg/text per `WorkItemStatus` value — `todo`, `inprogress`, `inreview`,
-`done`; `inreview` was added by Feature 005 in a violet/purple hue,
-deliberately distinct from `inprogress`'s blue and `done`'s green), priority
-color (one pair per `WorkItemPriority` value), an 8-color avatar accent
-palette, a spacing scale (`--space-1` through `--space-6`), corner radius,
-and layout (content max-width, sidebar width, tablet breakpoint).
+Categories: primary/brand, surface, sidebar, a 10-member chip color palette
+(one bg/text pair per `ChipColor` — `slate`, `blue`, `violet`, `amber`,
+`teal`, `rose`, `indigo`, `cyan`, `green`, `emerald`; Feature 006 replaced
+the old fixed per-status-name tokens with this palette, since a per-project
+status can be renamed at any time — each `WorkflowStatus` row picks a
+`ChipColor` at creation instead of a color being derived from its name),
+priority color (one pair per `WorkItemPriority` value), an 8-color avatar
+accent palette, a spacing scale (`--space-1` through `--space-6`), corner
+radius, and layout (content max-width, sidebar width, tablet breakpoint).
 
 **Rule**: no component hard-codes a color, spacing, or radius value for
 these concepts — if you need one, add or reuse a token instead.
@@ -32,7 +34,7 @@ these concepts — if you need one, add or reuse a token instead.
 | `<app-shell>` | The persistent sidebar + content-area wrapper every authenticated page renders inside. Used once, in `app.html`. |
 | `<app-sidebar-nav>` | The sidebar's nav links, user block, and logout menu. Used inside `<app-shell>` only. |
 | `<app-page-header>` | Title + optional subtitle + optional right-aligned action button, for a page's top section. |
-| `<app-status-chip>` | A colored, non-interactive label for a `WorkItemStatus` value. |
+| `<app-status-chip>` | A colored, non-interactive label for a work item's status — takes `name` (the status's display text) and `colorKey` (its `ChipColor`) directly, since Feature 006 made status a per-project, renameable concept rather than a fixed set. |
 | `<app-priority-chip>` | Same, for a `WorkItemPriority` value. |
 | `<app-user-avatar>` | A circular initials badge with a deterministic per-name color, optionally with the name shown alongside. |
 | `<app-empty-state>` | Icon + message + optional action, for any list/tree with nothing to show. |

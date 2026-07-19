@@ -5,7 +5,7 @@
     </mat-card-header>
     <mat-card-content>
       <p class="work-item-type">{{ i.type }}</p>
-      <app-status-chip class="work-item-status" [status]="i.status" />
+      <app-status-chip class="work-item-status" [name]="i.statusName" [colorKey]="i.statusColorKey" />
       <app-priority-chip class="work-item-priority" [priority]="i.priority" />
       @if (i.assigneeName) {
         <app-user-avatar class="work-item-assignee" [fullName]="i.assigneeName" [showName]="true" />
@@ -34,7 +34,7 @@
                 child.title
               }}</a>
               — {{ child.type }} —
-              <app-status-chip [status]="child.status" />
+              <app-status-chip [name]="child.statusName" [colorKey]="child.statusColorKey" />
               @if (child.assigneeName) {
                 <app-user-avatar [fullName]="child.assigneeName" [showName]="true" />
               }

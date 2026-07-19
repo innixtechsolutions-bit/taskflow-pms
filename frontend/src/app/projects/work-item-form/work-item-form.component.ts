@@ -7,7 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ActivatedRoute, Router } from '@angular/router';
-import { UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
+import { ProjectStatus, UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
 import { NotificationService } from '../../shared/notification.service';
 import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 
@@ -17,7 +17,6 @@ interface TitleFormModel {
 
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
-const STATUSES = ['ToDo', 'InProgress', 'InReview', 'Done'];
 
 // A date <input>/the API's dueDate field both want 'YYYY-MM-DD'; MatDatepicker
 // wants a Date. Built from local year/month/day rather than toISOString() (which
@@ -65,7 +64,8 @@ export class WorkItemFormComponent implements OnInit {
 
   protected readonly types = TYPES;
   protected readonly priorities = PRIORITIES;
-  protected readonly statuses = STATUSES;
+  // Feature 006 — sourced from the project's own workflow columns, not a fixed list.
+  protected readonly statuses = signal<ProjectStatus[]>([]);
   protected readonly assignableUsers = signal<UserLookupItem[]>([]);
 
   // A separate, minimal Signal Forms tree for just the title — the only field with
@@ -84,7 +84,9 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly type = signal('Task');
   protected readonly description = signal('');
   protected readonly priority = signal('Medium');
-  protected readonly status = signal('ToDo');
+  // null until either a query param or the loaded status list picks a default
+  // (Feature 006 — identity-based, not a fixed string default).
+  protected readonly statusId = signal<number | null>(null);
   protected readonly assigneeUserId = signal('');
   protected readonly dueDate = signal<Date | null>(null);
   protected readonly parentWorkItemId = signal('');
@@ -100,23 +102,37 @@ export class WorkItemFormComponent implements OnInit {
       // the user to rediscover which type/parent combination they came here to create.
       const typeParam = this.route.snapshot.queryParamMap.get('type');
       const parentWorkItemIdParam = this.route.snapshot.queryParamMap.get('parentWorkItemId');
-      // Set when arriving via a board column's "+ Add" affordance (FR-017/US4) —
-      // pre-selects that column's status so the item lands back in the same column.
-      const statusParam = this.route.snapshot.queryParamMap.get('status');
+      // Set when arriving via a board column's "+ Add" affordance (FR-017/US4/
+      // FR-018 — pre-selects that column's status by id, not by name, so it still
+      // works for a status added after Feature 005 shipped) — pre-selects that
+      // column's status so the item lands back in the same column.
+      const statusIdParam = this.route.snapshot.queryParamMap.get('statusId');
       if (typeParam) {
         this.type.set(typeParam);
       }
       if (parentWorkItemIdParam) {
         this.parentWorkItemId.set(parentWorkItemIdParam);
       }
-      if (statusParam) {
-        this.status.set(statusParam);
+      if (statusIdParam) {
+        this.statusId.set(Number(statusIdParam));
       }
     }
     void this.loadAssignableUsers();
     void this.loadParentCandidates();
+    void this.loadStatuses();
     if (this.isEditMode) {
       void this.loadExistingWorkItem();
+    }
+  }
+
+  // Feature 006 — if nothing else has already picked a status (a query param, or the
+  // item being edited), default the dropdown to the project's first status once
+  // loaded, matching the old fixed-list's "defaults to the first entry" UX.
+  private async loadStatuses(): Promise<void> {
+    const statuses = await this.workItemsService.getStatuses(this.projectId);
+    this.statuses.set(statuses);
+    if (this.statusId() === null && statuses.length > 0) {
+      this.statusId.set(statuses[0].id);
     }
   }
 
@@ -143,7 +159,7 @@ export class WorkItemFormComponent implements OnInit {
     this.type.set(item.type);
     this.description.set(item.description ?? '');
     this.priority.set(item.priority);
-    this.status.set(item.status);
+    this.statusId.set(item.statusId);
     this.assigneeUserId.set(item.assigneeUserId ? item.assigneeUserId.toString() : '');
     this.dueDate.set(item.dueDate ? parseDateOnlyString(item.dueDate) : null);
     this.parentWorkItemId.set(item.parentWorkItemId ? item.parentWorkItemId.toString() : '');
@@ -167,7 +183,7 @@ export class WorkItemFormComponent implements OnInit {
         title: this.titleModel().title,
         description: this.description() || undefined,
         priority: this.priority(),
-        status: this.status(),
+        statusId: this.statusId() ?? undefined,
         assigneeUserId: this.assigneeUserId() ? Number(this.assigneeUserId()) : undefined,
         dueDate: dueDate ? toDateOnlyString(dueDate) : undefined,
         parentWorkItemId: this.parentWorkItemId() ? Number(this.parentWorkItemId()) : undefined,

@@ -1,4 +1,4 @@
-import { WorkItemStatus } from '../work-items.service';
+import { WorkItemStatusCategory } from '../work-items.service';
 
 // A due date is a date-only concept, not an instant — this deliberately never
 // runs `dueDate` through `new Date(dueDate)`'s local getters, which would
@@ -6,8 +6,11 @@ import { WorkItemStatus } from '../work-items.service';
 // by a day for a user behind UTC (data-model.md's isOverdue algorithm). Only
 // the ISO string's own YYYY-MM-DD digits are compared, against *today's*
 // local calendar date — "local" applies to today, never to dueDate.
-export function isOverdue(dueDate: string | null, status: WorkItemStatus): boolean {
-  if (!dueDate || status === 'Done') {
+//
+// Feature 006 — takes a status's Category, not its name: a renamed or custom
+// Done-category status must still suppress the overdue flag (FR-019).
+export function isOverdue(dueDate: string | null, statusCategory: WorkItemStatusCategory): boolean {
+  if (!dueDate || statusCategory === 'Done') {
     return false;
   }
 
