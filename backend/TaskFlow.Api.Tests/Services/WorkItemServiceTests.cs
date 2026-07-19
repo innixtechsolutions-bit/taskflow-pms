@@ -326,6 +326,87 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetTreeAsync(999999));
     }
 
+    // M1: Columns are {status, label} pairs computed server-side, not bare status
+    // strings — the board component must never need its own status->label map
+    // (research.md #2, revised).
+    [Fact]
+    public async Task GetBoardAsync_returns_the_four_columns_in_order_with_labels()
+    {
+        var user = AddUser("board-columns@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        var board = await sut.GetBoardAsync(project.Id);
+
+        Assert.Equal(
+            new[] { ("ToDo", "To Do"), ("InProgress", "In Progress"), ("InReview", "In Review"), ("Done", "Done") },
+            board.Columns.Select(c => (c.Status, c.Label)).ToArray());
+    }
+
+    [Fact]
+    public async Task GetBoardAsync_computes_direct_children_done_counts_for_every_item_not_just_roots()
+    {
+        var user = AddUser("board-counts@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story", WorkItemStatus.InProgress);
+        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task A", WorkItemStatus.Done);
+        AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task B", WorkItemStatus.ToDo);
+        var sut = CreateSut();
+
+        var board = await sut.GetBoardAsync(project.Id);
+
+        // Epic has one direct child (the Story), not done.
+        var epicCard = board.Items.Single(i => i.Id == epic.Id);
+        Assert.Equal(1, epicCard.DirectChildrenCount);
+        Assert.Equal(0, epicCard.DirectChildrenDoneCount);
+        // Story has two direct children (the Tasks), one done -- this is the
+        // non-root item the flat/paginated endpoint's WorkItemDto has no way to
+        // express at all (research.md #2).
+        var storyCard = board.Items.Single(i => i.Id == story.Id);
+        Assert.Equal(2, storyCard.DirectChildrenCount);
+        Assert.Equal(1, storyCard.DirectChildrenDoneCount);
+    }
+
+    [Fact]
+    public async Task GetBoardAsync_orders_items_by_most_recently_updated_first()
+    {
+        var user = AddUser("board-order@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Oldest", updatedAt: DateTime.UtcNow.AddMinutes(-2));
+        AddWorkItem(project.Id, user.Id, title: "Newest", updatedAt: DateTime.UtcNow);
+        var sut = CreateSut();
+
+        var board = await sut.GetBoardAsync(project.Id);
+
+        Assert.Equal("Newest", board.Items[0].Title);
+        Assert.Equal("Oldest", board.Items[1].Title);
+    }
+
+    [Fact]
+    public async Task GetBoardAsync_includes_every_item_regardless_of_type_or_depth()
+    {
+        var user = AddUser("board-alltypes@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Epic");
+        var story = AddChildWorkItem(project.Id, epic.Id, user.Id, WorkItemType.Story, "Story");
+        var task = AddChildWorkItem(project.Id, story.Id, user.Id, WorkItemType.Task, "Task");
+        AddChildWorkItem(project.Id, task.Id, user.Id, WorkItemType.SubTask, "SubTask");
+        var sut = CreateSut();
+
+        var board = await sut.GetBoardAsync(project.Id);
+
+        Assert.Equal(4, board.Items.Count);
+    }
+
+    [Fact]
+    public async Task GetBoardAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetBoardAsync(999999));
+    }
+
     private WorkItem AddChildWorkItem(int projectId, int parentId, int creatorId, WorkItemType type, string title, WorkItemStatus status = WorkItemStatus.ToDo, int? assigneeUserId = null)
     {
         var workItem = new WorkItem

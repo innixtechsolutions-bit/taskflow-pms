@@ -23,10 +23,18 @@ import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.compon
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { BoardComponent } from '../board/board.component';
 
 const STATUSES = ['ToDo', 'InProgress', 'InReview', 'Done'];
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+
+type ViewMode = 'flat' | 'tree' | 'board';
+const VIEW_MODES: ViewMode[] = ['flat', 'tree', 'board'];
+
+function parseViewMode(value: string | null): ViewMode {
+  return VIEW_MODES.includes(value as ViewMode) ? (value as ViewMode) : 'flat';
+}
 
 @Component({
   selector: 'app-project-detail',
@@ -46,6 +54,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
     UserAvatarComponent,
     FriendlyDatePipe,
     EmptyStateComponent,
+    BoardComponent,
   ],
   templateUrl: './project-detail.component.html',
 })
@@ -80,9 +89,13 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly pageSize = 20;
   protected readonly totalCount = signal(0);
 
-  // Flat is the default (Feature 002's unchanged behavior, FR-023); Tree is opt-in
-  // via the toggle, per User Story 5's non-regression guarantee.
-  protected readonly viewMode = signal<'flat' | 'tree'>('flat');
+  // Flat is the default (Feature 002's unchanged behavior, FR-023); Tree/Board are
+  // opt-in via the toggle. Initialized from the `view` query param (not just a
+  // plain signal default) and kept in sync with it on every change (setViewMode
+  // below) so the selection survives navigating to a card's detail page and back
+  // (FR-019/US5, Feature 005) — a plain component-instance signal would reset to
+  // 'flat' when the router recreates this component on return navigation.
+  protected readonly viewMode = signal<ViewMode>(parseViewMode(this.route.snapshot.queryParamMap.get('view')));
   protected readonly treeNodes = signal<WorkItemTreeNode[]>([]);
   // Tracks which parent rows are collapsed rather than which are expanded, so a
   // freshly-loaded tree starts fully expanded without needing to pre-populate a set
@@ -102,6 +115,20 @@ export class ProjectDetailComponent implements OnInit {
 
   private async loadTree(): Promise<void> {
     this.treeNodes.set(await this.workItemsService.getWorkItemsTree(this.projectId));
+  }
+
+  // Writes `view` into the URL's query params (not just the signal) so returning
+  // to this page — e.g. via back-navigation from a board card's detail page —
+  // restores the same view even though the router recreates this component
+  // (FR-019/US5).
+  protected setViewMode(mode: ViewMode): void {
+    this.viewMode.set(mode);
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { view: mode },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   protected isCollapsed(id: number): boolean {

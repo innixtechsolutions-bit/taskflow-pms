@@ -1,0 +1,19 @@
+<div class="board">
+  @for (column of columns(); track column.status) {
+    <div class="board-column">
+      <div class="board-column-header">
+        <span class="board-column-label">{{ column.label }}</span>
+        <span class="board-column-count">{{ column.items.length }}</span>
+      </div>
+      <div class="board-column-body">
+        @if (column.items.length === 0) {
+          <app-empty-state icon="inbox" message="No items" />
+        } @else {
+          @for (item of column.items; track item.id) {
+            <app-board-card [card]="item" />
+          }
+        }
+      </div>
+    </div>
+  }
+</div>

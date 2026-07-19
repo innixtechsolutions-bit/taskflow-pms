@@ -92,6 +92,34 @@ export interface WorkItemsFilter {
   search?: string;
 }
 
+// Feature 005 (Kanban Board). BoardColumn carries its display label from the
+// backend (M1) — the board never derives a column's label itself, so a
+// future per-project column list is a pure backend change.
+export interface BoardColumn {
+  status: WorkItemStatus;
+  label: string;
+}
+
+export interface WorkItemBoardCard {
+  id: number;
+  type: string;
+  title: string;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  assigneeUserId: number | null;
+  assigneeName: string | null;
+  dueDate: string | null;
+  updatedAt: string;
+  createdByUserId: number;
+  directChildrenCount: number;
+  directChildrenDoneCount: number;
+}
+
+export interface WorkItemBoard {
+  columns: BoardColumn[];
+  items: WorkItemBoardCard[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorkItemsService {
   private readonly http = inject(HttpClient);
@@ -157,5 +185,11 @@ export class WorkItemsService {
   // simpler than tree-aware paging (research.md §4).
   async getWorkItemsTree(projectId: number): Promise<WorkItemTreeNode[]> {
     return firstValueFrom(this.http.get<WorkItemTreeNode[]>(`/api/projects/${projectId}/work-items/tree`));
+  }
+
+  // Also unpaginated (FR-020) — every item in the project, flat, grouped by
+  // status client-side using the returned columns' order (research.md #2).
+  async getBoard(projectId: number): Promise<WorkItemBoard> {
+    return firstValueFrom(this.http.get<WorkItemBoard>(`/api/projects/${projectId}/work-items/board`));
   }
 }

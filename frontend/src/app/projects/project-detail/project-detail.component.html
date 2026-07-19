@@ -23,22 +23,35 @@
     <button
       mat-stroked-button
       type="button"
+      class="flat-view-toggle"
+      [class.active]="viewMode() === 'flat'"
+      (click)="setViewMode('flat')"
+    >
+      Flat view
+    </button>
+    <button
+      mat-stroked-button
+      type="button"
       class="tree-view-toggle"
       [class.active]="viewMode() === 'tree'"
-      (click)="viewMode.set('tree')"
+      (click)="setViewMode('tree')"
     >
       Tree view
     </button>
     <button
       mat-stroked-button
       type="button"
-      class="flat-view-toggle"
-      [class.active]="viewMode() === 'flat'"
-      (click)="viewMode.set('flat')"
+      class="board-view-toggle"
+      [class.active]="viewMode() === 'board'"
+      (click)="setViewMode('board')"
     >
-      Flat view
+      Board view
     </button>
   </div>
+
+  @if (viewMode() === 'board') {
+    <app-board [projectId]="p.id" />
+  }
 
   <ng-template #treeNodeTemplate let-node let-level="level">
     <div class="tree-row" [id]="'tree-work-item-' + node.id" [attr.data-level]="level" [style.paddingLeft.px]="level * 20">

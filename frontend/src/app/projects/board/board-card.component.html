@@ -1,0 +1,23 @@
+<div class="board-card">
+  <p class="card-title">{{ card().title }}</p>
+  <p class="card-type">{{ card().type }}</p>
+
+  <div class="card-meta">
+    <app-priority-chip [priority]="card().priority" />
+    @if (card().assigneeName) {
+      <app-user-avatar [fullName]="card().assigneeName!" />
+    } @else {
+      <span class="unassigned-indicator">Unassigned</span>
+    }
+  </div>
+
+  @if (card().dueDate) {
+    <p class="card-due-date" [class.due-date-overdue]="isOverdue()">
+      {{ card().dueDate | friendlyDate }}
+    </p>
+  }
+
+  @if (hasChildren()) {
+    <p class="card-progress">{{ card().directChildrenDoneCount }}/{{ card().directChildrenCount }} done</p>
+  }
+</div>

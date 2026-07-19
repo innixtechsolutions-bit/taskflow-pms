@@ -121,12 +121,26 @@ when, and only when, both hold:
    local calendar date counts.
 2. `status !== 'Done'`.
 
-Both dates are compared as pure `(year, month, day)` triples (e.g. via
-constructing local-midnight `Date` objects from each side's y/m/d and
-comparing those, never comparing raw `Date` instants or UTC-derived
-values) — this avoids the classic bug where a UTC-based comparison
-disagrees with the user's own calendar near midnight in timezones ahead of
-or behind UTC. FR-010's plain-language "in the past" is intentionally
-sharpened here to this exact algorithm so the test suite (T016) has one
-unambiguous behavior to assert, including the explicit "due today is not
-overdue" boundary case.
+**Exact algorithm** (sharpened further while implementing T016 — the
+straightforward-looking approach has a real bug): `dueDate` arrives from
+the backend as a UTC ISO string (e.g. `"2026-07-20T00:00:00Z"`). Passing
+that string through `new Date(dueDate)` and then reading its *local*
+getters (`.getDate()` etc.) would silently convert it to local time first
+— for a user behind UTC, a due date of `2026-07-20T00:00:00Z` becomes
+`2026-07-19T‥` locally, shifting the calendar date by a day. Since a due
+date is a date-only concept, not an instant, `isOverdue` never round-trips
+it through timezone conversion at all: it reads the `YYYY-MM-DD`
+substring directly off the front of the ISO string (`dueDate.slice(0,
+10)`) and compares that lexicographically against *today's* local
+calendar date, built from `new Date()`'s own local
+`getFullYear()`/`getMonth()`/`getDate()` (zero-padded to the same
+`YYYY-MM-DD` shape, so plain string comparison is correct chronological
+ordering). Only `dueDate`'s literal digits are ever compared — never a
+`Date` instant derived from it. This is the one place in the algorithm
+"local" applies: to *today*, not to `dueDate`.
+
+FR-010's plain-language "in the past" is intentionally sharpened here to
+this exact algorithm so the test suite (T016) has one unambiguous
+behavior to assert, including the explicit "due today is not overdue"
+boundary case and a case that would come out differently under the naive
+(and wrong) `new Date(dueDate).getDate()` approach.

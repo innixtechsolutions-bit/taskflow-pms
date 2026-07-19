@@ -319,6 +319,47 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task GetBoard_returns_200_with_columns_and_items()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"board-{Guid.NewGuid():N}@example.com");
+        var itemId = await CreateItemOfTypeAsync(token, projectId, "Task", title: "Board item");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items/board", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemBoardDto>();
+        Assert.Equal(4, body!.Columns.Count);
+        // M1: each column carries its display label, not just the raw status value.
+        Assert.Contains(body.Columns, c => c.Status == "InReview" && c.Label == "In Review");
+        Assert.Contains(body.Items, i => i.Id == itemId);
+    }
+
+    [Fact]
+    public async Task GetBoard_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"board-noproject-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, "/api/projects/999999/work-items/board", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetBoard_returns_401_without_a_token()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var response = await _client.GetAsync($"/api/projects/{projectId}/work-items/board");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Get_returns_the_enriched_detail_shape()
     {
         var adminToken = await LoginAsSeededAdminAsync();

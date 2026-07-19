@@ -467,6 +467,79 @@ public class WorkItemService(AppDbContext dbContext)
             childRows.Count, doneCount, childNodes);
     }
 
+    private record WorkItemBoardRow(
+        int Id, string Type, string Title, string Status, string Priority,
+        int? AssigneeUserId, string? AssigneeName, DateTime? DueDate, DateTime UpdatedAt,
+        int CreatedByUserId, int? ParentWorkItemId);
+
+    // Feature 005 (Kanban Board). Same shape as GetTreeAsync above: one query for
+    // the whole project, then an in-memory Dictionary/GroupBy pass -- but applied
+    // to compute DirectChildrenCount/DirectChildrenDoneCount for *every* item, not
+    // just tree roots, since the board shows every item as its own card regardless
+    // of depth (research.md #2).
+    public async Task<WorkItemBoardDto> GetBoardAsync(int projectId)
+    {
+        var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
+        if (!projectExists)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        var rows = await dbContext.WorkItems
+            .Where(w => w.ProjectId == projectId)
+            .OrderByDescending(w => w.UpdatedAt)
+            .Select(w => new WorkItemBoardRow(
+                w.Id,
+                w.Type.ToString(),
+                w.Title,
+                w.Status.ToString(),
+                w.Priority.ToString(),
+                w.AssigneeUserId,
+                w.Assignee != null ? w.Assignee.FullName : null,
+                w.DueDate,
+                w.UpdatedAt,
+                w.CreatedByUserId,
+                w.ParentWorkItemId))
+            .ToListAsync();
+
+        var childrenByParent = rows
+            .Where(w => w.ParentWorkItemId.HasValue)
+            .GroupBy(w => w.ParentWorkItemId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var items = rows.Select(row =>
+        {
+            var childRows = childrenByParent.TryGetValue(row.Id, out var found) ? found : [];
+            var doneCount = childRows.Count(c => c.Status == "Done");
+            return new WorkItemBoardCardDto(
+                row.Id, row.Type, row.Title, row.Status, row.Priority,
+                row.AssigneeUserId, row.AssigneeName, row.DueDate, row.UpdatedAt,
+                row.CreatedByUserId, childRows.Count, doneCount);
+        }).ToList();
+
+        // Enum.GetValues preserves declaration order (ToDo, InProgress, InReview,
+        // Done), so this list is already the board's intended column order without
+        // a separately-maintained array that could drift from the enum itself.
+        var columns = Enum.GetValues<WorkItemStatus>()
+            .Select(status => new BoardColumnDto(status.ToString(), BoardColumnLabel(status)))
+            .ToList();
+
+        return new WorkItemBoardDto(columns, items);
+    }
+
+    // Mirrors the frontend's StatusChipComponent label map exactly (M1) -- the
+    // one place this feature intentionally accepts label text existing in two
+    // places, since chips and board columns are conceptually different things
+    // long-term (research.md #2, revised).
+    private static string BoardColumnLabel(WorkItemStatus status) => status switch
+    {
+        WorkItemStatus.ToDo => "To Do",
+        WorkItemStatus.InProgress => "In Progress",
+        WorkItemStatus.InReview => "In Review",
+        WorkItemStatus.Done => "Done",
+        _ => throw new ArgumentOutOfRangeException(nameof(status))
+    };
+
     public async Task<List<WorkItemLookupItemDto>> GetParentCandidatesAsync(int projectId, string type)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);

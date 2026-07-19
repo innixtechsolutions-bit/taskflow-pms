@@ -78,10 +78,20 @@ function configure(
       { provide: ProjectsService, useValue: { getProject, deleteProject } },
       {
         provide: WorkItemsService,
-        useValue: { getWorkItems, deleteWorkItem, getAssignableUsers, getWorkItemsTree, getWorkItemDetail },
+        useValue: {
+          getWorkItems,
+          deleteWorkItem,
+          getAssignableUsers,
+          getWorkItemsTree,
+          getWorkItemDetail,
+          getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
+        },
       },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }), queryParamMap: convertToParamMap({}) } },
+      },
       { provide: NotificationService, useValue: notificationService },
     ],
   });
@@ -602,5 +612,51 @@ describe('ProjectDetailComponent tree view', () => {
     await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#tree-work-item-2')).toBeTruthy();
+  });
+});
+
+describe('ProjectDetailComponent board view', () => {
+  it('shows the board when the Board view toggle is clicked', async () => {
+    configure();
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('.board-view-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-board')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeNull();
+  });
+
+  it('starts on the Board view when the `view` query param is `board` (FR-019/US5)', async () => {
+    const notificationService = { success: vi.fn(), error: vi.fn() };
+    TestBed.configureTestingModule({
+      imports: [ProjectDetailComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ProjectsService, useValue: { getProject: vi.fn().mockResolvedValue(sampleProject) } },
+        {
+          provide: WorkItemsService,
+          useValue: {
+            getWorkItems: vi.fn().mockResolvedValue(emptyPage()),
+            getAssignableUsers: vi.fn().mockResolvedValue([]),
+            getWorkItemsTree: vi.fn().mockResolvedValue([]),
+            getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
+          },
+        },
+        { provide: AuthService, useValue: { currentUser: () => ({ id: 1, role: 'Developer' }), currentRole: () => 'Developer' } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { paramMap: convertToParamMap({ id: '1' }), queryParamMap: convertToParamMap({ view: 'board' }) },
+          },
+        },
+        { provide: NotificationService, useValue: notificationService },
+      ],
+    });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('app-board')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.board-view-toggle')?.classList).toContain('active');
   });
 });
