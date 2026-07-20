@@ -68,12 +68,16 @@
   justify-content: center;
   width: 22px;
   height: 22px;
+  border: none;
+  background: none;
   border-radius: var(--radius-chip);
   color: #64748b;
   text-decoration: none;
+  font: inherit;
   font-weight: 700;
   font-size: 16px;
   line-height: 1;
+  cursor: pointer;
 }
 
 .board-column-add:hover {

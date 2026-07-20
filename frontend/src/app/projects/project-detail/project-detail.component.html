@@ -52,9 +52,9 @@
         Tree
       </a>
     </nav>
-    <a mat-flat-button color="primary" class="new-work-item-button" [routerLink]="['/projects', p.id, 'work-items', 'new']">
+    <button mat-flat-button color="primary" type="button" class="new-work-item-button" (click)="openCreateModal()">
       New work item
-    </a>
+    </button>
   </div>
 
   <mat-tab-nav-panel #viewTabPanel>
@@ -92,7 +92,7 @@
       <mat-card-content class="tree-view">
         @if (treeNodes().length === 0) {
           <app-empty-state icon="inbox" message="No work items yet">
-            <a empty-state-action mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">Add work item</a>
+            <button empty-state-action mat-flat-button color="primary" type="button" class="empty-state-add-work-item" (click)="openCreateModal()">Add work item</button>
           </app-empty-state>
         }
         @for (node of treeNodes(); track node.id) {
@@ -158,7 +158,7 @@
       <app-empty-state icon="search_off" message="No items match your filters." />
     } @else {
       <app-empty-state icon="inbox" message="No work items yet">
-        <a empty-state-action mat-flat-button color="primary" [routerLink]="['/projects', p.id, 'work-items', 'new']">Add work item</a>
+        <button empty-state-action mat-flat-button color="primary" type="button" class="empty-state-add-work-item" (click)="openCreateModal()">Add work item</button>
       </app-empty-state>
     }
   } @else {
@@ -188,7 +188,7 @@
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let item">
           @if (canEdit(item)) {
-            <a class="edit-link" [routerLink]="['/projects', p.id, 'work-items', item.id, 'edit']">Edit</a>
+            <button type="button" class="edit-link" (click)="openEditModal(item)">Edit</button>
           }
           @if (canDelete(item)) {
             <button type="button" class="delete-button" (click)="onDelete(item)">Delete</button>

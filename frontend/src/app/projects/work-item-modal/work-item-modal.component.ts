@@ -1,15 +1,13 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
 import { FormField, maxLength, minLength, required, form } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { ActivatedRoute, Router } from '@angular/router';
 import { ProjectStatus, UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
 import { NotificationService } from '../../shared/notification.service';
-import { PageHeaderComponent } from '../../shared/page-header/page-header.component';
 
 interface TitleFormModel {
   title: string;
@@ -21,7 +19,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 // A date <input>/the API's dueDate field both want 'YYYY-MM-DD'; MatDatepicker
 // wants a Date. Built from local year/month/day rather than toISOString() (which
 // converts to UTC first and can shift the date by a day near midnight in
-// timezones ahead of UTC).
+// timezones ahead of UTC) — same helpers as the removed WorkItemFormComponent.
 function toDateOnlyString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -34,33 +32,46 @@ function parseDateOnlyString(value: string): Date {
   return new Date(year, month - 1, day);
 }
 
+// The sole way this modal learns which project/item it's working with and
+// what to pre-select -- replaces the route/query params WorkItemFormComponent
+// (removed, US1) used to read. onSaved is invoked after every successful
+// create/update, before the dialog closes, so the view that opened this modal
+// can refresh itself in place (research.md #9) -- including every individual
+// save during a future "Create another" batch, not only once at the end.
+export interface WorkItemModalData {
+  mode: 'create' | 'edit';
+  projectId: number;
+  workItemId?: number;
+  statusId?: number;
+  parentWorkItemId?: number;
+  type?: string;
+  onSaved: () => void;
+}
+
 @Component({
-  selector: 'app-work-item-form',
+  selector: 'app-work-item-modal',
   standalone: true,
   imports: [
     FormField,
     MatButtonModule,
-    MatCardModule,
     MatDatepickerModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
-    PageHeaderComponent,
   ],
-  templateUrl: './work-item-form.component.html',
+  templateUrl: './work-item-modal.component.html',
+  styleUrl: './work-item-modal.component.css',
 })
-export class WorkItemFormComponent implements OnInit {
+export class WorkItemModalComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
-  private readonly router = inject(Router);
-  private readonly route = inject(ActivatedRoute);
   private readonly notificationService = inject(NotificationService);
-  private readonly projectId = Number(this.route.snapshot.paramMap.get('projectId'));
+  private readonly data = inject<WorkItemModalData>(MAT_DIALOG_DATA);
+  private readonly dialogRef = inject(MatDialogRef<WorkItemModalComponent>);
 
-  // Presence of the route's :id param (only on the .../work-items/:id/edit route) is
-  // what distinguishes edit mode from create mode — the same component serves both.
-  private readonly workItemIdParam = this.route.snapshot.paramMap.get('id');
-  protected readonly isEditMode = this.workItemIdParam !== null;
-  private readonly workItemId = this.workItemIdParam ? Number(this.workItemIdParam) : null;
+  protected readonly isEditMode = this.data.mode === 'edit';
+  private readonly projectId = this.data.projectId;
+  private readonly workItemId = this.data.workItemId ?? null;
 
   protected readonly types = TYPES;
   protected readonly priorities = PRIORITIES;
@@ -68,12 +79,13 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly statuses = signal<ProjectStatus[]>([]);
   protected readonly assignableUsers = signal<UserLookupItem[]>([]);
 
-  // A separate, minimal Signal Forms tree for just the title — the only field with
-  // real validation. The other fields are plain signals, each driven by mat-select's
-  // own [value]/(selectionChange) (or MatDatepicker for the date) rather than a
-  // native <select>'s [value]/(change) — mat-select doesn't have the native-<select>
-  // "[value] written before @for-rendered <option>s exist" bug research.md §6
-  // originally worked around, so that workaround no longer applies to these fields.
+  // Set true on the first change to any field after the modal opens (or after
+  // an edit-mode load finishes) — research.md #2's dirty-flag, deliberately a
+  // single boolean rather than a full value diff.
+  protected readonly dirty = signal(false);
+
+  // A separate, minimal Signal Forms tree for just the title — the only field
+  // with real validation, same split as the removed WorkItemFormComponent.
   protected readonly titleModel = signal<TitleFormModel>({ title: '' });
   protected readonly titleForm = form(this.titleModel, (path) => {
     required(path.title, { message: 'Title is required.' });
@@ -84,8 +96,7 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly type = signal('Task');
   protected readonly description = signal('');
   protected readonly priority = signal('Medium');
-  // null until either a query param or the loaded status list picks a default
-  // (Feature 006 — identity-based, not a fixed string default).
+  // null until either dialog data or the loaded status list picks a default.
   protected readonly statusId = signal<number | null>(null);
   protected readonly assigneeUserId = signal('');
   protected readonly dueDate = signal<Date | null>(null);
@@ -95,26 +106,28 @@ export class WorkItemFormComponent implements OnInit {
   protected readonly submitting = signal(false);
   protected readonly serverError = signal<string | null>(null);
 
+  constructor() {
+    // Our own Escape/close-button handling (attemptClose, below) replaces
+    // MatDialog's default immediate-close so an unsaved change can be
+    // confirmed first (FR-006, research.md #2). disableClose only affects
+    // MatDialog's own backdrop/Escape wiring — dialogRef.close() below still
+    // always works.
+    this.dialogRef.disableClose = true;
+  }
+
   ngOnInit(): void {
     if (!this.isEditMode) {
-      // Set when arriving via a work item detail view's "Add child" action (FR-019) —
-      // pre-selects both the legal child Type and this parent, rather than leaving
-      // the user to rediscover which type/parent combination they came here to create.
-      const typeParam = this.route.snapshot.queryParamMap.get('type');
-      const parentWorkItemIdParam = this.route.snapshot.queryParamMap.get('parentWorkItemId');
-      // Set when arriving via a board column's "+ Add" affordance (FR-017/US4/
-      // FR-018 — pre-selects that column's status by id, not by name, so it still
-      // works for a status added after Feature 005 shipped) — pre-selects that
-      // column's status so the item lands back in the same column.
-      const statusIdParam = this.route.snapshot.queryParamMap.get('statusId');
-      if (typeParam) {
-        this.type.set(typeParam);
+      // Set when arriving via a board column's "+" affordance (statusId) or a
+      // work item detail's "Add child" action (parentWorkItemId/type) — the
+      // modal's equivalent of the removed route's query params.
+      if (this.data.type) {
+        this.type.set(this.data.type);
       }
-      if (parentWorkItemIdParam) {
-        this.parentWorkItemId.set(parentWorkItemIdParam);
+      if (this.data.parentWorkItemId !== undefined) {
+        this.parentWorkItemId.set(this.data.parentWorkItemId.toString());
       }
-      if (statusIdParam) {
-        this.statusId.set(Number(statusIdParam));
+      if (this.data.statusId !== undefined) {
+        this.statusId.set(this.data.statusId);
       }
     }
     void this.loadAssignableUsers();
@@ -125,9 +138,9 @@ export class WorkItemFormComponent implements OnInit {
     }
   }
 
-  // Feature 006 — if nothing else has already picked a status (a query param, or the
-  // item being edited), default the dropdown to the project's first status once
-  // loaded, matching the old fixed-list's "defaults to the first entry" UX.
+  // Feature 006 — if nothing else has already picked a status (dialog data, or
+  // the item being edited), default the dropdown to the project's first status
+  // once loaded, matching the old fixed-list's "defaults to the first entry" UX.
   private async loadStatuses(): Promise<void> {
     const statuses = await this.workItemsService.getStatuses(this.projectId);
     this.statuses.set(statuses);
@@ -144,13 +157,52 @@ export class WorkItemFormComponent implements OnInit {
     this.parentCandidates.set(await this.workItemsService.getParentCandidates(this.projectId, this.type()));
   }
 
-  // Type drives which candidates are valid (data-model.md's Hierarchy rules table),
-  // so a Type change refetches candidates and clears any parent no longer valid for
-  // the newly selected type rather than leaving a stale, possibly-illegal selection.
+  // Every field-changing handler below calls markDirty() in addition to
+  // updating its own signal — the load paths (loadExistingWorkItem,
+  // ngOnInit's dialog-data prefill) call .set() directly instead, so loading
+  // an existing item or applying a pre-selection never marks the form dirty.
+  protected markDirty(): void {
+    this.dirty.set(true);
+  }
+
+  // Type drives which candidates are valid (data-model.md's Hierarchy rules
+  // table), so a Type change refetches candidates and clears any parent no
+  // longer valid for the newly selected type.
   protected onTypeChange(value: string): void {
+    this.markDirty();
     this.type.set(value);
     this.parentWorkItemId.set('');
     void this.loadParentCandidates();
+  }
+
+  protected onParentChange(value: string): void {
+    this.markDirty();
+    this.parentWorkItemId.set(value);
+  }
+
+  protected onDescriptionChange(value: string): void {
+    this.markDirty();
+    this.description.set(value);
+  }
+
+  protected onPriorityChange(value: string): void {
+    this.markDirty();
+    this.priority.set(value);
+  }
+
+  protected onStatusChange(value: number): void {
+    this.markDirty();
+    this.statusId.set(value);
+  }
+
+  protected onAssigneeChange(value: string): void {
+    this.markDirty();
+    this.assigneeUserId.set(value);
+  }
+
+  protected onDueDateChange(value: Date | null): void {
+    this.markDirty();
+    this.dueDate.set(value);
   }
 
   private async loadExistingWorkItem(): Promise<void> {
@@ -164,6 +216,16 @@ export class WorkItemFormComponent implements OnInit {
     this.dueDate.set(item.dueDate ? parseDateOnlyString(item.dueDate) : null);
     this.parentWorkItemId.set(item.parentWorkItemId ? item.parentWorkItemId.toString() : '');
     await this.loadParentCandidates();
+  }
+
+  // Bound to the host element's keydown.escape and to the template's explicit
+  // close (Cancel) control — FR-006's two documented ways to dismiss the
+  // modal, both funneled through the same confirm-discard check.
+  @HostListener('keydown.escape')
+  protected attemptClose(): void {
+    if (!this.dirty() || confirm('Discard unsaved changes?')) {
+      this.dialogRef.close();
+    }
   }
 
   protected async onSubmit(event: Event): Promise<void> {
@@ -194,7 +256,8 @@ export class WorkItemFormComponent implements OnInit {
         await this.workItemsService.createWorkItem(this.projectId, request);
       }
       this.notificationService.success(this.isEditMode ? 'Work item updated.' : 'Work item created.');
-      await this.router.navigateByUrl(`/projects/${this.projectId}`);
+      this.data.onSaved();
+      this.dialogRef.close();
     } catch {
       const message = 'Something went wrong. Please try again.';
       this.serverError.set(message);

@@ -1,0 +1,103 @@
+<h2 mat-dialog-title>{{ isEditMode ? 'Edit work item' : 'Create a work item' }}</h2>
+
+<mat-dialog-content>
+  <form id="work-item-modal-form" class="work-item-modal-form" (submit)="onSubmit($event)" novalidate>
+    @if (serverError()) {
+      <p class="server-error" role="alert">{{ serverError() }}</p>
+    }
+
+    <mat-form-field appearance="outline">
+      <mat-label>Type</mat-label>
+      <mat-select id="type" [value]="type()" (selectionChange)="onTypeChange($event.value)">
+        @for (t of types; track t) {
+          <mat-option [value]="t">{{ t }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (type() !== 'Epic') {
+      <mat-form-field appearance="outline">
+        <mat-label>Parent{{ type() === 'SubTask' ? ' (required)' : '' }}</mat-label>
+        <mat-select
+          id="parentWorkItemId"
+          [required]="type() === 'SubTask'"
+          [value]="parentWorkItemId()"
+          (selectionChange)="onParentChange($event.value)"
+        >
+          @if (type() === 'Task') {
+            <mat-option value="">None</mat-option>
+          }
+          @for (c of parentCandidates(); track c.id) {
+            <mat-option [value]="c.id.toString()">{{ c.title }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Title</mat-label>
+      <input matInput id="title" type="text" [formField]="titleForm.title" (input)="markDirty()" />
+      @if (titleForm.title().touched() && titleForm.title().errors().length > 0) {
+        <mat-error>{{ titleForm.title().errors()[0].message }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Description</mat-label>
+      <textarea
+        matInput
+        id="description"
+        [value]="description()"
+        (input)="onDescriptionChange($any($event.target).value)"
+      ></textarea>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Priority</mat-label>
+      <mat-select id="priority" [value]="priority()" (selectionChange)="onPriorityChange($event.value)">
+        @for (p of priorities; track p) {
+          <mat-option [value]="p">{{ p }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Status</mat-label>
+      <mat-select id="status" [value]="statusId()" (selectionChange)="onStatusChange($event.value)">
+        @for (s of statuses(); track s.id) {
+          <mat-option [value]="s.id">{{ s.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Assignee</mat-label>
+      <mat-select id="assigneeUserId" [value]="assigneeUserId()" (selectionChange)="onAssigneeChange($event.value)">
+        <mat-option value="">Unassigned</mat-option>
+        @for (u of assignableUsers(); track u.id) {
+          <mat-option [value]="u.id.toString()">{{ u.fullName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Due date</mat-label>
+      <input
+        matInput
+        id="dueDate"
+        [matDatepicker]="dueDatePicker"
+        [value]="dueDate()"
+        (dateChange)="onDueDateChange($event.value)"
+      />
+      <mat-datepicker-toggle matIconSuffix [for]="dueDatePicker"></mat-datepicker-toggle>
+      <mat-datepicker #dueDatePicker></mat-datepicker>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" class="close-button" (click)="attemptClose()">Cancel</button>
+  <button mat-flat-button color="primary" type="submit" form="work-item-modal-form" [disabled]="submitting()">
+    {{ isEditMode ? 'Save changes' : 'Create work item' }}
+  </button>
+</mat-dialog-actions>

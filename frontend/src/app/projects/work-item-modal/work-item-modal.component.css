@@ -1,0 +1,18 @@
+/* Two-column field layout on desktop (visual-reference.png's spirit, not its
+   palette) — collapses to one column on narrow viewports since mat-dialog
+   already goes full-width there. */
+.work-item-modal-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.work-item-modal-form .span-2 {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 599px) {
+  .work-item-modal-form {
+    grid-template-columns: 1fr;
+  }
+}

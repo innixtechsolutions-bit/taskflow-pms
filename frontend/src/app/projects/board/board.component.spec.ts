@@ -2,8 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
+import { MatDialog } from '@angular/material/dialog';
 import { vi } from 'vitest';
 import { BoardComponent } from './board.component';
+import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
@@ -65,6 +67,7 @@ function configure(
   updateWorkItemStatus = vi.fn().mockResolvedValue(undefined)
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
+  const dialogOpen = vi.fn().mockReturnValue({});
   TestBed.configureTestingModule({
     imports: [BoardComponent],
     providers: [
@@ -72,9 +75,10 @@ function configure(
       { provide: WorkItemsService, useValue: { getBoard, updateWorkItemStatus } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: NotificationService, useValue: notificationService },
+      { provide: MatDialog, useValue: { open: dialogOpen } },
     ],
   });
-  return { getBoard, updateWorkItemStatus, notificationService };
+  return { getBoard, updateWorkItemStatus, notificationService, dialogOpen };
 }
 
 async function render(projectId = 1) {
@@ -187,15 +191,37 @@ describe('BoardComponent', () => {
     expect(fixture.nativeElement.querySelector('.board-card.drag-disabled')).toBeNull();
   });
 
-  it("each column's + Add link targets the work-item-form route with the project id and that column's statusId", async () => {
-    configure();
+  it("each column's + affordance opens the work item modal with the project id and that column's statusId pre-selected", async () => {
+    const { dialogOpen } = configure();
     const fixture = await render(42);
 
-    const links = Array.from(
+    const buttons = Array.from(
       fixture.nativeElement.querySelectorAll('.board-column-add')
-    ) as HTMLAnchorElement[];
-    expect(links.length).toBe(4);
+    ) as HTMLButtonElement[];
+    expect(buttons.length).toBe(4);
     // Third column is In Review (statusId 3) per sampleBoard()'s column order.
-    expect(links[2].getAttribute('href')).toBe('/projects/42/work-items/new?statusId=3');
+    buttons[2].click();
+
+    expect(dialogOpen).toHaveBeenCalledWith(
+      WorkItemModalComponent,
+      expect.objectContaining({
+        data: expect.objectContaining({ mode: 'create', projectId: 42, statusId: 3 }),
+      })
+    );
+  });
+
+  it('refreshes the board once the modal reports a save (research.md #9)', async () => {
+    const { getBoard, dialogOpen } = configure();
+    const fixture = await render(42);
+
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('.board-column-add')) as HTMLButtonElement[];
+    buttons[0].click();
+
+    const { onSaved } = dialogOpen.mock.calls[0][1].data;
+    getBoard.mockClear();
+    onSaved();
+    await fixture.whenStable();
+
+    expect(getBoard).toHaveBeenCalled();
   });
 });

@@ -1,9 +1,10 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
+import { MatDialog } from '@angular/material/dialog';
 import { BoardColumn, WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardCardComponent } from './board-card.component';
+import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 import { canEditWorkItem } from '../work-item-permissions';
@@ -22,7 +23,7 @@ interface BoardColumnView extends BoardColumn {
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [EmptyStateComponent, BoardCardComponent, DragDropModule, RouterLink],
+  imports: [EmptyStateComponent, BoardCardComponent, DragDropModule],
   templateUrl: './board.component.html',
   styleUrl: './board.component.css',
 })
@@ -30,6 +31,7 @@ export class BoardComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
   private readonly authService = inject(AuthService);
   private readonly notificationService = inject(NotificationService);
+  private readonly dialog = inject(MatDialog);
 
   readonly projectId = input.required<number>();
 
@@ -50,8 +52,32 @@ export class BoardComponent implements OnInit {
     void this.load();
   }
 
+  // Public so ProjectDetailComponent (this component's host when viewMode is
+  // 'board') can refresh it too, after a create/edit made via its own
+  // toolbar/empty-state modal entry points rather than a column's own "+".
+  refresh(): void {
+    void this.load();
+  }
+
   private async load(): Promise<void> {
     this.board.set(await this.workItemsService.getBoard(this.projectId()));
+  }
+
+  // Replaces the removed .../work-items/new?statusId= routerLink (US1) — opens
+  // the modal with this column's status pre-selected and refreshes the board
+  // once the modal reports a save, rather than navigating away and back
+  // (research.md #9).
+  protected openCreateModal(statusId: number): void {
+    this.dialog.open(WorkItemModalComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      data: {
+        mode: 'create',
+        projectId: this.projectId(),
+        statusId,
+        onSaved: () => void this.load(),
+      },
+    });
   }
 
   // Only the current user's own permission to edit that card is checked here

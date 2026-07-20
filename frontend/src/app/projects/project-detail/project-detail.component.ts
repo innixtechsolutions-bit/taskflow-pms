@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, ViewChild, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -26,6 +27,7 @@ import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardComponent } from '../board/board.component';
+import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { canEditWorkItem } from '../work-item-permissions';
 
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
@@ -68,7 +70,14 @@ export class ProjectDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly notificationService = inject(NotificationService);
+  private readonly dialog = inject(MatDialog);
   private readonly projectId = Number(this.route.snapshot.paramMap.get('id'));
+
+  // Present only while viewMode() === 'board' (the @if in the template
+  // destroys/recreates it) — refreshed alongside the flat list/tree below
+  // whenever a create/edit modal reports a save, so switching straight to
+  // Board afterward doesn't show stale data.
+  @ViewChild(BoardComponent) private boardComponent?: BoardComponent;
 
   // Column order for mat-table's structural directives.
   protected readonly displayedColumns = ['title', 'status', 'priority', 'actions'];
@@ -179,6 +188,36 @@ export class ProjectDetailComponent implements OnInit {
     const result = await this.workItemsService.getWorkItems(this.projectId, this.currentFilter());
     this.workItems.set(result.items);
     this.totalCount.set(result.totalCount);
+  }
+
+  // Replaces the removed .../work-items/new routerLink (US1) — used by the
+  // toolbar "New work item" button and both empty states' "Add work item"
+  // actions, none of which pre-select anything.
+  protected openCreateModal(): void {
+    this.dialog.open(WorkItemModalComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      data: { mode: 'create', projectId: this.projectId, onSaved: () => this.onWorkItemSaved() },
+    });
+  }
+
+  // Replaces the removed .../work-items/:id/edit routerLink (US1) — used by a
+  // flat-list row's "Edit" action.
+  protected openEditModal(item: WorkItem): void {
+    this.dialog.open(WorkItemModalComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      data: { mode: 'edit', projectId: this.projectId, workItemId: item.id, onSaved: () => this.onWorkItemSaved() },
+    });
+  }
+
+  // Every view this page can show (flat list, tree, and — if currently
+  // mounted — the embedded board) is refreshed in place, since a save from
+  // either modal entry point could affect any of them (research.md #9).
+  private onWorkItemSaved(): void {
+    void this.loadWorkItems();
+    void this.loadTree();
+    this.boardComponent?.refresh();
   }
 
   // Distinguishes a genuinely empty project (FR-023) from filters that simply matched

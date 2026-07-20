@@ -2,8 +2,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
 import { MatSelectHarness } from '@angular/material/select/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { vi } from 'vitest';
 import { ProjectDetailComponent } from './project-detail.component';
+import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { ProjectsService } from '../projects.service';
 import { ProjectStatus, WorkItem, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
@@ -91,6 +93,7 @@ function configure(
   getStatuses = vi.fn().mockResolvedValue(sampleStatuses())
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
+  const dialogOpen = vi.fn().mockReturnValue({});
   TestBed.configureTestingModule({
     imports: [ProjectDetailComponent],
     providers: [
@@ -114,6 +117,7 @@ function configure(
         useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }), queryParamMap: convertToParamMap({ view }) } },
       },
       { provide: NotificationService, useValue: notificationService },
+      { provide: MatDialog, useValue: { open: dialogOpen } },
     ],
   });
   return {
@@ -125,6 +129,7 @@ function configure(
     getWorkItemsTree,
     getWorkItemDetail,
     notificationService,
+    dialogOpen,
   };
 }
 
@@ -448,6 +453,73 @@ describe('ProjectDetailComponent workflow entry point (US2)', () => {
     const fixture = await render();
 
     expect(fixture.nativeElement.querySelector('.workflow-link')).toBeNull();
+  });
+});
+
+describe('ProjectDetailComponent work item modal (US1)', () => {
+  it('opens the create modal with no prefill from the toolbar "New work item" button', async () => {
+    const { dialogOpen } = configure();
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('.new-work-item-button') as HTMLButtonElement).click();
+
+    expect(dialogOpen).toHaveBeenCalledWith(
+      WorkItemModalComponent,
+      expect.objectContaining({ data: expect.objectContaining({ mode: 'create', projectId: 1 }) })
+    );
+  });
+
+  it('opens the create modal from an empty state\'s "Add work item" action', async () => {
+    const { dialogOpen } = configure(undefined, vi.fn().mockResolvedValue(emptyPage()));
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('.empty-state-add-work-item') as HTMLButtonElement).click();
+
+    expect(dialogOpen).toHaveBeenCalledWith(
+      WorkItemModalComponent,
+      expect.objectContaining({ data: expect.objectContaining({ mode: 'create', projectId: 1 }) })
+    );
+  });
+
+  it('opens the edit modal for a flat-list row', async () => {
+    const { dialogOpen } = configure(
+      undefined,
+      vi.fn().mockResolvedValue(pageOf([sampleItem({ id: 1, createdByUserId: 1 })])),
+      { id: 1, role: 'Developer' }
+    );
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('#work-item-1 .edit-link') as HTMLButtonElement).click();
+
+    expect(dialogOpen).toHaveBeenCalledWith(
+      WorkItemModalComponent,
+      expect.objectContaining({ data: expect.objectContaining({ mode: 'edit', workItemId: 1 }) })
+    );
+  });
+
+  it('re-fetches the flat list and tree once the modal reports a save', async () => {
+    const getWorkItems = vi.fn().mockResolvedValue(pageOf([sampleItem({ id: 1, createdByUserId: 1 })]));
+    const getWorkItemsTree = vi.fn().mockResolvedValue([]);
+    const { dialogOpen } = configure(
+      undefined,
+      getWorkItems,
+      { id: 1, role: 'Developer' },
+      undefined,
+      undefined,
+      undefined,
+      getWorkItemsTree
+    );
+    const fixture = await render();
+
+    (fixture.nativeElement.querySelector('#work-item-1 .edit-link') as HTMLButtonElement).click();
+    const { onSaved } = dialogOpen.mock.calls[0][1].data;
+    getWorkItems.mockClear();
+    getWorkItemsTree.mockClear();
+    onSaved();
+    await fixture.whenStable();
+
+    expect(getWorkItems).toHaveBeenCalled();
+    expect(getWorkItemsTree).toHaveBeenCalled();
   });
 });
 

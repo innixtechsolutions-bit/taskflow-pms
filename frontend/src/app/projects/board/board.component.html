@@ -4,14 +4,15 @@
       <div class="board-column-header">
         <span class="board-column-label">{{ column.name }}</span>
         <span class="board-column-count">{{ column.items.length }}</span>
-        <a
+        <button
+          type="button"
           class="board-column-add"
-          [routerLink]="['/projects', projectId(), 'work-items', 'new']"
-          [queryParams]="{ statusId: column.statusId }"
+          (click)="openCreateModal(column.statusId)"
           title="Add to {{ column.name }}"
           aria-label="Add to {{ column.name }}"
-          >+</a
         >
+          +
+        </button>
       </div>
       <div
         class="board-column-body"

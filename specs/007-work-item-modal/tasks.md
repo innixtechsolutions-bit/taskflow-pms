@@ -23,8 +23,8 @@ Web application: `backend/TaskFlow.Api/` (+ `backend/TaskFlow.Api.Tests/`) and
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm the backend suite passes before starting (`cd backend/TaskFlow.Api.Tests && dotnet test`) — clean baseline for regression comparison (285/285 as of Feature 006)
-- [ ] T002 [P] Confirm the frontend suite passes before starting (`cd frontend && npm test`) — clean baseline for regression comparison (189/189 as of Feature 006)
+- [X] T001 Confirm the backend suite passes before starting (`cd backend/TaskFlow.Api.Tests && dotnet test`) — clean baseline for regression comparison (285/285 as of Feature 006)
+- [X] T002 [P] Confirm the frontend suite passes before starting (`cd frontend && npm test`) — clean baseline for regression comparison (189/189 as of Feature 006)
 
 ---
 
@@ -66,21 +66,21 @@ same modal opens pre-populated.
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Frontend test: `WorkItemModalComponent` create mode pre-selects `statusId` from dialog data (board "+") and `parentWorkItemId`/`type` from dialog data ("Add child") — new `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
-- [ ] T009 [P] [US1] Frontend test: `WorkItemModalComponent` edit mode loads and pre-populates every field from the existing work item — same spec file
-- [ ] T010 [P] [US1] Frontend test: `WorkItemModalComponent` closes immediately on Escape/close when untouched, but prompts via `confirm()` first once any field has changed (dirty-flag, research.md #2) — same spec file
-- [ ] T011 [P] [US1] Frontend test: `WorkItemModalComponent` displays a server/validation error inside the dialog without closing it, retaining entered values — same spec file
-- [ ] T012 [P] [US1] Frontend test: on a successful create/update (not "Create another"), `WorkItemModalComponent` shows a `NotificationService` toast, invokes the `onSaved` callback, and closes — same spec file
+- [X] T008 [P] [US1] Frontend test: `WorkItemModalComponent` create mode pre-selects `statusId` from dialog data (board "+") and `parentWorkItemId`/`type` from dialog data ("Add child") — new `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
+- [X] T009 [P] [US1] Frontend test: `WorkItemModalComponent` edit mode loads and pre-populates every field from the existing work item — same spec file
+- [X] T010 [P] [US1] Frontend test: `WorkItemModalComponent` closes immediately on Escape/close when untouched, but prompts via `confirm()` first once any field has changed (dirty-flag, research.md #2) — same spec file
+- [X] T011 [P] [US1] Frontend test: `WorkItemModalComponent` displays a server/validation error inside the dialog without closing it, retaining entered values — same spec file
+- [X] T012 [P] [US1] Frontend test: on a successful create/update (not "Create another"), `WorkItemModalComponent` shows a `NotificationService` toast, invokes the `onSaved` callback, and closes — same spec file
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Create `WorkItemModalComponent`, porting `WorkItemFormComponent`'s existing field logic (title Signal Form, type/description/priority/statusId/assigneeUserId/dueDate/parentWorkItemId signals, `toDateOnlyString`/`parseDateOnlyString` helpers, `loadStatuses`/`loadAssignableUsers`/`loadParentCandidates`) to read `MAT_DIALOG_DATA` (`{ mode: 'create' | 'edit', projectId, workItemId?, statusId?, parentWorkItemId?, type?, onSaved: () => void }`) instead of `ActivatedRoute` params, and close via `MatDialogRef` instead of `Router.navigateByUrl` — `frontend/src/app/projects/work-item-modal/work-item-modal.component.ts` (+ `.html` + `.css`) — depends on T008–T012 (tests written first, confirmed failing)
-- [ ] T014 [US1] Add the dirty-flag signal (set on first change to any field) and Escape/close handling that calls `confirm()` only when dirty, in `work-item-modal.component.ts` — depends on T013; makes T010 pass
-- [ ] T015 [US1] `BoardComponent`: column "+" opens `WorkItemModalComponent` via `MatDialog.open(..., { data: { mode: 'create', projectId, statusId: column.statusId, onSaved: refreshBoard } })` instead of `routerLink` — `frontend/src/app/projects/board/board.component.ts` (+ `.html`) — depends on T013
-- [ ] T016 [US1] `WorkItemDetailComponent`: "Add child" opens the modal (`parentWorkItemId`/`type` prefill); "Edit" opens the modal (edit mode); both pass an `onSaved` that re-fetches the detail view — `frontend/src/app/projects/work-item-detail/work-item-detail.component.ts` (+ `.html`) — depends on T013
-- [ ] T017 [US1] `ProjectDetailComponent`: the toolbar "New work item" button and both empty-state "Add work item" actions open the modal (create, no prefill); the list-row "Edit" link opens the modal (edit mode); each `onSaved` re-fetches whichever view (board/list/tree) is active — `frontend/src/app/projects/project-detail/project-detail.component.ts` (+ `.html`) — depends on T013
-- [ ] T018 [US1] Remove the `.../work-items/new` and `.../work-items/:id/edit` routes and replace them with `redirectTo` entries per research.md #10 (create → `.../projects/:projectId`; edit → `.../projects/:projectId/work-items/:id`); delete `WorkItemFormComponent` and its spec — `frontend/src/app/app.routes.ts`; delete `frontend/src/app/projects/work-item-form/` — depends on T015, T016, T017
-- [ ] T019 [US1] Update `board.component.spec.ts`, `work-item-detail.component.spec.ts`, and `project-detail.component.spec.ts` to assert `MatDialog.open(...)` calls (with the expected data) instead of the old `routerLink`/query-param assertions — depends on T015, T016, T017, T018
+- [X] T013 [US1] Create `WorkItemModalComponent`, porting `WorkItemFormComponent`'s existing field logic (title Signal Form, type/description/priority/statusId/assigneeUserId/dueDate/parentWorkItemId signals, `toDateOnlyString`/`parseDateOnlyString` helpers, `loadStatuses`/`loadAssignableUsers`/`loadParentCandidates`) to read `MAT_DIALOG_DATA` (`{ mode: 'create' | 'edit', projectId, workItemId?, statusId?, parentWorkItemId?, type?, onSaved: () => void }`) instead of `ActivatedRoute` params, and close via `MatDialogRef` instead of `Router.navigateByUrl` — `frontend/src/app/projects/work-item-modal/work-item-modal.component.ts` (+ `.html` + `.css`) — depends on T008–T012 (tests written first, confirmed failing)
+- [X] T014 [US1] Add the dirty-flag signal (set on first change to any field) and Escape/close handling that calls `confirm()` only when dirty, in `work-item-modal.component.ts` — depends on T013; makes T010 pass
+- [X] T015 [US1] `BoardComponent`: column "+" opens `WorkItemModalComponent` via `MatDialog.open(..., { data: { mode: 'create', projectId, statusId: column.statusId, onSaved: refreshBoard } })` instead of `routerLink` — `frontend/src/app/projects/board/board.component.ts` (+ `.html`) — depends on T013
+- [X] T016 [US1] `WorkItemDetailComponent`: "Add child" opens the modal (`parentWorkItemId`/`type` prefill); "Edit" opens the modal (edit mode); both pass an `onSaved` that re-fetches the detail view — `frontend/src/app/projects/work-item-detail/work-item-detail.component.ts` (+ `.html`) — depends on T013
+- [X] T017 [US1] `ProjectDetailComponent`: the toolbar "New work item" button and both empty-state "Add work item" actions open the modal (create, no prefill); the list-row "Edit" link opens the modal (edit mode); each `onSaved` re-fetches whichever view (board/list/tree) is active — `frontend/src/app/projects/project-detail/project-detail.component.ts` (+ `.html`) — depends on T013
+- [X] T018 [US1] Remove the `.../work-items/new` and `.../work-items/:id/edit` routes and replace them with `redirectTo` entries per research.md #10 (create → `.../projects/:projectId`; edit → `.../projects/:projectId/work-items/:id`); delete `WorkItemFormComponent` and its spec — `frontend/src/app/app.routes.ts`; delete `frontend/src/app/projects/work-item-form/` — depends on T015, T016, T017
+- [X] T019 [US1] Update `board.component.spec.ts`, `work-item-detail.component.spec.ts`, and `project-detail.component.spec.ts` to assert `MatDialog.open(...)` calls (with the expected data) instead of the old `routerLink`/query-param assertions — depends on T015, T016, T017, T018
 
 **Checkpoint**: Creating and editing work items happens entirely through the
 modal from every existing entry point; the old full-page routes no longer

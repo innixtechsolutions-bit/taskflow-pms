@@ -18,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     // than the classic provideAnimations().
     provideAnimationsAsync(),
     // MatDatepicker needs a DateAdapter — native Date is sufficient, no
-    // extra date library needed (work-item-form's due date field).
+    // extra date library needed (work-item-modal's date fields).
     provideNativeDateAdapter(),
   ]
 };

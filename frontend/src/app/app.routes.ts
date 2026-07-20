@@ -8,7 +8,6 @@ import { ProjectDetailComponent } from './projects/project-detail/project-detail
 import { ProjectFormComponent } from './projects/project-form/project-form.component';
 import { ProjectsListComponent } from './projects/projects-list/projects-list.component';
 import { WorkItemDetailComponent } from './projects/work-item-detail/work-item-detail.component';
-import { WorkItemFormComponent } from './projects/work-item-form/work-item-form.component';
 import { WorkflowComponent } from './projects/workflow/workflow.component';
 import { UsersListComponent } from './users/users-list/users-list.component';
 
@@ -24,8 +23,13 @@ export const routes: Routes = [
   // order-dependent, and the parameterized route would otherwise swallow it.
   { path: 'projects', component: ProjectsListComponent, canActivate: [authGuard] },
   { path: 'projects/new', component: ProjectFormComponent, canActivate: [authGuard] },
-  { path: 'projects/:projectId/work-items/new', component: WorkItemFormComponent, canActivate: [authGuard] },
-  { path: 'projects/:projectId/work-items/:id/edit', component: WorkItemFormComponent, canActivate: [authGuard] },
+  // US1 (Feature 007): the full-page create/edit forms are gone — every entry
+  // point opens WorkItemModalComponent directly instead of navigating here.
+  // These two redirects exist only so a stale bookmark/external link lands on
+  // a working page rather than a dead one (research.md #10) — no modal
+  // auto-opens on arrival.
+  { path: 'projects/:projectId/work-items/new', redirectTo: 'projects/:projectId' },
+  { path: 'projects/:projectId/work-items/:id/edit', redirectTo: 'projects/:projectId/work-items/:id' },
   { path: 'projects/:projectId/work-items/:id', component: WorkItemDetailComponent, canActivate: [authGuard] },
   { path: 'projects/:id/edit', component: ProjectFormComponent, canActivate: [authGuard] },
   { path: 'projects/:id/workflow', component: WorkflowComponent, canActivate: [authGuard] },

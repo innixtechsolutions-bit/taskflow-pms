@@ -44,18 +44,11 @@
       }
 
       @if (canCreateChild()) {
-        <a
-          mat-button
-          class="create-child-link"
-          [routerLink]="['/projects', projectId, 'work-items', 'new']"
-          [queryParams]="{ parentWorkItemId: i.id, type: childType() }"
-        >
-          Add child
-        </a>
+        <button mat-button type="button" class="create-child-link" (click)="openCreateChildModal()">Add child</button>
       }
 
       @if (canEdit()) {
-        <a mat-button class="edit-link" [routerLink]="['/projects', projectId, 'work-items', i.id, 'edit']">Edit</a>
+        <button mat-button type="button" class="edit-link" (click)="openEditModal()">Edit</button>
       }
       @if (canDelete()) {
         <button mat-button type="button" class="delete-button" (click)="onDelete()">Delete</button>
