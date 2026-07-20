@@ -169,16 +169,16 @@ immediately, with color and contained items unchanged.
 
 ### Tests for User Story 4
 
-- [ ] T054 [P] [US4] Backend test: `ProjectStatusService.UpdateAsync` renames and/or recolors a status, rejects a case-insensitive duplicate name **and a new name outside 2–30 chars** (contracts/workflow-api.md's documented 400 case — same length rule as add), and leaves category/position/work items unchanged — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
-- [ ] T055 [P] [US4] Backend test: `PUT api/projects/{projectId}/statuses/{statusId}` — 200/400/403/404/409 cases — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
-- [ ] T056 [P] [US4] Frontend test: `WorkflowComponent`'s inline rename updates the list and surfaces a duplicate-name error, extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
+- [X] T054 [P] [US4] Backend test: `ProjectStatusService.UpdateAsync` renames and/or recolors a status, rejects a case-insensitive duplicate name **and a new name outside 2–30 chars** (contracts/workflow-api.md's documented 400 case — same length rule as add), and leaves category/position/work items unchanged — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
+- [X] T055 [P] [US4] Backend test: `PUT api/projects/{projectId}/statuses/{statusId}` — 200/400/403/404/409 cases — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
+- [X] T056 [P] [US4] Frontend test: `WorkflowComponent`'s inline rename updates the list and surfaces a duplicate-name error, extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T057 [US4] Create `UpdateWorkflowStatusRequest` record with `[StringLength(30, MinimumLength = 2)]` on the optional `Name` field (same convention as T048) in `backend/TaskFlow.Api/Dtos/UpdateWorkflowStatusRequest.cs`
-- [ ] T058 [US4] `ProjectStatusService.UpdateAsync` — re-validates name length and uniqueness on rename, same as `CreateAsync` — in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T057; makes T054 pass
-- [ ] T059 [US4] Add the `PUT .../statuses/{statusId}` action to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T058; makes T055 pass
-- [ ] T060 [US4] Add inline rename (and recolor) UI to `WorkflowComponent`, in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T056 pass
+- [X] T057 [US4] Create `UpdateWorkflowStatusRequest` record with `[StringLength(30, MinimumLength = 2)]` on the optional `Name` field (same convention as T048) in `backend/TaskFlow.Api/Dtos/UpdateWorkflowStatusRequest.cs`
+- [X] T058 [US4] `ProjectStatusService.UpdateAsync` — re-validates name length and uniqueness on rename, same as `CreateAsync` — in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T057; makes T054 pass
+- [X] T059 [US4] Add the `PUT .../statuses/{statusId}` action to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T058; makes T055 pass
+- [X] T060 [US4] Add inline rename (and recolor) UI to `WorkflowComponent`, in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T056 pass
 
 **Checkpoint**: Rename propagates everywhere immediately — quickstart.md
 section 5 passes.

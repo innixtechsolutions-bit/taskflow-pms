@@ -16,19 +16,20 @@ function sampleStatuses(): ProjectStatus[] {
 
 function configure(
   getStatuses = vi.fn().mockResolvedValue(sampleStatuses()),
-  createStatus = vi.fn()
+  createStatus = vi.fn(),
+  updateStatus = vi.fn()
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [WorkflowComponent],
     providers: [
       provideRouter([]),
-      { provide: ProjectStatusService, useValue: { getStatuses, createStatus } },
+      { provide: ProjectStatusService, useValue: { getStatuses, createStatus, updateStatus } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
       { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getStatuses, createStatus, notificationService };
+  return { getStatuses, createStatus, updateStatus, notificationService };
 }
 
 function setInputValue(el: HTMLInputElement, value: string): void {
@@ -85,5 +86,48 @@ describe('WorkflowComponent add-form (US3)', () => {
 
     expect(createStatus).toHaveBeenCalledWith(1, { name: 'QA', category: 'Open' });
     expect(fixture.nativeElement.textContent).toContain('QA');
+  });
+});
+
+describe('WorkflowComponent inline rename (US4)', () => {
+  function rowFor(fixture: { nativeElement: HTMLElement }, name: string): HTMLElement {
+    return Array.from(fixture.nativeElement.querySelectorAll<HTMLElement>('.workflow-row')).find((row) =>
+      row.textContent?.includes(name)
+    )!;
+  }
+
+  it('updates the list after a successful rename', async () => {
+    const updateStatus = vi
+      .fn()
+      .mockResolvedValue({ id: 1, name: 'Doing', category: 'Open', colorKey: 'Slate', position: 0, itemCount: 3 });
+    configure(vi.fn().mockResolvedValue(sampleStatuses()), undefined, updateStatus);
+    const fixture = await render();
+
+    (rowFor(fixture, 'To Do').querySelector('.rename-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    setInputValue(fixture.nativeElement.querySelector('.edit-status-name')!, 'Doing');
+    (fixture.nativeElement.querySelector('.save-edit-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(updateStatus).toHaveBeenCalledWith(1, 1, { name: 'Doing' });
+    expect(fixture.nativeElement.textContent).toContain('Doing');
+    expect(fixture.nativeElement.textContent).not.toContain('To Do');
+  });
+
+  it('surfaces a duplicate-name error without losing the edit', async () => {
+    const updateStatus = vi.fn().mockRejectedValue(new Error('Conflict'));
+    configure(vi.fn().mockResolvedValue(sampleStatuses()), undefined, updateStatus);
+    const fixture = await render();
+
+    (rowFor(fixture, 'To Do').querySelector('.rename-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    setInputValue(fixture.nativeElement.querySelector('.edit-status-name')!, 'Done');
+    (fixture.nativeElement.querySelector('.save-edit-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.edit-error')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.edit-status-name')).toBeTruthy();
   });
 });

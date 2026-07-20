@@ -181,4 +181,88 @@ public class ProjectStatusesEndpointsTests(TaskFlowApiFactory factory) : IClassF
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    private async Task<int> CreateStatusAsync(string adminToken, int projectId, string name, string category = "Open")
+    {
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name, category });
+        var response = await _client.SendAsync(request);
+        var body = await response.Content.ReadFromJsonAsync<WorkflowStatusDto>();
+        return body!.Id;
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_200_for_a_Manager_or_Admin()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var statusId = await CreateStatusAsync(adminToken, projectId, "QA");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/{statusId}", adminToken);
+        request.Content = JsonContent.Create(new { name = "Quality Assurance", colorKey = "Amber" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkflowStatusDto>();
+        Assert.Equal("Quality Assurance", body!.Name);
+        Assert.Equal("Amber", body.ColorKey);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var statusId = await CreateStatusAsync(adminToken, projectId, "QA");
+        var developerToken = await RegisterAndGetTokenAsync($"update-status-dev-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/{statusId}", developerToken);
+        request.Content = JsonContent.Create(new { name = "Quality Assurance" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_400_for_a_name_outside_2_to_30_characters()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var statusId = await CreateStatusAsync(adminToken, projectId, "QA");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/{statusId}", adminToken);
+        request.Content = JsonContent.Create(new { name = "A" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_404_for_a_statusId_that_does_not_belong_to_the_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectAId = await CreateProjectAsync(adminToken, $"Project A {Guid.NewGuid():N}");
+        var projectBId = await CreateProjectAsync(adminToken, $"Project B {Guid.NewGuid():N}");
+        var statusInB = await CreateStatusAsync(adminToken, projectBId, "QA");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectAId}/statuses/{statusInB}", adminToken);
+        request.Content = JsonContent.Create(new { name = "Hijack" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateStatus_returns_409_for_a_duplicate_name()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var statusId = await CreateStatusAsync(adminToken, projectId, "QA");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/{statusId}", adminToken);
+        request.Content = JsonContent.Create(new { name = "to do" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
 }

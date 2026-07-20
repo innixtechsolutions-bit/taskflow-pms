@@ -7,8 +7,13 @@ public class InvalidStatusNameException() : Exception("Name must be between 2 an
 
 public class InvalidStatusCategoryException() : Exception("Category must be one of Open or Done.");
 
+public class InvalidStatusColorException() : Exception("Color must be one of the fixed ChipColor set.");
+
 public class DuplicateStatusNameException() : Exception(
     "A status with this name already exists in this project.");
 
 public class MaxStatusCountExceededException() : Exception(
     "A project cannot have more than 10 statuses.");
+
+public class WorkflowStatusNotFoundException() : Exception(
+    "Status not found, or it does not belong to this project.");

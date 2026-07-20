@@ -58,4 +58,34 @@ public class ProjectStatusesController(ProjectStatusService projectStatusService
             return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
         }
     }
+
+    [HttpPut("{statusId}")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<ActionResult<WorkflowStatusDto>> UpdateStatus(int projectId, int statusId, UpdateWorkflowStatusRequest request)
+    {
+        try
+        {
+            return Ok(await projectStatusService.UpdateAsync(projectId, statusId, request));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (WorkflowStatusNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (InvalidStatusNameException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidStatusColorException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (DuplicateStatusNameException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
+        }
+    }
 }

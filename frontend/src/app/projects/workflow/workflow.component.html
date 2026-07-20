@@ -4,9 +4,24 @@
   <ul class="workflow-list">
     @for (status of statuses(); track status.id) {
       <li class="workflow-row">
-        <span class="workflow-name">{{ status.name }}</span>
-        <span class="workflow-category">{{ status.category }}</span>
-        <span class="workflow-count">{{ status.itemCount }} item(s)</span>
+        @if (editingId() === status.id) {
+          <input
+            class="edit-status-name"
+            type="text"
+            [value]="editName()"
+            (input)="editName.set($any($event.target).value)"
+          />
+          <button type="button" class="save-edit-button" (click)="onSaveEdit(status)">Save</button>
+          <button type="button" class="cancel-edit-button" (click)="onCancelEdit()">Cancel</button>
+          @if (editError()) {
+            <span class="edit-error">{{ editError() }}</span>
+          }
+        } @else {
+          <span class="workflow-name">{{ status.name }}</span>
+          <span class="workflow-category">{{ status.category }}</span>
+          <span class="workflow-count">{{ status.itemCount }} item(s)</span>
+          <button type="button" class="rename-button" (click)="onStartEdit(status)">Rename</button>
+        }
       </li>
     }
   </ul>

@@ -25,6 +25,10 @@ export class WorkflowComponent implements OnInit {
   protected readonly newStatusName = signal('');
   protected readonly newStatusCategory = signal<WorkItemStatusCategory>('Open');
 
+  protected readonly editingId = signal<number | null>(null);
+  protected readonly editName = signal('');
+  protected readonly editError = signal<string | null>(null);
+
   ngOnInit(): void {
     void this.loadStatuses();
   }
@@ -47,6 +51,29 @@ export class WorkflowComponent implements OnInit {
       this.newStatusName.set('');
     } catch {
       this.notificationService.error(`Could not add "${name}". Please try again.`);
+    }
+  }
+
+  protected onStartEdit(status: ProjectStatus): void {
+    this.editingId.set(status.id);
+    this.editName.set(status.name);
+    this.editError.set(null);
+  }
+
+  protected onCancelEdit(): void {
+    this.editingId.set(null);
+    this.editError.set(null);
+  }
+
+  protected async onSaveEdit(status: ProjectStatus): Promise<void> {
+    const name = this.editName().trim();
+    try {
+      const updated = await this.projectStatusService.updateStatus(this.projectId, status.id, { name });
+      this.statuses.update((statuses) => statuses.map((s) => (s.id === updated.id ? updated : s)));
+      this.editingId.set(null);
+      this.editError.set(null);
+    } catch {
+      this.editError.set('A status with this name already exists in this project.');
     }
   }
 }

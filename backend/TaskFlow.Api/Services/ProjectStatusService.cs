@@ -118,6 +118,50 @@ public class ProjectStatusService(AppDbContext dbContext)
             newStatus.Id, newStatus.Name, newStatus.Category.ToString(), newStatus.ColorKey.ToString(), newStatus.Position, ItemCount: 0);
     }
 
+    public async Task<WorkflowStatusDto> UpdateAsync(int projectId, int statusId, UpdateWorkflowStatusRequest request)
+    {
+        var project = await dbContext.Projects.Include(p => p.WorkflowStatuses).FirstOrDefaultAsync(p => p.Id == projectId);
+        if (project is null)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        var status = project.WorkflowStatuses.FirstOrDefault(s => s.Id == statusId) ?? throw new WorkflowStatusNotFoundException();
+
+        // Re-validates length and uniqueness here too, not just via the request DTO's
+        // annotation, so a rename behaves identically to CreateAsync's own rules
+        // (analyze-triage U1) regardless of caller.
+        if (request.Name is not null)
+        {
+            if (request.Name.Length < 2 || request.Name.Length > 30)
+            {
+                throw new InvalidStatusNameException();
+            }
+
+            if (project.WorkflowStatuses.Any(s => s.Id != statusId && string.Equals(s.Name, request.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new DuplicateStatusNameException();
+            }
+
+            status.Name = request.Name;
+        }
+
+        if (request.ColorKey is not null)
+        {
+            if (!Enum.TryParse<ChipColor>(request.ColorKey, ignoreCase: true, out var colorKey))
+            {
+                throw new InvalidStatusColorException();
+            }
+
+            status.ColorKey = colorKey;
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        var itemCount = await dbContext.WorkItems.CountAsync(w => w.WorkflowStatusId == statusId);
+        return new WorkflowStatusDto(status.Id, status.Name, status.Category.ToString(), status.ColorKey.ToString(), status.Position, itemCount);
+    }
+
     private static ChipColor AssignColor(WorkflowStatusCategory category, int existingCountInCategory, IReadOnlySet<ChipColor> usedInCategory)
     {
         var cycle = category == WorkflowStatusCategory.Open ? OpenColorCycle : DoneColorCycle;

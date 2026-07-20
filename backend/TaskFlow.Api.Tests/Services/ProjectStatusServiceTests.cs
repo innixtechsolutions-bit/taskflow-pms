@@ -227,4 +227,88 @@ public class ProjectStatusServiceTests : SqlServerTestDatabase
 
         Assert.Equal("Emerald", created.ColorKey);
     }
+
+    [Fact]
+    public async Task UpdateAsync_renames_and_recolors_a_status_leaving_category_position_and_items_unchanged()
+    {
+        var user = AddUser("update-rename@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var status = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open, ChipColor.Slate);
+        AddWorkItem(project.Id, user.Id, status.Id);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(project.Id, status.Id, new UpdateWorkflowStatusRequest { Name = "Doing", ColorKey = "Amber" });
+
+        Assert.Equal("Doing", result.Name);
+        Assert.Equal("Amber", result.ColorKey);
+        Assert.Equal("Open", result.Category);
+        Assert.Equal(0, result.Position);
+        Assert.Equal(1, result.ItemCount);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_is_a_no_op_200_when_neither_field_is_supplied()
+    {
+        var user = AddUser("update-noop@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var status = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open, ChipColor.Slate);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateAsync(project.Id, status.Id, new UpdateWorkflowStatusRequest());
+
+        Assert.Equal("To Do", result.Name);
+        Assert.Equal("Slate", result.ColorKey);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_a_case_insensitive_duplicate_name()
+    {
+        var user = AddUser("update-duplicate@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var done = AddStatus(project.Id, "Done", 1, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<DuplicateStatusNameException>(
+            () => sut.UpdateAsync(project.Id, done.Id, new UpdateWorkflowStatusRequest { Name = "to do" }));
+    }
+
+    [Theory]
+    [InlineData("A")]
+    [InlineData("This name is definitely far too long to be valid")]
+    public async Task UpdateAsync_rejects_a_new_name_outside_2_to_30_characters(string name)
+    {
+        var user = AddUser($"update-badname-{name.Length}@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var status = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidStatusNameException>(
+            () => sut.UpdateAsync(project.Id, status.Id, new UpdateWorkflowStatusRequest { Name = name }));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_for_a_statusId_that_does_not_belong_to_the_project()
+    {
+        var user = AddUser("update-wrongproject@example.com");
+        var projectA = AddProject("Alpha", user.Id);
+        var projectB = AddProject("Beta", user.Id);
+        var statusInB = AddStatus(projectB.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<WorkflowStatusNotFoundException>(
+            () => sut.UpdateAsync(projectA.Id, statusInB.Id, new UpdateWorkflowStatusRequest { Name = "New Name" }));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_throws_for_an_invalid_colorKey()
+    {
+        var user = AddUser("update-badcolor@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var status = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidStatusColorException>(
+            () => sut.UpdateAsync(project.Id, status.Id, new UpdateWorkflowStatusRequest { ColorKey = "Bogus" }));
+    }
 }
