@@ -201,6 +201,10 @@ describe('BoardComponent', () => {
     expect(buttons.length).toBe(4);
     // Third column is In Review (statusId 3) per sampleBoard()'s column order.
     buttons[2].click();
+    // The modal is dynamically imported (fix: restore production build) — its
+    // own chunk resolves asynchronously, not synchronously with the click, so
+    // poll rather than assume a fixed number of microtask turns.
+    await vi.waitFor(() => expect(dialogOpen).toHaveBeenCalled());
 
     expect(dialogOpen).toHaveBeenCalledWith(
       WorkItemModalComponent,
@@ -216,6 +220,7 @@ describe('BoardComponent', () => {
 
     const buttons = Array.from(fixture.nativeElement.querySelectorAll('.board-column-add')) as HTMLButtonElement[];
     buttons[0].click();
+    await vi.waitFor(() => expect(dialogOpen).toHaveBeenCalled());
 
     const { onSaved } = dialogOpen.mock.calls[0][1].data;
     getBoard.mockClear();

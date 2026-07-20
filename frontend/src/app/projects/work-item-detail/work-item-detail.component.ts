@@ -4,7 +4,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { WorkItemDetail, WorkItemsService } from '../work-items.service';
-import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
+import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { AuthService } from '../../auth/auth.service';
 import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
@@ -57,30 +57,22 @@ export class WorkItemDetailComponent implements OnInit {
   // (US1) — pre-selects this item as parent and the legal child type, and
   // re-fetches the detail once the modal reports a save.
   protected openCreateChildModal(): void {
-    this.dialog.open(WorkItemModalComponent, {
-      width: '720px',
-      maxWidth: '95vw',
-      data: {
-        mode: 'create',
-        projectId: this.projectId,
-        parentWorkItemId: this.workItemId,
-        type: this.childType(),
-        onSaved: () => void this.load(),
-      },
+    void openWorkItemModal(this.dialog, {
+      mode: 'create',
+      projectId: this.projectId,
+      parentWorkItemId: this.workItemId,
+      type: this.childType(),
+      onSaved: () => void this.load(),
     });
   }
 
   // Replaces the removed .../work-items/:id/edit routerLink (US1).
   protected openEditModal(): void {
-    this.dialog.open(WorkItemModalComponent, {
-      width: '720px',
-      maxWidth: '95vw',
-      data: {
-        mode: 'edit',
-        projectId: this.projectId,
-        workItemId: this.workItemId,
-        onSaved: () => void this.load(),
-      },
+    void openWorkItemModal(this.dialog, {
+      mode: 'edit',
+      projectId: this.projectId,
+      workItemId: this.workItemId,
+      onSaved: () => void this.load(),
     });
   }
 

@@ -462,6 +462,9 @@ describe('ProjectDetailComponent work item modal (US1)', () => {
     const fixture = await render();
 
     (fixture.nativeElement.querySelector('.new-work-item-button') as HTMLButtonElement).click();
+    // The modal is dynamically imported (fix: restore production build) — its
+    // own chunk resolves via a microtask, not synchronously with the click.
+    await vi.waitFor(() => expect(dialogOpen).toHaveBeenCalled());
 
     expect(dialogOpen).toHaveBeenCalledWith(
       WorkItemModalComponent,
@@ -474,6 +477,7 @@ describe('ProjectDetailComponent work item modal (US1)', () => {
     const fixture = await render();
 
     (fixture.nativeElement.querySelector('.empty-state-add-work-item') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(dialogOpen).toHaveBeenCalled());
 
     expect(dialogOpen).toHaveBeenCalledWith(
       WorkItemModalComponent,
@@ -490,6 +494,7 @@ describe('ProjectDetailComponent work item modal (US1)', () => {
     const fixture = await render();
 
     (fixture.nativeElement.querySelector('#work-item-1 .edit-link') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(dialogOpen).toHaveBeenCalled());
 
     expect(dialogOpen).toHaveBeenCalledWith(
       WorkItemModalComponent,
@@ -512,6 +517,7 @@ describe('ProjectDetailComponent work item modal (US1)', () => {
     const fixture = await render();
 
     (fixture.nativeElement.querySelector('#work-item-1 .edit-link') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(dialogOpen).toHaveBeenCalled());
     const { onSaved } = dialogOpen.mock.calls[0][1].data;
     getWorkItems.mockClear();
     getWorkItemsTree.mockClear();

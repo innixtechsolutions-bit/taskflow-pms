@@ -4,7 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { BoardColumn, WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardCardComponent } from './board-card.component';
-import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
+import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 import { canEditWorkItem } from '../work-item-permissions';
@@ -68,15 +68,11 @@ export class BoardComponent implements OnInit {
   // once the modal reports a save, rather than navigating away and back
   // (research.md #9).
   protected openCreateModal(statusId: number): void {
-    this.dialog.open(WorkItemModalComponent, {
-      width: '720px',
-      maxWidth: '95vw',
-      data: {
-        mode: 'create',
-        projectId: this.projectId(),
-        statusId,
-        onSaved: () => void this.load(),
-      },
+    void openWorkItemModal(this.dialog, {
+      mode: 'create',
+      projectId: this.projectId(),
+      statusId,
+      onSaved: () => void this.load(),
     });
   }
 

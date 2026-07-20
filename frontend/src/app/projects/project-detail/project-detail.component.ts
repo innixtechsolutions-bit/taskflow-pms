@@ -27,7 +27,7 @@ import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardComponent } from '../board/board.component';
-import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
+import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { canEditWorkItem } from '../work-item-permissions';
 
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
@@ -194,20 +194,21 @@ export class ProjectDetailComponent implements OnInit {
   // toolbar "New work item" button and both empty states' "Add work item"
   // actions, none of which pre-select anything.
   protected openCreateModal(): void {
-    this.dialog.open(WorkItemModalComponent, {
-      width: '720px',
-      maxWidth: '95vw',
-      data: { mode: 'create', projectId: this.projectId, onSaved: () => this.onWorkItemSaved() },
+    void openWorkItemModal(this.dialog, {
+      mode: 'create',
+      projectId: this.projectId,
+      onSaved: () => this.onWorkItemSaved(),
     });
   }
 
   // Replaces the removed .../work-items/:id/edit routerLink (US1) — used by a
   // flat-list row's "Edit" action.
   protected openEditModal(item: WorkItem): void {
-    this.dialog.open(WorkItemModalComponent, {
-      width: '720px',
-      maxWidth: '95vw',
-      data: { mode: 'edit', projectId: this.projectId, workItemId: item.id, onSaved: () => this.onWorkItemSaved() },
+    void openWorkItemModal(this.dialog, {
+      mode: 'edit',
+      projectId: this.projectId,
+      workItemId: item.id,
+      onSaved: () => this.onWorkItemSaved(),
     });
   }
 
