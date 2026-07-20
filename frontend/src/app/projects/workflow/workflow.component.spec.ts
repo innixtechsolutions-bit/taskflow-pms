@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { WorkflowComponent } from './workflow.component';
 import { ProjectStatusService } from '../project-status.service';
 import { ProjectStatus } from '../work-items.service';
+import { NotificationService } from '../../shared/notification.service';
 
 function sampleStatuses(): ProjectStatus[] {
   return [
@@ -13,16 +14,26 @@ function sampleStatuses(): ProjectStatus[] {
   ];
 }
 
-function configure(getStatuses = vi.fn().mockResolvedValue(sampleStatuses())) {
+function configure(
+  getStatuses = vi.fn().mockResolvedValue(sampleStatuses()),
+  createStatus = vi.fn()
+) {
+  const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [WorkflowComponent],
     providers: [
       provideRouter([]),
-      { provide: ProjectStatusService, useValue: { getStatuses } },
+      { provide: ProjectStatusService, useValue: { getStatuses, createStatus } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
+      { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getStatuses };
+  return { getStatuses, createStatus, notificationService };
+}
+
+function setInputValue(el: HTMLInputElement, value: string): void {
+  el.value = value;
+  el.dispatchEvent(new Event('input'));
 }
 
 async function render() {
@@ -52,5 +63,27 @@ describe('WorkflowComponent', () => {
     await render();
 
     expect(getStatuses).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('WorkflowComponent add-form (US3)', () => {
+  it('submits name + category and appends the new status to the list', async () => {
+    const createStatus = vi
+      .fn()
+      .mockResolvedValue({ id: 5, name: 'QA', category: 'Open', colorKey: 'Teal', position: 2, itemCount: 0 });
+    configure(vi.fn().mockResolvedValue(sampleStatuses()), createStatus);
+    const fixture = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    setInputValue(root.querySelector<HTMLInputElement>('.add-status-name')!, 'QA');
+    const categorySelect = root.querySelector<HTMLSelectElement>('.add-status-category')!;
+    categorySelect.value = 'Open';
+    categorySelect.dispatchEvent(new Event('change'));
+    root.querySelector('.add-status-form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(createStatus).toHaveBeenCalledWith(1, { name: 'QA', category: 'Open' });
+    expect(fixture.nativeElement.textContent).toContain('QA');
   });
 });

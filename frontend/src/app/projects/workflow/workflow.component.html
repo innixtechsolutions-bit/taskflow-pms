@@ -10,4 +10,23 @@
       </li>
     }
   </ul>
+
+  <form class="add-status-form" (submit)="$event.preventDefault(); onAddStatus()">
+    <input
+      class="add-status-name"
+      type="text"
+      placeholder="New status name"
+      [value]="newStatusName()"
+      (input)="newStatusName.set($any($event.target).value)"
+    />
+    <select
+      class="add-status-category"
+      [value]="newStatusCategory()"
+      (change)="newStatusCategory.set($any($event.target).value)"
+    >
+      <option value="Open">Open</option>
+      <option value="Done">Done</option>
+    </select>
+    <button type="submit">Add status</button>
+  </form>
 </div>

@@ -81,4 +81,104 @@ public class ProjectStatusesEndpointsTests(TaskFlowApiFactory factory) : IClassF
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task CreateStatus_returns_201_for_a_Manager_or_Admin()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name = "QA", category = "Open" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkflowStatusDto>();
+        Assert.Equal("QA", body!.Name);
+        Assert.Equal(0, body.ItemCount);
+    }
+
+    [Fact]
+    public async Task CreateStatus_returns_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var developerToken = await RegisterAndGetTokenAsync($"create-status-dev-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", developerToken);
+        request.Content = JsonContent.Create(new { name = "QA", category = "Open" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateStatus_returns_400_for_a_name_outside_2_to_30_characters()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name = "A", category = "Open" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateStatus_returns_400_for_an_invalid_category()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name = "QA", category = "Bogus" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateStatus_returns_409_for_a_duplicate_name()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name = "to do", category = "Open" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateStatus_returns_409_when_the_project_already_has_10_statuses()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        for (var i = 0; i < 6; i++)
+        {
+            var addRequest = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+            addRequest.Content = JsonContent.Create(new { name = $"Extra {i}", category = "Open" });
+            await _client.SendAsync(addRequest);
+        }
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name = "One Too Many", category = "Open" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateStatus_returns_404_for_an_unknown_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var request = AuthedRequest(HttpMethod.Post, "/api/projects/999999/statuses", adminToken);
+        request.Content = JsonContent.Create(new { name = "QA", category = "Open" });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

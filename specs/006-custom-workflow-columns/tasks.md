@@ -138,18 +138,18 @@ everywhere for that project, and a second project is unaffected.
 
 ### Tests for User Story 3
 
-- [ ] T045 [P] [US3] Backend test: `ProjectStatusService.CreateAsync` — name 2–30 chars, case-insensitive per-project uniqueness, max 10 statuses, default position (immediately before the first Done-category status) vs. an explicit position, and automatic color assignment (Open cycles open hues, Done uses green family, research.md #3) — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
-- [ ] T046 [P] [US3] Backend test: `POST api/projects/{projectId}/statuses` — 201 for Manager/Admin; 403 for any other role; 400 for an invalid name/category; 409 for a duplicate name or exceeding the 10-status max; 404 for an unknown project — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
-- [ ] T047 [P] [US3] Frontend test: `WorkflowComponent`'s add-form submits name + category and appends the new status to the list, extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
+- [X] T045 [P] [US3] Backend test: `ProjectStatusService.CreateAsync` — name 2–30 chars, case-insensitive per-project uniqueness, max 10 statuses, default position (immediately before the first Done-category status) vs. an explicit position, and automatic color assignment (Open cycles open hues, Done uses green family, research.md #3) — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
+- [X] T046 [P] [US3] Backend test: `POST api/projects/{projectId}/statuses` — 201 for Manager/Admin; 403 for any other role; 400 for an invalid name/category; 409 for a duplicate name or exceeding the 10-status max; 404 for an unknown project — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
+- [X] T047 [P] [US3] Frontend test: `WorkflowComponent`'s add-form submits name + category and appends the new status to the list, extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T048 [US3] Create `CreateWorkflowStatusRequest` record with `[Required]`/`[StringLength(30, MinimumLength = 2)]` on `Name`, matching `WorkItemRequest.Title`'s existing data-annotation convention (`Category` is enum-like and parsed/validated in the service, like `WorkItemRequest.Type`/`Status`), in `backend/TaskFlow.Api/Dtos/CreateWorkflowStatusRequest.cs`
-- [ ] T049 [US3] `ProjectStatusService.CreateAsync` (validation, default-position-before-first-Done, automatic color assignment, resequencing) in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T048; makes T045 pass
-- [ ] T050 [US3] Add `DuplicateStatusNameException` and `MaxStatusCountExceededException` in `backend/TaskFlow.Api/Services/ProjectStatusExceptions.cs`
-- [ ] T051 [US3] Add the `POST` action (`[Authorize(Roles = "Manager,Admin")]`) to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T049, T050; makes T046 pass
-- [ ] T052 [US3] Add the add-form UI to `WorkflowComponent`, calling `ProjectStatusService`, in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T047 pass
-- [ ] T053 [US3] Verify each board column's "+ Add" affordance (Feature 005) still pre-selects the correct status by id for a column added after this feature shipped, in `frontend/src/app/projects/board/board.component.html` — adjust only if the id-based wiring from T037 needs it
+- [X] T048 [US3] Create `CreateWorkflowStatusRequest` record with `[Required]`/`[StringLength(30, MinimumLength = 2)]` on `Name`, matching `WorkItemRequest.Title`'s existing data-annotation convention (`Category` is enum-like and parsed/validated in the service, like `WorkItemRequest.Type`/`Status`), in `backend/TaskFlow.Api/Dtos/CreateWorkflowStatusRequest.cs`
+- [X] T049 [US3] `ProjectStatusService.CreateAsync` (validation, default-position-before-first-Done, automatic color assignment, resequencing) in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T048; makes T045 pass
+- [X] T050 [US3] Add `DuplicateStatusNameException` and `MaxStatusCountExceededException` in `backend/TaskFlow.Api/Services/ProjectStatusExceptions.cs`
+- [X] T051 [US3] Add the `POST` action (`[Authorize(Roles = "Manager,Admin")]`) to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T049, T050; makes T046 pass
+- [X] T052 [US3] Add the add-form UI to `WorkflowComponent`, calling `ProjectStatusService`, in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T047 pass
+- [X] T053 [US3] Verify each board column's "+ Add" affordance (Feature 005) still pre-selects the correct status by id for a column added after this feature shipped, in `frontend/src/app/projects/board/board.component.html` — adjust only if the id-based wiring from T037 needs it
 
 **Checkpoint**: Adding a column works end-to-end and is refused for
 non-Manager/Admin roles, completing US2's server-refusal scenario —
