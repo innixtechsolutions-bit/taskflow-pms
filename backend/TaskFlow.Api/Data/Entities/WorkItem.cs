@@ -52,6 +52,12 @@ public class WorkItem
 
     public DateTime? DueDate { get; set; }
 
+    // Feature 007 — optional, date-only by convention (same as DueDate above).
+    // start <= due (when both are set) is enforced in WorkItemService, not the
+    // database — a column can't express "less than or equal to another
+    // nullable column" the way this rule needs when either may be absent.
+    public DateTime? StartDate { get; set; }
+
     public int CreatedByUserId { get; set; }
 
     public User? CreatedBy { get; set; }
@@ -72,4 +78,11 @@ public class WorkItem
     // Direct children only — deeper levels are reached by querying, not by walking
     // this collection recursively.
     public ICollection<WorkItem> Children { get; set; } = new List<WorkItem>();
+
+    // Feature 007 — join rows to this item's attached labels (0-5, enforced in
+    // WorkItemService). The first many-to-many relationship in this codebase,
+    // modeled with an explicit join entity rather than EF Core's implicit
+    // UsingEntity<>() table (research.md #3) so the (WorkItemId, LabelId)
+    // unique index has a natural place to live (data-model.md).
+    public ICollection<WorkItemLabel> Labels { get; set; } = new List<WorkItemLabel>();
 }

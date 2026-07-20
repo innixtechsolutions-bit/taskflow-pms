@@ -16,6 +16,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<WorkflowStatus> WorkflowStatuses => Set<WorkflowStatus>();
 
+    public DbSet<Label> Labels => Set<Label>();
+
+    public DbSet<WorkItemLabel> WorkItemLabels => Set<WorkItemLabel>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -126,6 +130,48 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.Property(s => s.Category).HasConversion<string>();
             entity.Property(s => s.ColorKey).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<Label>(entity =>
+        {
+            // Case-insensitive per project (SQL Server default collation), same
+            // mechanism as WorkflowStatus.Name/Project.Name/User.Email above.
+            entity.HasIndex(l => new { l.ProjectId, l.Name }).IsUnique();
+
+            // Deleting a project deletes its labels -- consistent with the existing
+            // Project -> WorkItem/WorkflowStatus cascades above.
+            entity.HasOne(l => l.Project)
+                .WithMany()
+                .HasForeignKey(l => l.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkItemLabel>(entity =>
+        {
+            // Prevents attaching the same label to an item twice (FR-019) and makes
+            // the 0-5 cap a plain Count() against this index (data-model.md).
+            entity.HasIndex(wl => new { wl.WorkItemId, wl.LabelId }).IsUnique();
+
+            // Deleting a work item removes its label attachments -- needed for
+            // WorkItemService.DeleteAsync's existing subtree-delete path to work
+            // without a separate cleanup step.
+            entity.HasOne(wl => wl.WorkItem)
+                .WithMany(w => w.Labels)
+                .HasForeignKey(wl => wl.WorkItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict, not Cascade: SQL Server refuses a schema where this table
+            // could be cascade-deleted through two different paths from Project
+            // (directly via Project -> Label -> WorkItemLabel, and indirectly via
+            // Project -> WorkItem -> WorkItemLabel above) -- error 1785, the same
+            // "multiple cascade paths" problem already documented for WorkItem's
+            // CreatedBy/Assignee FKs elsewhere in this file. Restrict here is also
+            // harmless in practice: no code path in this feature ever deletes a
+            // Label (research.md #5), so this FK's delete behavior never fires.
+            entity.HasOne(wl => wl.Label)
+                .WithMany(l => l.WorkItemLabels)
+                .HasForeignKey(wl => wl.LabelId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

@@ -39,11 +39,11 @@ US1/US2/US4 don't read this schema but aren't harmed by its early presence.
 US2, and US4 have no dependency on it and could proceed in parallel if
 staffed separately.
 
-- [ ] T003 Add `StartDate` (`DateTime?`) field and a `Labels` (`ICollection<WorkItemLabel>`) navigation collection to `WorkItem`, in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs`
-- [ ] T004 [P] Create the `Label` entity (`Id`, `ProjectId`, `Project` nav, `Name`, `CreatedAt`, `WorkItemLabels` nav) in `backend/TaskFlow.Api/Data/Entities/Label.cs`
-- [ ] T005 [P] Create the `WorkItemLabel` join entity (`Id`, `WorkItemId`, `WorkItem` nav, `LabelId`, `Label` nav) in `backend/TaskFlow.Api/Data/Entities/WorkItemLabel.cs`
-- [ ] T006 Configure `AppDbContext`: `Labels`/`WorkItemLabels` `DbSet`s; unique index `(ProjectId, Name)` on `Label`; unique index `(WorkItemId, LabelId)` on `WorkItemLabel`; cascade `Project → Label`, `WorkItem → WorkItemLabel`, `Label → WorkItemLabel` (data-model.md) — in `backend/TaskFlow.Api/Data/AppDbContext.cs` — depends on T003, T004, T005
-- [ ] T007 Generate the EF Core migration `AddWorkItemStartDateAndLabels` (additive schema only — new nullable column, two new tables, no data backfill) in `backend/TaskFlow.Api/Data/Migrations/` — depends on T006
+- [X] T003 Add `StartDate` (`DateTime?`) field and a `Labels` (`ICollection<WorkItemLabel>`) navigation collection to `WorkItem`, in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs`
+- [X] T004 [P] Create the `Label` entity (`Id`, `ProjectId`, `Project` nav, `Name`, `CreatedAt`, `WorkItemLabels` nav) in `backend/TaskFlow.Api/Data/Entities/Label.cs`
+- [X] T005 [P] Create the `WorkItemLabel` join entity (`Id`, `WorkItemId`, `WorkItem` nav, `LabelId`, `Label` nav) in `backend/TaskFlow.Api/Data/Entities/WorkItemLabel.cs`
+- [X] T006 Configure `AppDbContext`: `Labels`/`WorkItemLabels` `DbSet`s; unique index `(ProjectId, Name)` on `Label`; unique index `(WorkItemId, LabelId)` on `WorkItemLabel`; cascade `Project → Label`, `WorkItem → WorkItemLabel`; **`Label → WorkItemLabel` is `Restrict`, not `Cascade`** — SQL Server rejects the originally-planned `Cascade` here as a multiple-cascade-paths error (1785); corrected in data-model.md too — in `backend/TaskFlow.Api/Data/AppDbContext.cs` — depends on T003, T004, T005
+- [X] T007 Generate the EF Core migration `AddWorkItemStartDateAndLabels` (additive schema only — new nullable column, two new tables, no data backfill) in `backend/TaskFlow.Api/Data/Migrations/` — depends on T006
 
 **Checkpoint**: Schema exists; nothing user-visible changes yet.
 

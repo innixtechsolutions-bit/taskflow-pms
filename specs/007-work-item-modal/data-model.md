@@ -56,10 +56,14 @@ relationship — the first many-to-many in this codebase (research.md #3).
   removes its label attachments, consistent with `Project → WorkItem`'s
   existing cascade and needed for `WorkItemService.DeleteAsync`'s existing
   subtree-delete path to work without a separate cleanup step.
-- `Label → WorkItemLabel`: `DeleteBehavior.Cascade` — never actually fires in
-  this feature (no code path deletes a `Label`), but is the semantically
-  correct rule for the relationship and costs nothing to declare now, avoiding
-  a future schema change if a label-management screen is ever added.
+- `Label → WorkItemLabel`: `DeleteBehavior.Restrict` — `Cascade` here is
+  rejected outright by SQL Server (error 1785, "multiple cascade paths"):
+  `WorkItemLabel` would otherwise be reachable from `Project` two ways
+  (`Project → Label → WorkItemLabel` and `Project → WorkItem →
+  WorkItemLabel` above), the same class of conflict already documented for
+  `WorkItem`'s `CreatedBy`/`Assignee` FKs. `Restrict` is harmless here in
+  practice — no code path in this feature ever deletes a `Label` (research.md
+  #5), so this FK's delete behavior never actually fires.
 - `Project → Label`: `DeleteBehavior.Cascade` — deleting a project deletes its
   labels, same rule as `Project → WorkItem`/`Project → WorkflowStatus`.
 
