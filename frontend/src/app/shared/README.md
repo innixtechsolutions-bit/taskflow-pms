@@ -27,6 +27,31 @@ radius, and layout (content max-width, sidebar width, tablet breakpoint).
 **Rule**: no component hard-codes a color, spacing, or radius value for
 these concepts — if you need one, add or reuse a token instead.
 
+### `ChipColor` → token mapping (Feature 006)
+
+Each `WorkflowStatus` row (a project's own workflow column — `Id`, `Name`,
+`Position`, `Category`, `ColorKey`) picks one of these 10 `ChipColor`
+values at creation; `<app-status-chip>` maps it straight to a token pair,
+never to the status's `Name`:
+
+| `ChipColor` | Background token | Text token |
+|---|---|---|
+| `Slate` | `--color-chip-slate-bg` | `--color-chip-slate-text` |
+| `Blue` | `--color-chip-blue-bg` | `--color-chip-blue-text` |
+| `Violet` | `--color-chip-violet-bg` | `--color-chip-violet-text` |
+| `Amber` | `--color-chip-amber-bg` | `--color-chip-amber-text` |
+| `Teal` | `--color-chip-teal-bg` | `--color-chip-teal-text` |
+| `Rose` | `--color-chip-rose-bg` | `--color-chip-rose-text` |
+| `Indigo` | `--color-chip-indigo-bg` | `--color-chip-indigo-text` |
+| `Cyan` | `--color-chip-cyan-bg` | `--color-chip-cyan-text` |
+| `Green` | `--color-chip-green-bg` | `--color-chip-green-text` |
+| `Emerald` | `--color-chip-emerald-bg` | `--color-chip-emerald-text` |
+
+`Slate`–`Cyan` (8 colors) are the cycle `ProjectStatusService` assigns to
+`Open`-category statuses; `Green`/`Emerald` are the cycle for
+`Done`-category statuses (research.md #3) — together they cover the
+max-10-statuses-per-project cap (FR-004) with no repeats.
+
 ## Shared components
 
 | Component / service / pipe | What it's for |

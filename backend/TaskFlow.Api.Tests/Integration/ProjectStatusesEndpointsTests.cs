@@ -416,4 +416,39 @@ public class ProjectStatusesEndpointsTests(TaskFlowApiFactory factory) : IClassF
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    // Cross-cutting regression test (Polish, T076) confirming spec.md FR-008/SC-006's
+    // read/write authorization boundary end-to-end, across all five actions in one
+    // place -- added during /speckit-analyze triage alongside the per-action 403
+    // tests above, so a future change that accidentally loosens or tightens any one
+    // action's [Authorize] attribute is caught here even if the individual action's
+    // own test is missed.
+    [Fact]
+    public async Task Developer_can_read_statuses_but_every_mutation_is_refused()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", adminToken));
+        var current = await getResponse.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        var statusId = current!.First().Id;
+        var developerToken = await RegisterAndGetTokenAsync($"authz-boundary-dev-{Guid.NewGuid():N}@example.com");
+
+        var read = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", developerToken));
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+
+        var createRequest = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/statuses", developerToken);
+        createRequest.Content = JsonContent.Create(new { name = "QA", category = "Open" });
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.SendAsync(createRequest)).StatusCode);
+
+        var updateRequest = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/{statusId}", developerToken);
+        updateRequest.Content = JsonContent.Create(new { name = "Hijacked" });
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.SendAsync(updateRequest)).StatusCode);
+
+        var reorderRequest = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/reorder", developerToken);
+        reorderRequest.Content = JsonContent.Create(new { orderedStatusIds = current.Select(s => s.Id).ToList() });
+        Assert.Equal(HttpStatusCode.Forbidden, (await _client.SendAsync(reorderRequest)).StatusCode);
+
+        var deleteResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{statusId}", developerToken));
+        Assert.Equal(HttpStatusCode.Forbidden, deleteResponse.StatusCode);
+    }
 }

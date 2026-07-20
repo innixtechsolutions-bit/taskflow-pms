@@ -246,12 +246,12 @@ now complete, matching spec.md's Success Check.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T075 [P] Add the `WorkflowStatus`/`ChipColor` model and token table to `frontend/src/app/shared/README.md`
-- [ ] T076 Cross-cutting regression test confirming spec.md FR-008/SC-006's read/write authorization boundary end-to-end: as a Developer, `GET api/projects/{projectId}/statuses` succeeds (200); `POST`, `PUT .../{statusId}`, `PUT .../reorder`, and `DELETE .../{statusId}` are all refused (403) — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs` — depends on T030, T051, T059, T066, T073 (all five actions must exist)
-- [ ] T077 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass — SC-008
-- [ ] T078 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass — SC-008
-- [ ] T079 Cross-cutting checkpoint: grep the frontend and backend for any leftover reference to the removed `WorkItemStatus` enum or a hard-coded status-name comparison (`'ToDo'`, `'InReview'`, `== "Done"`, etc.) outside the migration's own backfill SQL — confirm none remain
-- [ ] T080 Add a "Feature 006: Custom Workflow Columns" entry to `README.md`'s "What I learned" log, matching Features 001–005's style, per the constitution's Definition of Done item 5
+- [X] T075 [P] Add the `WorkflowStatus`/`ChipColor` model and token table to `frontend/src/app/shared/README.md`
+- [X] T076 Cross-cutting regression test confirming spec.md FR-008/SC-006's read/write authorization boundary end-to-end: as a Developer, `GET api/projects/{projectId}/statuses` succeeds (200); `POST`, `PUT .../{statusId}`, `PUT .../reorder`, and `DELETE .../{statusId}` are all refused (403) — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs` — depends on T030, T051, T059, T066, T073 (all five actions must exist)
+- [X] T077 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass — SC-008
+- [X] T078 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass — SC-008
+- [X] T079 Cross-cutting checkpoint: grep the frontend and backend for any leftover reference to the removed `WorkItemStatus` enum or a hard-coded status-name comparison (`'ToDo'`, `'InReview'`, `== "Done"`, etc.) outside the migration's own backfill SQL — confirm none remain
+- [X] T080 Add a "Feature 006: Custom Workflow Columns" entry to `README.md`'s "What I learned" log, matching Features 001–005's style, per the constitution's Definition of Done item 5
 - [ ] T081 Walk through `quickstart.md` sections 1–9 manually in a running app (backend + `ng serve`), including the direct-API-bypassing-the-UI permission checks (section 3.4) and the two-projects-independence check (section 2)
 
 ---

@@ -252,3 +252,57 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   the nested `routerLink` as an ordinary click event. No custom
   click-vs-drag disambiguation code was needed — nor, per the same
   reasoning, was any needed to keep a disabled-drag card's link clickable.
+
+### Feature 006: Custom Workflow Columns
+
+- **Replacing a system-wide fixed enum with a per-project entity touches
+  nearly every existing status-aware surface by definition, so the honest
+  move was to size the work accordingly rather than pretend it was small.**
+  `WorkItemStatus` (a 4-value enum) became `WorkflowStatus` (a per-project
+  table with `Position`/`Category`/`ColorKey`) — a change with no partial
+  version, since every query, DTO, and UI element that referenced the enum
+  had to move to an id-based reference in the same coupled deploy (a status
+  can be renamed at any time, so a name-keyed reference would silently
+  break the moment a Manager renamed a column). This was the largest
+  feature so far by file count, and the constitution's own Complexity
+  Tracking section exists precisely to let a feature admit that up front
+  instead of hiding it behind an artificially small task list.
+- **An EF Core migration's auto-scaffolded operation order can silently
+  destroy data, and the only way to catch it is to test the migration
+  itself, not just the model it produces.** The scaffolded migration
+  dropped the old `Status` column and defaulted the new
+  `WorkflowStatusId` to 0 *before* any backfill ran — invisible in every
+  ordinary service test, because those all build a fresh schema straight
+  from the current EF model (`EnsureCreatedAsync`) and never see the
+  in-between state a real upgrade passes through. The fix was twofold:
+  hand-reorder the migration's `Up()` (create table → nullable column →
+  raw-SQL backfill while the old column still exists → `NOT NULL` → drop
+  old column), and add a dedicated migration-replay test that uses
+  `IMigrator.MigrateAsync("<name>")` to stop a real database at the
+  pre-migration schema, seed it with raw ADO.NET (the current C# model can
+  no longer represent the old shape), then migrate forward and assert on
+  the result. A green test suite built entirely on today's model can still
+  hide a data-loss bug in the path that gets you there.
+- **A "closed set" and a "no-longer-closed set" can sit right next to each
+  other in the same concept, and treating them differently is what keeps
+  compile-time safety.** Status *names* went from fixed to per-project and
+  arbitrary — but status *colors* stayed a fixed, curated 10-member
+  `ChipColor` palette, and status *category* stayed a fixed `Open`/`Done`
+  pair. Re-keying `StatusChipComponent`'s exhaustive switch from the
+  now-open status name to the still-closed `ChipColor` preserved the
+  compiler's ability to catch a missing case, instead of quietly losing
+  that guarantee everywhere status was displayed. The lesson generalizes:
+  when a feature "opens up" one closed set, check its neighbors
+  individually rather than assuming they all opened up together.
+- **A read endpoint and its own management screen can have different
+  authorization rules, and conflating them nearly shipped a regression.**
+  The natural instinct was to gate the whole `api/projects/{id}/statuses`
+  read the same way as the new add/rename/reorder/delete actions
+  (Manager/Admin only) — it's the same controller, after all. But the
+  board, status dropdowns, and filters every role already depends on
+  (Feature 001-005) all read from that same endpoint, so restricting it
+  would have silently broken every non-Manager's board. Caught during
+  `/speckit-analyze`: only the *mutating* actions are role-restricted; the
+  read stays open to any authenticated user, and a dedicated cross-cutting
+  test now asserts both halves of that boundary in one place so a future
+  change can't loosen or tighten either side unnoticed.
