@@ -113,14 +113,14 @@ is shown.
 
 ### Tests for User Story 2
 
-- [ ] T040 [P] [US2] Frontend test: `WorkflowComponent` lists statuses in position order with name/category/item count, in new `frontend/src/app/projects/workflow/workflow.component.spec.ts`
-- [ ] T041 [P] [US2] Frontend test: the "Workflow" entry point is hidden for a Developer and shown for a Manager/Admin, extending `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`
+- [X] T040 [P] [US2] Frontend test: `WorkflowComponent` lists statuses in position order with name/category/item count, in new `frontend/src/app/projects/workflow/workflow.component.spec.ts`
+- [X] T041 [P] [US2] Frontend test: the "Workflow" entry point is hidden for a Developer and shown for a Manager/Admin, extending `frontend/src/app/projects/project-detail/project-detail.component.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T042 [US2] Create `WorkflowComponent` (read-only list for now: name, category, item count, in position order) in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html` + `.css`) — depends on T031; makes T040 pass
-- [ ] T043 [US2] Add the `/projects/:id/workflow` route and a "Workflow" link on the project-detail header, gated by the existing `canManageProject()` check (same as today's Edit/Delete project links), in `frontend/src/app/app.routes.ts` and `frontend/src/app/projects/project-detail/project-detail.component.html` — depends on T042; makes T041 pass
-- [ ] T044 [US2] Create `ProjectStatusService` (Angular service — add/rename/reorder/delete calls extended by later stories; only `getStatuses()`-adjacent wiring needed now) in `frontend/src/app/projects/project-status.service.ts`
+- [X] T042 [US2] Create `WorkflowComponent` (read-only list for now: name, category, item count, in position order) in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html` + `.css`) — depends on T031; makes T040 pass
+- [X] T043 [US2] Add the `/projects/:id/workflow` route and a "Workflow" link on the project-detail header, gated by the existing `canManageProject()` check (same as today's Edit/Delete project links), in `frontend/src/app/app.routes.ts` and `frontend/src/app/projects/project-detail/project-detail.component.html` — depends on T042; makes T041 pass
+- [X] T044 [US2] Create `ProjectStatusService` (Angular service — add/rename/reorder/delete calls extended by later stories; only `getStatuses()`-adjacent wiring needed now) in `frontend/src/app/projects/project-status.service.ts`
 
 **Checkpoint**: Workflow screen shows accurate, position-ordered data;
 hidden from Developers — quickstart.md section 3 (read-only part) passes.

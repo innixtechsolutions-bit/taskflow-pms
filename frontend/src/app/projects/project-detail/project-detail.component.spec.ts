@@ -428,6 +428,29 @@ describe('ProjectDetailComponent project-level edit/delete controls', () => {
   });
 });
 
+describe('ProjectDetailComponent workflow entry point (US2)', () => {
+  it('shows a Workflow link for a Manager', async () => {
+    configure(undefined, undefined, { id: 1, role: 'Manager' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.workflow-link')).toBeTruthy();
+  });
+
+  it('shows a Workflow link for an Admin', async () => {
+    configure(undefined, undefined, { id: 1, role: 'Admin' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.workflow-link')).toBeTruthy();
+  });
+
+  it('hides the Workflow link for a Developer (US2 scenario 2)', async () => {
+    configure(undefined, undefined, { id: 1, role: 'Developer' });
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.workflow-link')).toBeNull();
+  });
+});
+
 describe('ProjectDetailComponent filter, search, and pagination', () => {
   it('applies a status filter and re-requests with it', async () => {
     const getWorkItems = vi

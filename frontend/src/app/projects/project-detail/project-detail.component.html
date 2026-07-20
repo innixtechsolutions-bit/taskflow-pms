@@ -6,6 +6,7 @@
     </div>
     @if (canManageProject()) {
       <div class="project-header-actions">
+        <a mat-button class="workflow-link" [routerLink]="['/projects', p.id, 'workflow']">Workflow</a>
         <a mat-button class="project-edit-link" [routerLink]="['/projects', p.id, 'edit']">Edit project</a>
         <button mat-button type="button" class="project-delete-button" (click)="onDeleteProject()">Delete project</button>
       </div>

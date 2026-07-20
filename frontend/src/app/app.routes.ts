@@ -9,6 +9,7 @@ import { ProjectFormComponent } from './projects/project-form/project-form.compo
 import { ProjectsListComponent } from './projects/projects-list/projects-list.component';
 import { WorkItemDetailComponent } from './projects/work-item-detail/work-item-detail.component';
 import { WorkItemFormComponent } from './projects/work-item-form/work-item-form.component';
+import { WorkflowComponent } from './projects/workflow/workflow.component';
 import { UsersListComponent } from './users/users-list/users-list.component';
 
 // No wildcard route yet: later stories will add more real destinations, and a
@@ -27,5 +28,6 @@ export const routes: Routes = [
   { path: 'projects/:projectId/work-items/:id/edit', component: WorkItemFormComponent, canActivate: [authGuard] },
   { path: 'projects/:projectId/work-items/:id', component: WorkItemDetailComponent, canActivate: [authGuard] },
   { path: 'projects/:id/edit', component: ProjectFormComponent, canActivate: [authGuard] },
+  { path: 'projects/:id/workflow', component: WorkflowComponent, canActivate: [authGuard] },
   { path: 'projects/:id', component: ProjectDetailComponent, canActivate: [authGuard] },
 ];

@@ -1,0 +1,13 @@
+<div class="workflow-page">
+  <a class="back-link" [routerLink]="['/projects', projectId]">&larr; Back to project</a>
+  <h1>Workflow</h1>
+  <ul class="workflow-list">
+    @for (status of statuses(); track status.id) {
+      <li class="workflow-row">
+        <span class="workflow-name">{{ status.name }}</span>
+        <span class="workflow-category">{{ status.category }}</span>
+        <span class="workflow-count">{{ status.itemCount }} item(s)</span>
+      </li>
+    }
+  </ul>
+</div>
