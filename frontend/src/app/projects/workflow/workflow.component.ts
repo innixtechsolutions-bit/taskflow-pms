@@ -1,16 +1,18 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ProjectStatus, WorkItemStatusCategory } from '../work-items.service';
 import { ProjectStatusService } from '../project-status.service';
 import { NotificationService } from '../../shared/notification.service';
 
 // The Workflow management screen (Feature 006, US2) — created here read-only and
 // extended in place by US3-US6 (add/rename/reorder/delete), rather than rebuilt
-// per story (plan.md).
+// per story (plan.md). Column reordering (US5) is this dependency's second,
+// independent consumer after Feature 005's board card dragging.
 @Component({
   selector: 'app-workflow',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, DragDropModule],
   templateUrl: './workflow.component.html',
   styleUrl: './workflow.component.css',
 })
@@ -75,5 +77,27 @@ export class WorkflowComponent implements OnInit {
     } catch {
       this.editError.set('A status with this name already exists in this project.');
     }
+  }
+
+  // Optimistic, same style as the board's card drag (FR-012): reorders locally first,
+  // then persists; reverts by re-fetching if the request fails.
+  protected onReorderDrop(event: CdkDragDrop<ProjectStatus[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const reordered = [...this.statuses()];
+    moveItemInArray(reordered, event.previousIndex, event.currentIndex);
+    this.statuses.set(reordered);
+
+    this.projectStatusService
+      .reorderStatuses(
+        this.projectId,
+        reordered.map((s) => s.id)
+      )
+      .then((updated) => this.statuses.set(updated))
+      .catch(() => {
+        this.notificationService.error('Could not reorder statuses. Please try again.');
+        void this.loadStatuses();
+      });
   }
 }

@@ -311,4 +311,70 @@ public class ProjectStatusServiceTests : SqlServerTestDatabase
         await Assert.ThrowsAsync<InvalidStatusColorException>(
             () => sut.UpdateAsync(project.Id, status.Id, new UpdateWorkflowStatusRequest { ColorKey = "Bogus" }));
     }
+
+    private static ReorderWorkflowStatusesRequest ReorderRequest(params int[] ids) => new() { OrderedStatusIds = [.. ids] };
+
+    [Fact]
+    public async Task ReorderAsync_resequences_statuses_per_the_given_id_order()
+    {
+        var user = AddUser("reorder-basic@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var inProgress = AddStatus(project.Id, "In Progress", 1, WorkflowStatusCategory.Open);
+        var done = AddStatus(project.Id, "Done", 2, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        var result = await sut.ReorderAsync(project.Id, ReorderRequest(done.Id, toDo.Id, inProgress.Id));
+
+        Assert.Equal(
+            new[] { ("Done", 0), ("To Do", 1), ("In Progress", 2) },
+            result.OrderBy(s => s.Position).Select(s => (s.Name, s.Position)).ToArray());
+    }
+
+    [Fact]
+    public async Task ReorderAsync_rejects_an_order_missing_one_of_the_projects_statuses()
+    {
+        var user = AddUser("reorder-missing@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "Done", 1, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidStatusOrderException>(
+            () => sut.ReorderAsync(project.Id, ReorderRequest(toDo.Id)));
+    }
+
+    [Fact]
+    public async Task ReorderAsync_rejects_an_order_containing_an_unknown_id()
+    {
+        var user = AddUser("reorder-unknown@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var done = AddStatus(project.Id, "Done", 1, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidStatusOrderException>(
+            () => sut.ReorderAsync(project.Id, ReorderRequest(toDo.Id, done.Id, 999999)));
+    }
+
+    [Fact]
+    public async Task ReorderAsync_rejects_an_order_with_a_duplicate_id()
+    {
+        var user = AddUser("reorder-duplicate@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var done = AddStatus(project.Id, "Done", 1, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidStatusOrderException>(
+            () => sut.ReorderAsync(project.Id, ReorderRequest(toDo.Id, toDo.Id)));
+    }
+
+    [Fact]
+    public async Task ReorderAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.ReorderAsync(999999, ReorderRequest()));
+    }
 }

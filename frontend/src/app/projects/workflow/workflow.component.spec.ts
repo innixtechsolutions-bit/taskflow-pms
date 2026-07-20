@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { vi } from 'vitest';
 import { WorkflowComponent } from './workflow.component';
 import { ProjectStatusService } from '../project-status.service';
@@ -17,19 +18,20 @@ function sampleStatuses(): ProjectStatus[] {
 function configure(
   getStatuses = vi.fn().mockResolvedValue(sampleStatuses()),
   createStatus = vi.fn(),
-  updateStatus = vi.fn()
+  updateStatus = vi.fn(),
+  reorderStatuses = vi.fn().mockResolvedValue(sampleStatuses())
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [WorkflowComponent],
     providers: [
       provideRouter([]),
-      { provide: ProjectStatusService, useValue: { getStatuses, createStatus, updateStatus } },
+      { provide: ProjectStatusService, useValue: { getStatuses, createStatus, updateStatus, reorderStatuses } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
       { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getStatuses, createStatus, updateStatus, notificationService };
+  return { getStatuses, createStatus, updateStatus, reorderStatuses, notificationService };
 }
 
 function setInputValue(el: HTMLInputElement, value: string): void {
@@ -129,5 +131,25 @@ describe('WorkflowComponent inline rename (US4)', () => {
 
     expect(fixture.nativeElement.querySelector('.edit-error')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.edit-status-name')).toBeTruthy();
+  });
+});
+
+describe('WorkflowComponent drag reorder (US5)', () => {
+  it('calls the reorder endpoint with the new id sequence on drop', async () => {
+    const reorderStatuses = vi.fn().mockResolvedValue(sampleStatuses());
+    configure(vi.fn().mockResolvedValue(sampleStatuses()), undefined, undefined, reorderStatuses);
+    const fixture = await render();
+
+    // Dragging the first row (id 1, "To Do") to the last position -- CDK's drop event
+    // carries indices, not ids; exercising the handler directly (rather than
+    // simulating real pointer events, which CDK's drag-drop doesn't support well in
+    // jsdom) is this codebase's established way to test drop logic.
+    (fixture.componentInstance as unknown as { onReorderDrop(event: CdkDragDrop<ProjectStatus[]>): void }).onReorderDrop({
+      previousIndex: 0,
+      currentIndex: 2,
+    } as CdkDragDrop<ProjectStatus[]>);
+    await fixture.whenStable();
+
+    expect(reorderStatuses).toHaveBeenCalledWith(1, [2, 4, 1]);
   });
 });

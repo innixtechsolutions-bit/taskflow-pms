@@ -17,3 +17,6 @@ public class MaxStatusCountExceededException() : Exception(
 
 public class WorkflowStatusNotFoundException() : Exception(
     "Status not found, or it does not belong to this project.");
+
+public class InvalidStatusOrderException() : Exception(
+    "The provided order must contain exactly this project's current statuses, with no missing, unknown, or duplicate ids.");

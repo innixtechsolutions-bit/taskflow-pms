@@ -59,7 +59,11 @@ public class ProjectStatusesController(ProjectStatusService projectStatusService
         }
     }
 
-    [HttpPut("{statusId}")]
+    // The {statusId:int} constraint (rather than a bare {statusId}) keeps this route
+    // from ever matching literal-segment routes like PUT .../statuses/reorder below --
+    // ASP.NET Core route precedence already favors literal segments, but the explicit
+    // constraint makes the two routes unambiguous regardless.
+    [HttpPut("{statusId:int}")]
     [Authorize(Roles = "Manager,Admin")]
     public async Task<ActionResult<WorkflowStatusDto>> UpdateStatus(int projectId, int statusId, UpdateWorkflowStatusRequest request)
     {
@@ -86,6 +90,24 @@ public class ProjectStatusesController(ProjectStatusService projectStatusService
         catch (DuplicateStatusNameException ex)
         {
             return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
+        }
+    }
+
+    [HttpPut("reorder")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<ActionResult<List<WorkflowStatusDto>>> Reorder(int projectId, ReorderWorkflowStatusesRequest request)
+    {
+        try
+        {
+            return Ok(await projectStatusService.ReorderAsync(projectId, request));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (InvalidStatusOrderException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
     }
 }

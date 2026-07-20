@@ -1,9 +1,9 @@
 <div class="workflow-page">
   <a class="back-link" [routerLink]="['/projects', projectId]">&larr; Back to project</a>
   <h1>Workflow</h1>
-  <ul class="workflow-list">
+  <ul class="workflow-list" cdkDropList (cdkDropListDropped)="onReorderDrop($event)">
     @for (status of statuses(); track status.id) {
-      <li class="workflow-row">
+      <li class="workflow-row" cdkDrag [cdkDragData]="status">
         @if (editingId() === status.id) {
           <input
             class="edit-status-name"

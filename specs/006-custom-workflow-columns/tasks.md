@@ -197,16 +197,16 @@ order match, and a second project's order is unaffected.
 
 ### Tests for User Story 5
 
-- [ ] T061 [P] [US5] Backend test: `ProjectStatusService.ReorderAsync` resequences per a given id order and rejects a non-permutation (missing id, unknown id, duplicate) — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
-- [ ] T062 [P] [US5] Backend test: `PUT api/projects/{projectId}/statuses/reorder` — 200/400/403/404 cases (403 for a non-Manager/Admin caller, same rule as every other mutation) — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
-- [ ] T063 [P] [US5] Frontend test: `WorkflowComponent`'s drag reorder calls the reorder endpoint with the new id sequence, extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
+- [X] T061 [P] [US5] Backend test: `ProjectStatusService.ReorderAsync` resequences per a given id order and rejects a non-permutation (missing id, unknown id, duplicate) — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
+- [X] T062 [P] [US5] Backend test: `PUT api/projects/{projectId}/statuses/reorder` — 200/400/403/404 cases (403 for a non-Manager/Admin caller, same rule as every other mutation) — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
+- [X] T063 [P] [US5] Frontend test: `WorkflowComponent`'s drag reorder calls the reorder endpoint with the new id sequence, extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T064 [US5] Create `ReorderWorkflowStatusesRequest` record in `backend/TaskFlow.Api/Dtos/ReorderWorkflowStatusesRequest.cs`
-- [ ] T065 [US5] `ProjectStatusService.ReorderAsync` in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T064; makes T061 pass
-- [ ] T066 [US5] Add the `PUT .../statuses/reorder` action to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T065; makes T062 pass
-- [ ] T067 [US5] Wire `@angular/cdk/drag-drop`'s `cdkDropList`/`cdkDrag` into `WorkflowComponent` for column reordering (second consumer of this dependency, after Feature 005's board cards), in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T063 pass
+- [X] T064 [US5] Create `ReorderWorkflowStatusesRequest` record in `backend/TaskFlow.Api/Dtos/ReorderWorkflowStatusesRequest.cs`
+- [X] T065 [US5] `ProjectStatusService.ReorderAsync` in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T064; makes T061 pass
+- [X] T066 [US5] Add the `PUT .../statuses/reorder` action to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T065; makes T062 pass
+- [X] T067 [US5] Wire `@angular/cdk/drag-drop`'s `cdkDropList`/`cdkDrag` into `WorkflowComponent` for column reordering (second consumer of this dependency, after Feature 005's board cards), in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T063 pass
 
 **Checkpoint**: Reordering propagates everywhere for that project only —
 quickstart.md section 6 passes.

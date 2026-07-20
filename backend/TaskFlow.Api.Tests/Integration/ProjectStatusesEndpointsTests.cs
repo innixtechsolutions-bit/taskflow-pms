@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using TaskFlow.Api.Dtos;
 using TaskFlow.Api.Tests.TestSupport;
+using System.Linq;
 
 namespace TaskFlow.Api.Tests.Integration;
 
@@ -264,5 +265,64 @@ public class ProjectStatusesEndpointsTests(TaskFlowApiFactory factory) : IClassF
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Reorder_returns_200_with_the_new_order_for_a_Manager_or_Admin()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", adminToken));
+        var current = await getResponse.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        var reversedIds = current!.OrderByDescending(s => s.Position).Select(s => s.Id).ToList();
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/reorder", adminToken);
+        request.Content = JsonContent.Create(new { orderedStatusIds = reversedIds });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        Assert.Equal(reversedIds, body!.OrderBy(s => s.Position).Select(s => s.Id).ToList());
+    }
+
+    [Fact]
+    public async Task Reorder_returns_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", adminToken));
+        var current = await getResponse.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        var developerToken = await RegisterAndGetTokenAsync($"reorder-dev-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/reorder", developerToken);
+        request.Content = JsonContent.Create(new { orderedStatusIds = current!.Select(s => s.Id).ToList() });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Reorder_returns_400_for_a_non_permutation()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/statuses/reorder", adminToken);
+        request.Content = JsonContent.Create(new { orderedStatusIds = new[] { 999999 } });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Reorder_returns_404_for_an_unknown_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var request = AuthedRequest(HttpMethod.Put, "/api/projects/999999/statuses/reorder", adminToken);
+        request.Content = JsonContent.Create(new { orderedStatusIds = Array.Empty<int>() });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }

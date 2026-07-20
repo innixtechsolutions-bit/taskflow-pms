@@ -162,6 +162,36 @@ public class ProjectStatusService(AppDbContext dbContext)
         return new WorkflowStatusDto(status.Id, status.Name, status.Category.ToString(), status.ColorKey.ToString(), status.Position, itemCount);
     }
 
+    public async Task<List<WorkflowStatusDto>> ReorderAsync(int projectId, ReorderWorkflowStatusesRequest request)
+    {
+        var project = await dbContext.Projects.Include(p => p.WorkflowStatuses).FirstOrDefaultAsync(p => p.Id == projectId);
+        if (project is null)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        var existingIds = project.WorkflowStatuses.Select(s => s.Id).ToHashSet();
+        var orderedIds = request.OrderedStatusIds;
+
+        // Must be an exact permutation of the project's current status ids -- no more,
+        // no fewer, no duplicates, no unknown ids (contracts/workflow-api.md).
+        if (orderedIds.Count != existingIds.Count
+            || orderedIds.Distinct().Count() != orderedIds.Count
+            || orderedIds.Any(id => !existingIds.Contains(id)))
+        {
+            throw new InvalidStatusOrderException();
+        }
+
+        for (var i = 0; i < orderedIds.Count; i++)
+        {
+            project.WorkflowStatuses.First(s => s.Id == orderedIds[i]).Position = i;
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        return await GetStatusesAsync(projectId);
+    }
+
     private static ChipColor AssignColor(WorkflowStatusCategory category, int existingCountInCategory, IReadOnlySet<ChipColor> usedInCategory)
     {
         var cycle = category == WorkflowStatusCategory.Open ? OpenColorCycle : DoneColorCycle;
