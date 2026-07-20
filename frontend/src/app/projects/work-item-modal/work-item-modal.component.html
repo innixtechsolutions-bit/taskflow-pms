@@ -70,15 +70,18 @@
       </mat-select>
     </mat-form-field>
 
-    <mat-form-field appearance="outline">
-      <mat-label>Assignee</mat-label>
-      <mat-select id="assigneeUserId" [value]="assigneeUserId()" (selectionChange)="onAssigneeChange($event.value)">
-        <mat-option value="">Unassigned</mat-option>
-        @for (u of assignableUsers(); track u.id) {
-          <mat-option [value]="u.id.toString()">{{ u.fullName }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
+    <div class="assignee-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Assignee</mat-label>
+        <mat-select id="assigneeUserId" [value]="assigneeUserId()" (selectionChange)="onAssigneeChange($event.value)">
+          <mat-option value="">Unassigned</mat-option>
+          @for (u of assignableUsers(); track u.id) {
+            <mat-option [value]="u.id.toString()">{{ u.fullName }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-button type="button" class="assign-to-me-button" (click)="assignToMe()">Assign to me</button>
+    </div>
 
     <mat-form-field appearance="outline">
       <mat-label>Due date</mat-label>

@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ProjectStatus, UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
+import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 
 interface TitleFormModel {
@@ -66,6 +67,7 @@ export interface WorkItemModalData {
 export class WorkItemModalComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
   private readonly notificationService = inject(NotificationService);
+  private readonly authService = inject(AuthService);
   private readonly data = inject<WorkItemModalData>(MAT_DIALOG_DATA);
   private readonly dialogRef = inject(MatDialogRef<WorkItemModalComponent>);
 
@@ -198,6 +200,16 @@ export class WorkItemModalComponent implements OnInit {
   protected onAssigneeChange(value: string): void {
     this.markDirty();
     this.assigneeUserId.set(value);
+  }
+
+  // "Assign to me" (US2) — one click, both modes; works the same as any other
+  // assignee change (goes through the same setter, so it also marks dirty and
+  // isn't persisted until Submit in edit mode).
+  protected assignToMe(): void {
+    const userId = this.authService.currentUser()?.id;
+    if (userId !== undefined) {
+      this.onAssigneeChange(userId.toString());
+    }
   }
 
   protected onDueDateChange(value: Date | null): void {

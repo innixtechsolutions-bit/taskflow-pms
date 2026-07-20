@@ -7,6 +7,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { vi } from 'vitest';
 import { WorkItemModalComponent, WorkItemModalData } from './work-item-modal.component';
 import { ProjectStatus, WorkItemsService } from '../work-items.service';
+import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 
 const sampleUsers = [
@@ -68,7 +69,8 @@ function configure(
     getAssignableUsers: ReturnType<typeof vi.fn>;
     getParentCandidates: ReturnType<typeof vi.fn>;
     getStatuses: ReturnType<typeof vi.fn>;
-  }> = {}
+  }> = {},
+  currentUser: { id: number } | null = { id: 1 }
 ) {
   const close = vi.fn();
   const onSaved = vi.fn();
@@ -91,6 +93,7 @@ function configure(
     providers: [
       { provide: WorkItemsService, useValue: services },
       { provide: NotificationService, useValue: notificationService },
+      { provide: AuthService, useValue: { currentUser: () => currentUser } },
       { provide: MAT_DIALOG_DATA, useValue: { mode: 'create', projectId: 1, onSaved, ...data } },
       { provide: MatDialogRef, useValue: dialogRef },
       provideNativeDateAdapter(),
@@ -139,6 +142,30 @@ describe('WorkItemModalComponent (edit mode, pre-population)', () => {
     expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('In Progress');
     expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Grace Hopper');
     expect(await (await selectByLabel(loader, 'Parent')).getValueText()).toBe('Epic One');
+  });
+});
+
+describe('WorkItemModalComponent (Assign to me, US2)', () => {
+  it('sets the assignee to the current user in create mode', async () => {
+    configure({ mode: 'create' }, {}, { id: 1 });
+    const { fixture, loader } = await render();
+
+    (fixture.nativeElement.querySelector('.assign-to-me-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Ada Lovelace');
+  });
+
+  it('switches the assignee to the current user in edit mode on an item assigned to someone else', async () => {
+    configure({ mode: 'edit', workItemId: 7 }, {}, { id: 1 });
+    const { fixture, loader } = await render();
+
+    expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Grace Hopper');
+
+    (fixture.nativeElement.querySelector('.assign-to-me-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Ada Lovelace');
   });
 });
 

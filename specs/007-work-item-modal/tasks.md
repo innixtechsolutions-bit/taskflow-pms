@@ -99,12 +99,12 @@ item assigned to someone else.
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Frontend test: clicking "Assign to me" in create mode sets `assigneeUserId` to `AuthService.currentUser()?.id` — `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
-- [ ] T021 [P] [US2] Frontend test: clicking "Assign to me" in edit mode on an item assigned to another user switches `assigneeUserId` to the current user — same spec file
+- [X] T020 [P] [US2] Frontend test: clicking "Assign to me" in create mode sets `assigneeUserId` to `AuthService.currentUser()?.id` — `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
+- [X] T021 [P] [US2] Frontend test: clicking "Assign to me" in edit mode on an item assigned to another user switches `assigneeUserId` to the current user — same spec file
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Add the "Assign to me" control next to the Assignee field in `work-item-modal.component.ts` (+ `.html`), setting `assigneeUserId` from `AuthService.currentUser()?.id` — depends on T013; makes T020, T021 pass
+- [X] T022 [US2] Add the "Assign to me" control next to the Assignee field in `work-item-modal.component.ts` (+ `.html`), setting `assigneeUserId` from `AuthService.currentUser()?.id` — depends on T013; makes T020, T021 pass
 
 **Checkpoint**: "Assign to me" works in both modes — quickstart.md section 2
 passes.

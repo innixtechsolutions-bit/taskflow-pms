@@ -16,3 +16,18 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* "Assign to me" (US2) sits next to the Assignee field, not inside it. */
+.assignee-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.assignee-row mat-form-field {
+  flex: 1;
+}
+
+.assign-to-me-button {
+  margin-top: 4px;
+}
