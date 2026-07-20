@@ -19,19 +19,23 @@ function configure(
   getStatuses = vi.fn().mockResolvedValue(sampleStatuses()),
   createStatus = vi.fn(),
   updateStatus = vi.fn(),
-  reorderStatuses = vi.fn().mockResolvedValue(sampleStatuses())
+  reorderStatuses = vi.fn().mockResolvedValue(sampleStatuses()),
+  deleteStatus = vi.fn().mockResolvedValue(undefined)
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   TestBed.configureTestingModule({
     imports: [WorkflowComponent],
     providers: [
       provideRouter([]),
-      { provide: ProjectStatusService, useValue: { getStatuses, createStatus, updateStatus, reorderStatuses } },
+      {
+        provide: ProjectStatusService,
+        useValue: { getStatuses, createStatus, updateStatus, reorderStatuses, deleteStatus },
+      },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: '1' }) } } },
       { provide: NotificationService, useValue: notificationService },
     ],
   });
-  return { getStatuses, createStatus, updateStatus, reorderStatuses, notificationService };
+  return { getStatuses, createStatus, updateStatus, reorderStatuses, deleteStatus, notificationService };
 }
 
 function setInputValue(el: HTMLInputElement, value: string): void {
@@ -151,5 +155,78 @@ describe('WorkflowComponent drag reorder (US5)', () => {
     await fixture.whenStable();
 
     expect(reorderStatuses).toHaveBeenCalledWith(1, [2, 4, 1]);
+  });
+});
+
+describe('WorkflowComponent delete (US6)', () => {
+  function statusesForDelete(): ProjectStatus[] {
+    return [
+      { id: 1, name: 'To Do', category: 'Open', colorKey: 'Slate', position: 0, itemCount: 0 },
+      { id: 2, name: 'In Progress', category: 'Open', colorKey: 'Blue', position: 1, itemCount: 3 },
+      { id: 4, name: 'Done', category: 'Done', colorKey: 'Green', position: 2, itemCount: 5 },
+    ];
+  }
+
+  function rowFor(fixture: { nativeElement: HTMLElement }, name: string): HTMLElement {
+    return Array.from(fixture.nativeElement.querySelectorAll<HTMLElement>('.workflow-row')).find((row) =>
+      row.textContent?.includes(name)
+    )!;
+  }
+
+  it('deletes an empty column directly, without a destination picker', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const deleteStatus = vi.fn().mockResolvedValue(undefined);
+    configure(vi.fn().mockResolvedValue(statusesForDelete()), undefined, undefined, undefined, deleteStatus);
+    const fixture = await render();
+
+    (rowFor(fixture, 'To Do').querySelector('.delete-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(deleteStatus).toHaveBeenCalledWith(1, 1, undefined);
+    expect(fixture.nativeElement.textContent).not.toContain('To Do');
+    expect(fixture.nativeElement.querySelector('.destination-picker')).toBeNull();
+    confirmSpy.mockRestore();
+  });
+
+  it('prompts a destination picker for a non-empty column and confirms with the exact wording', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const deleteStatus = vi.fn().mockResolvedValue(undefined);
+    configure(vi.fn().mockResolvedValue(statusesForDelete()), undefined, undefined, undefined, deleteStatus);
+    const fixture = await render();
+
+    (rowFor(fixture, 'Done').querySelector('.delete-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(deleteStatus).not.toHaveBeenCalled();
+    const picker = rowFor(fixture, 'Done').querySelector('.destination-picker') as HTMLSelectElement;
+    expect(picker).toBeTruthy();
+    picker.value = '1';
+    picker.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    (rowFor(fixture, 'Done').querySelector('.confirm-delete-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(confirmSpy).toHaveBeenCalledWith("Move 5 items to 'To Do' and delete 'Done'?");
+    expect(deleteStatus).toHaveBeenCalledWith(1, 4, 1);
+    confirmSpy.mockRestore();
+  });
+
+  it("surfaces the server's error when deleting the last status in a category", async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const deleteStatus = vi.fn().mockRejectedValue(new Error('Last status in category'));
+    const { notificationService } = configure(
+      vi.fn().mockResolvedValue(statusesForDelete()),
+      undefined,
+      undefined,
+      undefined,
+      deleteStatus
+    );
+    const fixture = await render();
+
+    (rowFor(fixture, 'To Do').querySelector('.delete-button') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(notificationService.error).toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 });

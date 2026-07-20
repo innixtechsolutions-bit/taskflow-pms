@@ -21,6 +21,30 @@
           <span class="workflow-category">{{ status.category }}</span>
           <span class="workflow-count">{{ status.itemCount }} item(s)</span>
           <button type="button" class="rename-button" (click)="onStartEdit(status)">Rename</button>
+          <button type="button" class="delete-button" (click)="onClickDelete(status)">Delete</button>
+          @if (pendingDeleteId() === status.id) {
+            <select
+              class="destination-picker"
+              [value]="destinationStatusId()"
+              (change)="destinationStatusId.set(+$any($event.target).value)"
+            >
+              <option [value]="null" disabled>Move items to...</option>
+              @for (other of statuses(); track other.id) {
+                @if (other.id !== status.id) {
+                  <option [value]="other.id">{{ other.name }}</option>
+                }
+              }
+            </select>
+            <button
+              type="button"
+              class="confirm-delete-button"
+              [disabled]="destinationStatusId() === null"
+              (click)="onConfirmDeleteWithMove(status)"
+            >
+              Confirm
+            </button>
+            <button type="button" class="cancel-delete-button" (click)="onCancelDelete()">Cancel</button>
+          }
         }
       </li>
     }

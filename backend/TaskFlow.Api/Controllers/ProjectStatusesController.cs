@@ -110,4 +110,40 @@ public class ProjectStatusesController(ProjectStatusService projectStatusService
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
     }
+
+    [HttpDelete("{statusId:int}")]
+    [Authorize(Roles = "Manager,Admin")]
+    public async Task<IActionResult> DeleteStatus(int projectId, int statusId, [FromQuery] int? destinationStatusId)
+    {
+        try
+        {
+            await projectStatusService.DeleteAsync(projectId, statusId, destinationStatusId);
+            return NoContent();
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (WorkflowStatusNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (LastStatusInCategoryException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidDestinationStatusException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (DestinationStatusRequiredException ex)
+        {
+            // The client needs the current item count to render "Move N items..."
+            // (contracts/workflow-api.md) -- Problem() alone can't carry it, so the
+            // ProblemDetails.Extensions bag is populated directly.
+            var problemDetails = new ProblemDetails { Status = StatusCodes.Status400BadRequest, Detail = ex.Message };
+            problemDetails.Extensions["itemCount"] = ex.ItemCount;
+            return new ObjectResult(problemDetails) { StatusCode = StatusCodes.Status400BadRequest };
+        }
+    }
 }

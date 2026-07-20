@@ -192,6 +192,51 @@ public class ProjectStatusService(AppDbContext dbContext)
         return await GetStatusesAsync(projectId);
     }
 
+    public async Task DeleteAsync(int projectId, int statusId, int? destinationStatusId)
+    {
+        var project = await dbContext.Projects.Include(p => p.WorkflowStatuses).FirstOrDefaultAsync(p => p.Id == projectId);
+        if (project is null)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        var status = project.WorkflowStatuses.FirstOrDefault(s => s.Id == statusId) ?? throw new WorkflowStatusNotFoundException();
+
+        // FR-003: this guard runs regardless of item count -- a project must always
+        // keep at least one Open-category and one Done-category status.
+        var remainingInCategory = project.WorkflowStatuses.Count(s => s.Category == status.Category) - 1;
+        if (remainingInCategory < 1)
+        {
+            throw new LastStatusInCategoryException();
+        }
+
+        var affectedItems = await dbContext.WorkItems.Where(w => w.WorkflowStatusId == statusId).ToListAsync();
+
+        if (affectedItems.Count > 0)
+        {
+            if (destinationStatusId is null)
+            {
+                throw new DestinationStatusRequiredException(affectedItems.Count);
+            }
+
+            if (destinationStatusId == statusId || !project.WorkflowStatuses.Any(s => s.Id == destinationStatusId))
+            {
+                throw new InvalidDestinationStatusException();
+            }
+
+            foreach (var item in affectedItems)
+            {
+                item.WorkflowStatusId = destinationStatusId.Value;
+            }
+        }
+
+        dbContext.WorkflowStatuses.Remove(status);
+
+        // research.md #6 -- move and delete happen in this single SaveChangesAsync
+        // call, so both succeed or neither does.
+        await dbContext.SaveChangesAsync();
+    }
+
     private static ChipColor AssignColor(WorkflowStatusCategory category, int existingCountInCategory, IReadOnlySet<ChipColor> usedInCategory)
     {
         var cycle = category == WorkflowStatusCategory.Open ? OpenColorCycle : DoneColorCycle;

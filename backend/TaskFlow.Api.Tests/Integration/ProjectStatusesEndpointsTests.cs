@@ -325,4 +325,95 @@ public class ProjectStatusesEndpointsTests(TaskFlowApiFactory factory) : IClassF
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    [Fact]
+    public async Task DeleteStatus_returns_204_for_an_empty_status()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var statusId = await CreateStatusAsync(adminToken, projectId, "QA");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{statusId}", adminToken));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteStatus_returns_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var statusId = await CreateStatusAsync(adminToken, projectId, "QA");
+        var developerToken = await RegisterAndGetTokenAsync($"delete-status-dev-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{statusId}", developerToken));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteStatus_returns_400_with_the_item_count_when_the_status_has_items_and_no_destination_is_given()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", adminToken));
+        var current = await getResponse.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        var toDoId = current!.Single(s => s.Name == "To Do").Id;
+        var createItemRequest = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", adminToken);
+        createItemRequest.Content = JsonContent.Create(new { type = "Task", title = "Some work", statusId = toDoId });
+        await _client.SendAsync(createItemRequest);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{toDoId}", adminToken));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"itemCount\":1", body);
+    }
+
+    [Fact]
+    public async Task DeleteStatus_returns_400_when_deleting_the_last_Open_category_status()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", adminToken));
+        var current = await getResponse.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        foreach (var status in current!.Where(s => s.Category == "Open" && s.Name != "To Do"))
+        {
+            await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{status.Id}", adminToken));
+        }
+        var toDoId = current.Single(s => s.Name == "To Do").Id;
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{toDoId}", adminToken));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteStatus_returns_204_and_moves_items_when_a_valid_destination_is_given()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var getResponse = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", adminToken));
+        var current = await getResponse.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        var toDoId = current!.Single(s => s.Name == "To Do").Id;
+        var inProgressId = current.Single(s => s.Name == "In Progress").Id;
+        var createItemRequest = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", adminToken);
+        createItemRequest.Content = JsonContent.Create(new { type = "Task", title = "Some work", statusId = toDoId });
+        await _client.SendAsync(createItemRequest);
+
+        var response = await _client.SendAsync(
+            AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/statuses/{toDoId}?destinationStatusId={inProgressId}", adminToken));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteStatus_returns_404_for_an_unknown_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, "/api/projects/999999/statuses/1", adminToken));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

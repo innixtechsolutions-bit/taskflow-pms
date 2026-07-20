@@ -29,7 +29,7 @@ public class ProjectStatusServiceTests : SqlServerTestDatabase
     private WorkflowStatus AddStatus(int projectId, string name, int position, WorkflowStatusCategory category, ChipColor colorKey = ChipColor.Slate) =>
         AddEntity(new WorkflowStatus { ProjectId = projectId, Name = name, Position = position, Category = category, ColorKey = colorKey });
 
-    private void AddWorkItem(int projectId, int creatorId, int statusId) => AddEntity(new WorkItem
+    private WorkItem AddWorkItem(int projectId, int creatorId, int statusId) => AddEntity(new WorkItem
     {
         ProjectId = projectId, Type = WorkItemType.Task, Title = "Some work", WorkflowStatusId = statusId,
         CreatedByUserId = creatorId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -376,5 +376,139 @@ public class ProjectStatusServiceTests : SqlServerTestDatabase
         var sut = CreateSut();
 
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.ReorderAsync(999999, ReorderRequest()));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_deletes_an_empty_status_directly()
+    {
+        var user = AddUser("delete-empty@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var qa = AddStatus(project.Id, "QA", 1, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "Done", 2, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await sut.DeleteAsync(project.Id, qa.Id, destinationStatusId: null);
+
+        var remaining = await sut.GetStatusesAsync(project.Id);
+        Assert.DoesNotContain(remaining, s => s.Name == "QA");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_requires_a_destination_when_the_status_has_items()
+    {
+        var user = AddUser("delete-needs-destination@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "In Progress", 1, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "Done", 2, WorkflowStatusCategory.Done, ChipColor.Green);
+        AddWorkItem(project.Id, user.Id, toDo.Id);
+        AddWorkItem(project.Id, user.Id, toDo.Id);
+        var sut = CreateSut();
+
+        var ex = await Assert.ThrowsAsync<DestinationStatusRequiredException>(
+            () => sut.DeleteAsync(project.Id, toDo.Id, destinationStatusId: null));
+        Assert.Equal(2, ex.ItemCount);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_moves_items_to_the_destination_and_deletes_the_source_atomically()
+    {
+        var user = AddUser("delete-move@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var inProgress = AddStatus(project.Id, "In Progress", 1, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "Done", 2, WorkflowStatusCategory.Done, ChipColor.Green);
+        var item1 = AddWorkItem(project.Id, user.Id, toDo.Id);
+        var item2 = AddWorkItem(project.Id, user.Id, toDo.Id);
+        var sut = CreateSut();
+
+        await sut.DeleteAsync(project.Id, toDo.Id, destinationStatusId: inProgress.Id);
+
+        var remaining = await sut.GetStatusesAsync(project.Id);
+        Assert.DoesNotContain(remaining, s => s.Name == "To Do");
+        var movedInProgress = remaining.Single(s => s.Name == "In Progress");
+        Assert.Equal(2, movedInProgress.ItemCount);
+        Assert.Equal(inProgress.Id, Db.WorkItems.Single(w => w.Id == item1.Id).WorkflowStatusId);
+        Assert.Equal(inProgress.Id, Db.WorkItems.Single(w => w.Id == item2.Id).WorkflowStatusId);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_rejects_deleting_the_last_Open_category_status_even_when_empty()
+    {
+        var user = AddUser("delete-last-open@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "Done", 1, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<LastStatusInCategoryException>(
+            () => sut.DeleteAsync(project.Id, toDo.Id, destinationStatusId: null));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_rejects_deleting_the_last_Done_category_status_even_when_empty()
+    {
+        var user = AddUser("delete-last-done@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var done = AddStatus(project.Id, "Done", 1, WorkflowStatusCategory.Done, ChipColor.Green);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<LastStatusInCategoryException>(
+            () => sut.DeleteAsync(project.Id, done.Id, destinationStatusId: null));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_rejects_a_self_referential_destination()
+    {
+        var user = AddUser("delete-self-destination@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var toDo = AddStatus(project.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "In Progress", 1, WorkflowStatusCategory.Open);
+        AddStatus(project.Id, "Done", 2, WorkflowStatusCategory.Done, ChipColor.Green);
+        AddWorkItem(project.Id, user.Id, toDo.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidDestinationStatusException>(
+            () => sut.DeleteAsync(project.Id, toDo.Id, destinationStatusId: toDo.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_rejects_a_destination_from_another_project()
+    {
+        var user = AddUser("delete-cross-project@example.com");
+        var projectA = AddProject("Alpha", user.Id);
+        var projectB = AddProject("Beta", user.Id);
+        var toDo = AddStatus(projectA.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        AddStatus(projectA.Id, "In Progress", 1, WorkflowStatusCategory.Open);
+        AddStatus(projectA.Id, "Done", 2, WorkflowStatusCategory.Done, ChipColor.Green);
+        var otherProjectStatus = AddStatus(projectB.Id, "Somewhere Else", 0, WorkflowStatusCategory.Open);
+        AddWorkItem(projectA.Id, user.Id, toDo.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<InvalidDestinationStatusException>(
+            () => sut.DeleteAsync(projectA.Id, toDo.Id, destinationStatusId: otherProjectStatus.Id));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.DeleteAsync(999999, 1, destinationStatusId: null));
+    }
+
+    [Fact]
+    public async Task DeleteAsync_throws_for_a_statusId_that_does_not_belong_to_the_project()
+    {
+        var user = AddUser("delete-wrongproject@example.com");
+        var projectA = AddProject("Alpha", user.Id);
+        var projectB = AddProject("Beta", user.Id);
+        var statusInB = AddStatus(projectB.Id, "To Do", 0, WorkflowStatusCategory.Open);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<WorkflowStatusNotFoundException>(
+            () => sut.DeleteAsync(projectA.Id, statusInB.Id, destinationStatusId: null));
     }
 }

@@ -31,6 +31,11 @@ export class WorkflowComponent implements OnInit {
   protected readonly editName = signal('');
   protected readonly editError = signal<string | null>(null);
 
+  // The status currently showing its destination-picker (non-empty column delete,
+  // US6 scenario 2) -- null when no delete is in progress.
+  protected readonly pendingDeleteId = signal<number | null>(null);
+  protected readonly destinationStatusId = signal<number | null>(null);
+
   ngOnInit(): void {
     void this.loadStatuses();
   }
@@ -99,5 +104,50 @@ export class WorkflowComponent implements OnInit {
         this.notificationService.error('Could not reorder statuses. Please try again.');
         void this.loadStatuses();
       });
+  }
+
+  // Empty columns delete directly (US6 scenario 1); a column with items must first
+  // have a destination chosen (scenario 2), handled by onConfirmDeleteWithMove below.
+  protected onClickDelete(status: ProjectStatus): void {
+    if (status.itemCount === 0) {
+      if (!confirm(`Delete "${status.name}"? This cannot be undone.`)) {
+        return;
+      }
+      void this.performDelete(status.id);
+      return;
+    }
+    this.pendingDeleteId.set(status.id);
+    this.destinationStatusId.set(null);
+  }
+
+  protected onCancelDelete(): void {
+    this.pendingDeleteId.set(null);
+    this.destinationStatusId.set(null);
+  }
+
+  // Wording matches spec.md US6 acceptance scenario 2 exactly: "Move N items to 'X'
+  // and delete 'Y'?".
+  protected onConfirmDeleteWithMove(status: ProjectStatus): void {
+    const destinationId = this.destinationStatusId();
+    const destination = this.statuses().find((s) => s.id === destinationId);
+    if (!destination) {
+      return;
+    }
+    const message = `Move ${status.itemCount} items to '${destination.name}' and delete '${status.name}'?`;
+    if (!confirm(message)) {
+      return;
+    }
+    void this.performDelete(status.id, destination.id);
+  }
+
+  private async performDelete(statusId: number, destinationStatusId?: number): Promise<void> {
+    try {
+      await this.projectStatusService.deleteStatus(this.projectId, statusId, destinationStatusId);
+      this.statuses.update((statuses) => statuses.filter((s) => s.id !== statusId));
+      this.pendingDeleteId.set(null);
+      this.destinationStatusId.set(null);
+    } catch {
+      this.notificationService.error('Could not delete this status. Please try again.');
+    }
   }
 }

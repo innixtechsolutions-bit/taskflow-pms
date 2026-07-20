@@ -227,16 +227,16 @@ confirm it's refused.
 
 ### Tests for User Story 6
 
-- [ ] T068 [P] [US6] Backend test: `ProjectStatusService.DeleteAsync` — direct delete for an empty status; a non-empty status requires `destinationStatusId`; the move + delete is atomic (one `SaveChangesAsync`); rejects deleting the last Open-category or last Done-category status regardless of item count; rejects an invalid or self-referential destination — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
-- [ ] T069 [P] [US6] Backend test: `DELETE api/projects/{projectId}/statuses/{statusId}` — 204/400/403/404 cases, including the destination-required error body shape (item count included) — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
-- [ ] T070 [P] [US6] Frontend test: `WorkflowComponent`'s delete flow — an empty column deletes directly; a non-empty column prompts a destination picker with the exact "Move N items to 'X' and delete 'Y'?" wording; a last-Open/last-Done delete attempt surfaces the server's error — extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
+- [X] T068 [P] [US6] Backend test: `ProjectStatusService.DeleteAsync` — direct delete for an empty status; a non-empty status requires `destinationStatusId`; the move + delete is atomic (one `SaveChangesAsync`); rejects deleting the last Open-category or last Done-category status regardless of item count; rejects an invalid or self-referential destination — in `backend/TaskFlow.Api.Tests/Services/ProjectStatusServiceTests.cs`
+- [X] T069 [P] [US6] Backend test: `DELETE api/projects/{projectId}/statuses/{statusId}` — 204/400/403/404 cases, including the destination-required error body shape (item count included) — in `backend/TaskFlow.Api.Tests/Integration/ProjectStatusesEndpointsTests.cs`
+- [X] T070 [P] [US6] Frontend test: `WorkflowComponent`'s delete flow — an empty column deletes directly; a non-empty column prompts a destination picker with the exact "Move N items to 'X' and delete 'Y'?" wording; a last-Open/last-Done delete attempt surfaces the server's error — extending `frontend/src/app/projects/workflow/workflow.component.spec.ts`
 
 ### Implementation for User Story 6
 
-- [ ] T071 [US6] Add `DestinationStatusRequiredException`, `InvalidDestinationStatusException`, `LastStatusInCategoryException` in `backend/TaskFlow.Api/Services/ProjectStatusExceptions.cs`
-- [ ] T072 [US6] `ProjectStatusService.DeleteAsync` (item-count check, destination validation, atomic reassign-then-delete in one `SaveChangesAsync`, min-Open/min-Done guard per FR-003) in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T071; makes T068 pass
-- [ ] T073 [US6] Add the `DELETE` action (with the optional `destinationStatusId` query param) to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T072; makes T069 pass
-- [ ] T074 [US6] Add the delete button and destination-picker confirmation dialog to `WorkflowComponent`, in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T070 pass
+- [X] T071 [US6] Add `DestinationStatusRequiredException`, `InvalidDestinationStatusException`, `LastStatusInCategoryException` in `backend/TaskFlow.Api/Services/ProjectStatusExceptions.cs`
+- [X] T072 [US6] `ProjectStatusService.DeleteAsync` (item-count check, destination validation, atomic reassign-then-delete in one `SaveChangesAsync`, min-Open/min-Done guard per FR-003) in `backend/TaskFlow.Api/Services/ProjectStatusService.cs` — depends on T071; makes T068 pass
+- [X] T073 [US6] Add the `DELETE` action (with the optional `destinationStatusId` query param) to `backend/TaskFlow.Api/Controllers/ProjectStatusesController.cs` — depends on T072; makes T069 pass
+- [X] T074 [US6] Add the delete button and destination-picker confirmation dialog to `WorkflowComponent`, in `frontend/src/app/projects/workflow/workflow.component.ts` (+ `.html`) — depends on T044; makes T070 pass
 
 **Checkpoint**: Delete-with-move works atomically and the min-category
 guard holds — quickstart.md section 7 passes; all six user stories are

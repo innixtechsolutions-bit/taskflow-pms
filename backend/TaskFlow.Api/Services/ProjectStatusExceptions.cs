@@ -20,3 +20,17 @@ public class WorkflowStatusNotFoundException() : Exception(
 
 public class InvalidStatusOrderException() : Exception(
     "The provided order must contain exactly this project's current statuses, with no missing, unknown, or duplicate ids.");
+
+// Carries the current item count so the controller can surface it in the response
+// body (contracts/workflow-api.md) -- the client needs it to render "Move N items...".
+public class DestinationStatusRequiredException(int itemCount) : Exception(
+    $"This status has {itemCount} work item(s); specify a destinationStatusId to move them before deleting.")
+{
+    public int ItemCount { get; } = itemCount;
+}
+
+public class InvalidDestinationStatusException() : Exception(
+    "destinationStatusId must belong to this project and differ from the status being deleted.");
+
+public class LastStatusInCategoryException() : Exception(
+    "A project must always have at least one Open-category and one Done-category status.");
