@@ -306,3 +306,38 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   read stays open to any authenticated user, and a dedicated cross-cutting
   test now asserts both halves of that boundary in one place so a future
   change can't loosen or tighten either side unnoticed.
+
+### Feature 007: Work Item Modal & Quick Creation
+
+- **Every route eagerly importing its component into the main chunk is
+  invisible until someone actually measures the bundle.** `ng build` had been
+  quietly failing its own budget (1.09MB initial vs. a 1MB limit) because
+  `app.routes.ts` used `component:` instead of `loadComponent:` everywhere,
+  and the work item modal's own heavy dependencies (`MatDatepicker`, Signal
+  Forms) shipped in the main bundle even on pages that merely *could* open it.
+  Converting every route to `loadComponent` and dynamically importing the
+  modal itself (shared by board/work-item-detail/project-detail via one
+  `openWorkItemModal` helper) dropped the initial bundle to 551KB with
+  headroom to spare — the fix was mechanical once found, but nothing in the
+  test suite would ever have caught the regression, since Vitest never builds
+  a production bundle.
+- **A PUT that "replaces the whole resource" means every field, including
+  ones the caller didn't think about touching.** The label attach/detach
+  design reuses this codebase's existing "PUT replaces everything" contract
+  (same as every other `WorkItemRequest` field) rather than diffing an
+  attach/detach list — which meant the frontend had to be deliberate about
+  always sending the current `labels` array, even when empty, on every save.
+  Omitting the key on an edit (the natural instinct for an "unchanged, so
+  don't send it" field) would have silently wiped every label the item
+  already had, since the backend's normalization helper treats a missing
+  `Labels` the same as an explicit empty list.
+- **The same many-to-many cascade conflict from Feature 006 reappeared here,
+  which suggests it's a pattern in this schema, not a one-off.** `Label →
+  WorkItemLabel` needed `DeleteBehavior.Restrict` instead of the originally
+  planned `Cascade` — SQL Server rejects it as a multiple-cascade-paths error
+  (1785), because `WorkItemLabel` is reachable from `Project` two ways
+  (`Project → Label → WorkItemLabel` and `Project → WorkItem →
+  WorkItemLabel`). Any future many-to-many hanging off an entity that's
+  already cascade-deleted from a shared ancestor should expect the same
+  conflict and plan for `Restrict` on one side up front, rather than
+  discovering it from a failed migration.

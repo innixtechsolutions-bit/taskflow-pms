@@ -218,11 +218,11 @@ matching spec.md's Success Check.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T059 [P] Add a "Feature 007: Work Item Modal & Quick Creation" entry to `README.md`'s "What I learned" log, matching Features 001–006's style, per the constitution's Definition of Done item 5
-- [ ] T060 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass
-- [ ] T061 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass
-- [ ] T062 Cross-cutting checkpoint: grep the frontend for any leftover reference to the removed `WorkItemFormComponent` or a `routerLink` to `.../work-items/new` or `.../work-items/:id/edit` outside `app.routes.ts`'s new `redirectTo` entries — confirm none remain
-- [ ] T063 Walk through `quickstart.md` sections 1–5 manually in a running app (backend + `ng serve`), including the direct-API date-range check (section 3.3) and the old-route redirect check (section 1.9)
+- [X] T059 [P] Add a "Feature 007: Work Item Modal & Quick Creation" entry to `README.md`'s "What I learned" log, matching Features 001–006's style, per the constitution's Definition of Done item 5
+- [X] T060 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass
+- [X] T061 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass
+- [X] T062 Cross-cutting checkpoint: grep the frontend for any leftover reference to the removed `WorkItemFormComponent` or a `routerLink` to `.../work-items/new` or `.../work-items/:id/edit` outside `app.routes.ts`'s new `redirectTo` entries — confirm none remain
+- [X] T063 Walk through `quickstart.md` sections 1–5 manually in a running app (backend + `ng serve`), including the direct-API date-range check (section 3.3) and the old-route redirect check (section 1.9)
 
 ---
 
