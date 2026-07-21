@@ -39,6 +39,7 @@ function sampleBoard(): WorkItemBoard {
         createdByUserId: 1,
         directChildrenCount: 0,
         directChildrenDoneCount: 0,
+        labels: [],
       },
       {
         id: 2,
@@ -56,6 +57,7 @@ function sampleBoard(): WorkItemBoard {
         createdByUserId: 1,
         directChildrenCount: 0,
         directChildrenDoneCount: 0,
+        labels: [],
       },
     ],
   };

@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { ProjectStatus, UserLookupItem, WorkItemLookupItem, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
+import { LabelChipComponent } from '../../shared/label-chip/label-chip.component';
 
 interface TitleFormModel {
   title: string;
@@ -55,6 +56,7 @@ export interface WorkItemModalData {
   standalone: true,
   imports: [
     FormField,
+    LabelChipComponent,
     MatButtonModule,
     MatCheckboxModule,
     MatDatepickerModule,
@@ -108,6 +110,24 @@ export class WorkItemModalComponent implements OnInit {
   protected readonly parentWorkItemId = signal('');
   protected readonly parentCandidates = signal<WorkItemLookupItem[]>([]);
 
+  // Labels (US5) — attached names, the in-progress input value, project-wide
+  // suggestions, and an inline validation message. Attach/dedupe/cap rules
+  // mirror the backend's NormalizeAndAttachLabelsAsync (data-model.md) so
+  // the same mistake is caught here rather than round-tripping to the server.
+  protected readonly labels = signal<string[]>([]);
+  protected readonly labelInput = signal('');
+  protected readonly labelError = signal<string | null>(null);
+  protected readonly projectLabels = signal<string[]>([]);
+
+  protected readonly labelSuggestions = computed<string[]>(() => {
+    const query = this.labelInput().trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+    const attached = new Set(this.labels().map((l) => l.toLowerCase()));
+    return this.projectLabels().filter((l) => l.toLowerCase().startsWith(query) && !attached.has(l.toLowerCase()));
+  });
+
   protected readonly submitting = signal(false);
   protected readonly serverError = signal<string | null>(null);
 
@@ -152,9 +172,14 @@ export class WorkItemModalComponent implements OnInit {
     void this.loadAssignableUsers();
     void this.loadParentCandidates();
     void this.loadStatuses();
+    void this.loadProjectLabels();
     if (this.isEditMode) {
       void this.loadExistingWorkItem();
     }
+  }
+
+  private async loadProjectLabels(): Promise<void> {
+    this.projectLabels.set(await this.workItemsService.getProjectLabels(this.projectId));
   }
 
   // Feature 006 — if nothing else has already picked a status (dialog data, or
@@ -243,6 +268,53 @@ export class WorkItemModalComponent implements OnInit {
     this.createAnother.set(checked);
   }
 
+  protected onLabelInputChange(value: string): void {
+    this.labelInput.set(value);
+  }
+
+  protected onLabelInputKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.addLabel(this.labelInput());
+    }
+  }
+
+  protected selectLabelSuggestion(name: string): void {
+    this.addLabel(name);
+  }
+
+  protected removeLabel(name: string): void {
+    this.markDirty();
+    this.labels.update((current) => current.filter((l) => l !== name));
+  }
+
+  // Order matters: an over-length name is always an error; a duplicate of an
+  // already-attached label is always silently ignored (spec Edge Cases), even
+  // when the item is already at the 5-label cap; only a genuinely new name
+  // can trigger the cap error.
+  private addLabel(rawName: string): void {
+    const name = rawName.trim();
+    if (!name) {
+      return;
+    }
+    if (name.length > 30) {
+      this.labelError.set('Labels must be at most 30 characters.');
+      return;
+    }
+    if (this.labels().some((l) => l.toLowerCase() === name.toLowerCase())) {
+      this.labelInput.set('');
+      return;
+    }
+    if (this.labels().length >= 5) {
+      this.labelError.set('A work item can have at most 5 labels.');
+      return;
+    }
+    this.labelError.set(null);
+    this.markDirty();
+    this.labels.update((current) => [...current, name]);
+    this.labelInput.set('');
+  }
+
   private async loadExistingWorkItem(): Promise<void> {
     const item = await this.workItemsService.getWorkItem(this.workItemId!);
     this.titleModel.set({ title: item.title });
@@ -254,6 +326,7 @@ export class WorkItemModalComponent implements OnInit {
     this.dueDate.set(item.dueDate ? parseDateOnlyString(item.dueDate) : null);
     this.startDate.set(item.startDate ? parseDateOnlyString(item.startDate) : null);
     this.parentWorkItemId.set(item.parentWorkItemId ? item.parentWorkItemId.toString() : '');
+    this.labels.set(item.labels ?? []);
     await this.loadParentCandidates();
   }
 
@@ -293,6 +366,9 @@ export class WorkItemModalComponent implements OnInit {
         dueDate: dueDate ? toDateOnlyString(dueDate) : undefined,
         startDate: startDate ? toDateOnlyString(startDate) : undefined,
         parentWorkItemId: this.parentWorkItemId() ? Number(this.parentWorkItemId()) : undefined,
+        // Always sent, even empty — PUT replaces the whole label set (data-model.md),
+        // so omitting it on edit would silently wipe existing labels.
+        labels: this.labels(),
       };
       if (this.isEditMode) {
         await this.workItemsService.updateWorkItem(this.workItemId!, request);
@@ -302,11 +378,17 @@ export class WorkItemModalComponent implements OnInit {
       this.notificationService.success(this.isEditMode ? 'Work item updated.' : 'Work item created.');
       this.data.onSaved();
       if (!this.isEditMode && this.createAnother()) {
-        // Title/description reset for the next entry; every other field
+        // Title/description/labels reset for the next entry; every other field
         // (type, status, priority, assignee, parent, dates) is retained
         // (spec.md User Story 4).
         this.titleModel.set({ title: '' });
         this.description.set('');
+        this.labels.set([]);
+        this.labelInput.set('');
+        this.labelError.set(null);
+        // Picks up any label just created via inline entry (SC-004: it must
+        // suggest on the very next item, same session, no page reload).
+        void this.loadProjectLabels();
       } else {
         this.dialogRef.close();
       }

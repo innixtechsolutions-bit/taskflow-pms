@@ -73,6 +73,7 @@ function sampleItem(overrides: Partial<WorkItem> = {}): WorkItem {
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     parentWorkItemId: null,
+    labels: [],
     ...overrides,
   };
 }
@@ -91,7 +92,8 @@ function configure(
   // they set up the route as if Flat were already active rather than asserting on
   // whichever view happens to be the app-wide default.
   view = 'flat',
-  getStatuses = vi.fn().mockResolvedValue(sampleStatuses())
+  getStatuses = vi.fn().mockResolvedValue(sampleStatuses()),
+  getProjectLabels = vi.fn().mockResolvedValue([])
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   const dialogOpen = vi.fn().mockReturnValue({});
@@ -109,6 +111,7 @@ function configure(
           getWorkItemsTree,
           getWorkItemDetail,
           getStatuses,
+          getProjectLabels,
           getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
         },
       },
@@ -605,6 +608,42 @@ describe('ProjectDetailComponent filter, search, and pagination', () => {
   });
 });
 
+describe('ProjectDetailComponent label filter (US5)', () => {
+  it('selects a label and includes it in the list query, combinable with existing filters', async () => {
+    const getWorkItems = vi
+      .fn()
+      .mockResolvedValueOnce(pageOf([sampleItem({ id: 1 })]))
+      .mockResolvedValueOnce(pageOf([sampleItem({ id: 2 })]))
+      .mockResolvedValueOnce(pageOf([sampleItem({ id: 2 })]));
+    configure(
+      undefined,
+      getWorkItems,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'flat',
+      undefined,
+      vi.fn().mockResolvedValue(['backend', 'urgent'])
+    );
+    const fixture = await render();
+
+    await chooseFilterOption(fixture, 'Label', 'backend');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ label: 'backend', page: 1 }));
+
+    await chooseFilterOption(fixture, 'Status', 'Done');
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(getWorkItems).toHaveBeenLastCalledWith(1, expect.objectContaining({ label: 'backend', statusId: 4 }));
+  });
+});
+
 const treeData = [
   {
     id: 1,
@@ -769,6 +808,7 @@ describe('ProjectDetailComponent board view', () => {
             getAssignableUsers: vi.fn().mockResolvedValue([]),
             getWorkItemsTree: vi.fn().mockResolvedValue([]),
             getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
+            getProjectLabels: vi.fn().mockResolvedValue([]),
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
           },
         },
@@ -817,6 +857,7 @@ describe('ProjectDetailComponent board view', () => {
             getAssignableUsers: vi.fn().mockResolvedValue([]),
             getWorkItemsTree: vi.fn().mockResolvedValue([]),
             getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
+            getProjectLabels: vi.fn().mockResolvedValue([]),
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
           },
         },

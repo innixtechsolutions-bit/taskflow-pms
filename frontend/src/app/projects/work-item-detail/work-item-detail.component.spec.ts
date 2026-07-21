@@ -29,6 +29,7 @@ const detailWithParentAndChildren = {
   parentWorkItemId: 2,
   parentTitle: 'The Epic',
   totalDescendantCount: 3,
+  labels: [],
   children: [
     { id: 10, title: 'Child Task', type: 'Task', statusId: 1, statusName: 'To Do', statusCategory: 'Open', statusColorKey: 'Slate', assigneeName: 'Grace Hopper' },
   ],

@@ -82,3 +82,11 @@
   background-color: var(--color-priority-critical-bg);
   color: var(--color-priority-critical-text);
 }
+
+/* Feature 007 US5 — labels have no per-label color (research.md #6: a single
+   neutral class, not a ColorKey-keyed switch like status/priority above),
+   since labels are free-form and user-created rather than a curated set. */
+.chip--label {
+  background-color: var(--color-chip-slate-bg);
+  color: var(--color-chip-slate-text);
+}

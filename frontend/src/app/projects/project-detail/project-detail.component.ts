@@ -22,6 +22,7 @@ import {
 import { AuthService } from '../../auth/auth.service';
 import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
+import { LabelChipComponent } from '../../shared/label-chip/label-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
@@ -56,6 +57,7 @@ function parseViewMode(value: string | null): ViewMode {
     MatTabsModule,
     StatusChipComponent,
     PriorityChipComponent,
+    LabelChipComponent,
     UserAvatarComponent,
     FriendlyDatePipe,
     EmptyStateComponent,
@@ -80,7 +82,7 @@ export class ProjectDetailComponent implements OnInit {
   @ViewChild(BoardComponent) private boardComponent?: BoardComponent;
 
   // Column order for mat-table's structural directives.
-  protected readonly displayedColumns = ['title', 'status', 'priority', 'actions'];
+  protected readonly displayedColumns = ['title', 'status', 'priority', 'labels', 'actions'];
 
   protected readonly project = signal<ProjectDetail | null>(null);
   // Feature 005 Polish: the description renders as a single truncated line by
@@ -101,6 +103,10 @@ export class ProjectDetailComponent implements OnInit {
   protected readonly assigneeFilter = signal('');
   protected readonly searchFilter = signal('');
   protected readonly searchInput = signal('');
+  // Feature 007 US5 — single-select, sourced from every label referenced by
+  // ≥1 work item in the project (research.md #6, data-model.md).
+  protected readonly labelFilter = signal('');
+  protected readonly projectLabels = signal<string[]>([]);
 
   protected readonly page = signal(1);
   protected readonly pageSize = 20;
@@ -126,6 +132,11 @@ export class ProjectDetailComponent implements OnInit {
     void this.loadAssignableUsers();
     void this.loadTree();
     void this.loadStatuses();
+    void this.loadProjectLabels();
+  }
+
+  private async loadProjectLabels(): Promise<void> {
+    this.projectLabels.set(await this.workItemsService.getProjectLabels(this.projectId));
   }
 
   private async loadProject(): Promise<void> {
@@ -181,6 +192,7 @@ export class ProjectDetailComponent implements OnInit {
       priority: this.priorityFilter() || undefined,
       assigneeUserId: this.assigneeFilter() ? Number(this.assigneeFilter()) : undefined,
       search: this.searchFilter() || undefined,
+      label: this.labelFilter() || undefined,
     };
   }
 
@@ -218,6 +230,7 @@ export class ProjectDetailComponent implements OnInit {
   private onWorkItemSaved(): void {
     void this.loadWorkItems();
     void this.loadTree();
+    void this.loadProjectLabels();
     this.boardComponent?.refresh();
   }
 
@@ -229,7 +242,8 @@ export class ProjectDetailComponent implements OnInit {
       this.typeFilter() ||
       this.priorityFilter() ||
       this.assigneeFilter() ||
-      this.searchFilter()
+      this.searchFilter() ||
+      this.labelFilter()
     );
   }
 
@@ -250,6 +264,11 @@ export class ProjectDetailComponent implements OnInit {
 
   protected onAssigneeFilterChange(value: string): void {
     this.assigneeFilter.set(value);
+    this.applyFilters();
+  }
+
+  protected onLabelFilterChange(value: string): void {
+    this.labelFilter.set(value);
     this.applyFilters();
   }
 

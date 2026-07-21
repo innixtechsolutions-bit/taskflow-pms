@@ -76,6 +76,7 @@ function configure(
     getAssignableUsers: ReturnType<typeof vi.fn>;
     getParentCandidates: ReturnType<typeof vi.fn>;
     getStatuses: ReturnType<typeof vi.fn>;
+    getProjectLabels: ReturnType<typeof vi.fn>;
   }> = {},
   currentUser: { id: number } | null = { id: 1 }
 ) {
@@ -90,6 +91,7 @@ function configure(
     getAssignableUsers: vi.fn().mockResolvedValue(sampleUsers),
     getParentCandidates: vi.fn().mockResolvedValue(sampleCandidates),
     getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
+    getProjectLabels: vi.fn().mockResolvedValue([]),
     ...serviceOverrides,
   };
 
@@ -366,5 +368,82 @@ describe('WorkItemModalComponent (Create another, US4)', () => {
     const { fixture } = await render();
 
     expect(fixture.nativeElement.querySelector('.create-another-checkbox')).toBeFalsy();
+  });
+});
+
+describe('WorkItemModalComponent (Labels, US5)', () => {
+  it('creates a new label on confirm and includes it in the submitted request', async () => {
+    const { createWorkItem } = configure({ mode: 'create' });
+    const { fixture } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
+    const labelInput = root.querySelector<HTMLInputElement>('#labelInput')!;
+    setInputValue(labelInput, 'backend');
+    labelInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(root.querySelector('.attached-label')?.textContent).toContain('backend');
+
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(createWorkItem).toHaveBeenCalledWith(1, expect.objectContaining({ labels: ['backend'] }));
+  });
+
+  it('offers matching suggestions from getProjectLabels()', async () => {
+    configure({ mode: 'create' }, { getProjectLabels: vi.fn().mockResolvedValue(['backend', 'urgent']) });
+    const { fixture } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const labelInput = root.querySelector<HTMLInputElement>('#labelInput')!;
+    setInputValue(labelInput, 'back');
+    fixture.detectChanges();
+
+    const suggestions = Array.from(root.querySelectorAll('.label-suggestion')).map((el) => el.textContent?.trim());
+    expect(suggestions).toContain('backend');
+    expect(suggestions).not.toContain('urgent');
+  });
+
+  it('blocks a 6th label with a clear inline message', async () => {
+    const { createWorkItem } = configure({ mode: 'create' });
+    const { fixture } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const labelInput = root.querySelector<HTMLInputElement>('#labelInput')!;
+    for (const name of ['one', 'two', 'three', 'four', 'five', 'six']) {
+      setInputValue(labelInput, name);
+      labelInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      fixture.detectChanges();
+    }
+
+    expect(root.querySelectorAll('.attached-label').length).toBe(5);
+    expect(root.querySelector('.label-error')?.textContent).toContain('at most 5 labels');
+
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(createWorkItem).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ labels: ['one', 'two', 'three', 'four', 'five'] })
+    );
+  });
+
+  it('ignores a duplicate attach attempt', async () => {
+    const { fixture } = await (async () => {
+      configure({ mode: 'create' });
+      return render();
+    })();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const labelInput = root.querySelector<HTMLInputElement>('#labelInput')!;
+    for (const name of ['backend', 'Backend']) {
+      setInputValue(labelInput, name);
+      labelInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      fixture.detectChanges();
+    }
+
+    expect(root.querySelectorAll('.attached-label').length).toBe(1);
   });
 });

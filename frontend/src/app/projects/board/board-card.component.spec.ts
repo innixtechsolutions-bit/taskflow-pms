@@ -21,6 +21,7 @@ function baseCard(overrides: Partial<WorkItemBoardCard> = {}): WorkItemBoardCard
     createdByUserId: 10,
     directChildrenCount: 0,
     directChildrenDoneCount: 0,
+    labels: [],
     ...overrides,
   };
 }

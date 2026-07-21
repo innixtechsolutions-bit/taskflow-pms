@@ -34,7 +34,8 @@
    (e.g. the users list's role-change error). */
 .server-error,
 .session-expired,
-.date-range-error {
+.date-range-error,
+.label-error {
   color: var(--mat-sys-error);
   margin: 0 0 12px;
 }

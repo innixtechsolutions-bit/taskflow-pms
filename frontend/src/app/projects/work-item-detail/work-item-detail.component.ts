@@ -8,6 +8,7 @@ import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { AuthService } from '../../auth/auth.service';
 import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
+import { LabelChipComponent } from '../../shared/label-chip/label-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
@@ -29,6 +30,7 @@ const CHILD_TYPE: Record<string, string> = { Epic: 'Story', Story: 'Task', Task:
     MatCardModule,
     StatusChipComponent,
     PriorityChipComponent,
+    LabelChipComponent,
     UserAvatarComponent,
     EmptyStateComponent,
     FriendlyDatePipe,

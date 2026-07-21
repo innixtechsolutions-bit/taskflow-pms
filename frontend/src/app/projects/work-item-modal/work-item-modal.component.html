@@ -112,6 +112,43 @@
     @if (dateRangeError()) {
       <p class="date-range-error" role="alert">{{ dateRangeError() }}</p>
     }
+
+    <div class="labels-field span-2">
+      @if (labels().length > 0) {
+        <div class="attached-labels">
+          @for (l of labels(); track l) {
+            <span class="attached-label">
+              <app-label-chip [name]="l" />
+              <button type="button" class="remove-label-button" [attr.aria-label]="'Remove label ' + l" (click)="removeLabel(l)">×</button>
+            </span>
+          }
+        </div>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>Labels</mat-label>
+        <input
+          matInput
+          id="labelInput"
+          type="text"
+          [value]="labelInput()"
+          (input)="onLabelInputChange($any($event.target).value)"
+          (keydown)="onLabelInputKeydown($event)"
+        />
+      </mat-form-field>
+
+      @if (labelSuggestions().length > 0) {
+        <ul class="label-suggestions">
+          @for (s of labelSuggestions(); track s) {
+            <li><button type="button" class="label-suggestion" (click)="selectLabelSuggestion(s)">{{ s }}</button></li>
+          }
+        </ul>
+      }
+
+      @if (labelError()) {
+        <p class="label-error" role="alert">{{ labelError() }}</p>
+      }
+    </div>
   </form>
 </mat-dialog-content>
 

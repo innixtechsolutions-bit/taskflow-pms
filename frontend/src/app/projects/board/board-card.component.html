@@ -18,6 +18,14 @@
       <p class="card-progress">{{ card().directChildrenDoneCount }}/{{ card().directChildrenCount }} done</p>
     }
 
+    @if (card().labels.length > 0) {
+      <div class="card-labels">
+        @for (l of card().labels; track l) {
+          <app-label-chip [name]="l" />
+        }
+      </div>
+    }
+
     <div class="card-footer">
       @if (card().dueDate) {
         <span class="card-due-date" [class.due-date-overdue]="isOverdue()">

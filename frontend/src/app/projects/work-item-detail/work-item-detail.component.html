@@ -7,6 +7,13 @@
       <p class="work-item-type">{{ i.type }}</p>
       <app-status-chip class="work-item-status" [name]="i.statusName" [colorKey]="i.statusColorKey" />
       <app-priority-chip class="work-item-priority" [priority]="i.priority" />
+      @if (i.labels.length > 0) {
+        <div class="work-item-labels">
+          @for (l of i.labels; track l) {
+            <app-label-chip [name]="l" />
+          }
+        </div>
+      }
       @if (i.assigneeName) {
         <app-user-avatar class="work-item-assignee" [fullName]="i.assigneeName" [showName]="true" />
       }

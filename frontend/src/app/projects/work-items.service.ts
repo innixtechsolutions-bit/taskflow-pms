@@ -33,6 +33,10 @@ export interface WorkItemRequest {
   dueDate?: string;
   startDate?: string;
   parentWorkItemId?: number;
+  // Always sent (even empty) once populated by the modal — the backend treats
+  // an omitted/null Labels as "no labels" on PUT's replace-the-whole-set
+  // semantics (data-model.md), so a real edit must include the full current set.
+  labels?: string[];
 }
 
 // Status fields are flattened (statusId/statusName/statusCategory/statusColorKey),
@@ -57,6 +61,7 @@ export interface WorkItem {
   createdAt: string;
   updatedAt: string;
   parentWorkItemId: number | null;
+  labels: string[];
 }
 
 export interface UserLookupItem {
@@ -99,6 +104,7 @@ export interface WorkItemTreeNode {
   directChildrenCount: number;
   directChildrenDoneCount: number;
   children: WorkItemTreeNode[];
+  labels: string[];
 }
 
 export interface PagedResult<T> {
@@ -116,6 +122,7 @@ export interface WorkItemsFilter {
   priority?: string;
   assigneeUserId?: number;
   search?: string;
+  label?: string;
 }
 
 // Feature 005 (Kanban Board). Columns come from the project's own ordered
@@ -144,6 +151,7 @@ export interface WorkItemBoardCard {
   createdByUserId: number;
   directChildrenCount: number;
   directChildrenDoneCount: number;
+  labels: string[];
 }
 
 export interface WorkItemBoard {
@@ -171,6 +179,7 @@ export class WorkItemsService {
     if (filter.priority) params['priority'] = filter.priority;
     if (filter.assigneeUserId) params['assigneeUserId'] = filter.assigneeUserId;
     if (filter.search) params['search'] = filter.search;
+    if (filter.label) params['label'] = filter.label;
     return firstValueFrom(
       this.http.get<PagedResult<WorkItem>>(`/api/projects/${projectId}/work-items`, { params })
     );
@@ -236,5 +245,12 @@ export class WorkItemsService {
   // column list, and the Workflow management screen.
   async getStatuses(projectId: number): Promise<ProjectStatus[]> {
     return firstValueFrom(this.http.get<ProjectStatus[]>(`/api/projects/${projectId}/statuses`));
+  }
+
+  // Feature 007 US5 — labels referenced by at least one work item in the project,
+  // alphabetically ordered. Powers both the modal's create/suggest input and
+  // the List view's label filter dropdown.
+  async getProjectLabels(projectId: number): Promise<string[]> {
+    return firstValueFrom(this.http.get<string[]>(`/api/projects/${projectId}/labels`));
   }
 }

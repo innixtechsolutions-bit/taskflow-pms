@@ -2,6 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CdkDrag } from '@angular/cdk/drag-drop';
 import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.component';
+import { LabelChipComponent } from '../../shared/label-chip/label-chip.component';
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { WorkItemBoardCard } from '../work-items.service';
@@ -19,7 +20,7 @@ import { isOverdue } from './overdue';
 @Component({
   selector: 'app-board-card',
   standalone: true,
-  imports: [PriorityChipComponent, UserAvatarComponent, FriendlyDatePipe, CdkDrag, RouterLink],
+  imports: [PriorityChipComponent, LabelChipComponent, UserAvatarComponent, FriendlyDatePipe, CdkDrag, RouterLink],
   templateUrl: './board-card.component.html',
   styleUrl: './board-card.component.css',
 })
