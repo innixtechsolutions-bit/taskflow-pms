@@ -269,7 +269,7 @@ Success Check — quickstart.md section 6 passes.
 - **US2 (Phase 4)**: Depends on US1 (`BacklogComponent`/`SprintsService` must exist to extend)
 - **US3 (Phase 5)**: Depends on US2 (drags between sections that US2 renders)
 - **US4 (Phase 6)**: Depends on US2 (`BacklogComponent`'s sections/data); independent of US3 otherwise — could be built in parallel with US3 by a second contributor
-- **US5 (Phase 7)**: Depends on US1 (`SprintsService`) and Foundational only — independent of US2/US3/US4, could be built in parallel with any of them
+- **US5 (Phase 7)**: *Code*-wise, depends on US1 (`SprintsService`) and Foundational only — no shared file/service with US2/US3/US4, so it can be *built* in parallel with any of them. Fixes `/speckit-analyze` finding I1: spec.md's US5 "Why this priority" correctly notes a *user-value* dependency on US4 ("depends on a sprint being startable") — the toggle has nothing meaningful to show without a real Active sprint. Backend tests can still exercise it by seeding an Active sprint directly (no need to go through the Start endpoint), but a manual/demo walkthrough of US5 needs either US4 done first or a seeded database.
 - **US6 (Phase 8)**: Depends on US2 (Backlog section headers) and US5 (Board header) existing to attach the indicator to
 - **Polish (Phase 9)**: Depends on all six user stories being complete
 
@@ -323,8 +323,9 @@ Task: "SprintFormComponent validation test in frontend/src/app/projects/sprint-f
 3. US2 → full Backlog view: sections, filters, quick-create → demo
 4. US3 → drag-and-drop planning → demo
 5. US4 → start/complete/delete lifecycle → demo
-6. US5 → sprint-scoped Board toggle → demo (can be built in parallel with
-   US3/US4 by a second contributor once US1 is done)
+6. US5 → sprint-scoped Board toggle → demo (a second contributor could build
+   this in parallel once US1 is done — no shared files with US2/US3/US4 — but
+   a real demo needs an Active sprint, i.e. US4 done or one seeded directly)
 7. US6 → days-remaining/overdue indicator → demo (feature-complete, matches
    spec.md's Success Check)
 8. Phase 9 → docs + full regression + quickstart walkthrough
