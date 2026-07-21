@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HarnessLoader } from '@angular/cdk/testing';
 import { TestbedHarnessEnvironment } from '@angular/cdk/testing/testbed';
+import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
@@ -58,6 +59,12 @@ function setInputValue(el: HTMLInputElement | HTMLTextAreaElement, value: string
 
 async function selectByLabel(loader: HarnessLoader, label: string): Promise<MatSelectHarness> {
   return loader.getHarness(MatSelectHarness.with({ label }));
+}
+
+async function chooseOption(loader: HarnessLoader, label: string, optionText: string): Promise<void> {
+  const select = await selectByLabel(loader, label);
+  await select.open();
+  await select.clickOptions({ text: optionText });
 }
 
 function configure(
@@ -305,5 +312,59 @@ describe('WorkItemModalComponent (success: toast + onSaved + close)', () => {
     expect(updateWorkItem).toHaveBeenCalledWith(7, expect.objectContaining({ title: 'Updated title' }));
     expect(onSaved).toHaveBeenCalled();
     expect(close).toHaveBeenCalled();
+  });
+});
+
+describe('WorkItemModalComponent (Create another, US4)', () => {
+  it('with "Create another" checked, clears title/description and retains other fields without closing', async () => {
+    const { createWorkItem, close, onSaved, notificationService } = configure({ mode: 'create' });
+    const { fixture, loader } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    const checkbox = await loader.getHarness(MatCheckboxHarness.with({ selector: '.create-another-checkbox' }));
+    await checkbox.check();
+
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
+    setInputValue(root.querySelector<HTMLTextAreaElement>('#description')!, 'Some notes');
+    setInputValue(root.querySelector<HTMLInputElement>('#dueDate')!, '2026-08-02');
+    setInputValue(root.querySelector<HTMLInputElement>('#startDate')!, '2026-08-01');
+    await chooseOption(loader, 'Priority', 'High');
+    (root.querySelector('.assign-to-me-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(createWorkItem).toHaveBeenCalledWith(1, expect.objectContaining({ title: 'Fix the login bug' }));
+    expect(notificationService.success).toHaveBeenCalled();
+    expect(onSaved).toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+
+    expect((root.querySelector('#title') as HTMLInputElement).value).toBe('');
+    expect((root.querySelector('#description') as HTMLTextAreaElement).value).toBe('');
+    expect(await (await selectByLabel(loader, 'Priority')).getValueText()).toBe('High');
+    expect(await (await selectByLabel(loader, 'Assignee')).getValueText()).toBe('Ada Lovelace');
+    expect((root.querySelector('#dueDate') as HTMLInputElement).value).toContain('2026');
+    expect((root.querySelector('#startDate') as HTMLInputElement).value).toContain('2026');
+  });
+
+  it('with "Create another" unchecked, a successful create closes the modal (US1 behavior unaffected)', async () => {
+    const { close } = configure({ mode: 'create' });
+    const { fixture } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(close).toHaveBeenCalled();
+  });
+
+  it('does not render the "Create another" checkbox in edit mode', async () => {
+    configure({ mode: 'edit', workItemId: 7 });
+    const { fixture } = await render();
+
+    expect(fixture.nativeElement.querySelector('.create-another-checkbox')).toBeFalsy();
   });
 });

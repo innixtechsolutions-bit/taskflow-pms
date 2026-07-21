@@ -31,3 +31,9 @@
 .assign-to-me-button {
   margin-top: 4px;
 }
+
+/* Pushes the "Create another" checkbox to the footer's left edge while the
+   Cancel/Submit buttons stay right-aligned (mat-dialog-actions align="end"). */
+.create-another-checkbox {
+  margin-right: auto;
+}

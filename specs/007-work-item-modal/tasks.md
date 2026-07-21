@@ -156,13 +156,15 @@ clearing title/description, and the underlying view refreshes after each one.
 
 ### Tests for User Story 4
 
-- [ ] T034 [P] [US4] Frontend test: with "Create another" checked, a successful create clears `title`/`description`/`labels`, retains `type`/`statusId`/`priority`/`assigneeUserId`/`parentWorkItemId`/`startDate`/`dueDate`, and keeps the modal open — `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
-- [ ] T035 [P] [US4] Frontend test: with "Create another" unchecked, a successful create closes the modal (US1 behavior unaffected) — same spec file
-- [ ] T036 [P] [US4] Frontend test: the "Create another" checkbox is not shown (or has no effect) in edit mode — same spec file
+- [X] T034 [P] [US4] Frontend test: with "Create another" checked, a successful create clears `title`/`description`/`labels`, retains `type`/`statusId`/`priority`/`assigneeUserId`/`parentWorkItemId`/`startDate`/`dueDate`, and keeps the modal open — `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
+- [X] T035 [P] [US4] Frontend test: with "Create another" unchecked, a successful create closes the modal (US1 behavior unaffected) — same spec file
+- [X] T036 [P] [US4] Frontend test: the "Create another" checkbox is not shown (or has no effect) in edit mode — same spec file
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Add the "Create another" checkbox to the modal's fixed footer (create mode only); on a successful create with it checked, reset `title`/`description`/labels signals, keep every other field, call `onSaved()`, show the success toast, and do not close the dialog — `work-item-modal.component.ts` (+ `.html`) — depends on T013, T032; makes T034, T035, T036 pass
+- [X] T037 [US4] Add the "Create another" checkbox to the modal's fixed footer (create mode only); on a successful create with it checked, reset `title`/`description`/labels signals, keep every other field, call `onSaved()`, show the success toast, and do not close the dialog — `work-item-modal.component.ts` (+ `.html`) — depends on T013, T032; makes T034, T035, T036 pass
+
+  (labels don't exist yet — US5 lands after this story per the Incremental Delivery order — so only `title`/`description` are reset today; the reset will extend to `labels` once US5 adds that field.)
 
 **Checkpoint**: Batch entry works end-to-end with live view refresh per item
 (research.md #9) — quickstart.md section 4 passes.

@@ -1,6 +1,7 @@
 import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { FormField, maxLength, minLength, required, form } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -55,6 +56,7 @@ export interface WorkItemModalData {
   imports: [
     FormField,
     MatButtonModule,
+    MatCheckboxModule,
     MatDatepickerModule,
     MatDialogModule,
     MatFormFieldModule,
@@ -108,6 +110,10 @@ export class WorkItemModalComponent implements OnInit {
 
   protected readonly submitting = signal(false);
   protected readonly serverError = signal<string | null>(null);
+
+  // Create mode only (US4) — keeps the dialog open after a successful create
+  // instead of closing it, so several items can be logged in a row.
+  protected readonly createAnother = signal(false);
 
   // Client-side mirror of the server's start<=due enforcement (US3) — only
   // constrained when both dates are set, matching InvalidDateRangeException.
@@ -233,6 +239,10 @@ export class WorkItemModalComponent implements OnInit {
     this.startDate.set(value);
   }
 
+  protected onCreateAnotherChange(checked: boolean): void {
+    this.createAnother.set(checked);
+  }
+
   private async loadExistingWorkItem(): Promise<void> {
     const item = await this.workItemsService.getWorkItem(this.workItemId!);
     this.titleModel.set({ title: item.title });
@@ -291,7 +301,15 @@ export class WorkItemModalComponent implements OnInit {
       }
       this.notificationService.success(this.isEditMode ? 'Work item updated.' : 'Work item created.');
       this.data.onSaved();
-      this.dialogRef.close();
+      if (!this.isEditMode && this.createAnother()) {
+        // Title/description reset for the next entry; every other field
+        // (type, status, priority, assignee, parent, dates) is retained
+        // (spec.md User Story 4).
+        this.titleModel.set({ title: '' });
+        this.description.set('');
+      } else {
+        this.dialogRef.close();
+      }
     } catch {
       const message = 'Something went wrong. Please try again.';
       this.serverError.set(message);

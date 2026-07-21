@@ -116,6 +116,15 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
+  @if (!isEditMode) {
+    <mat-checkbox
+      class="create-another-checkbox"
+      [checked]="createAnother()"
+      (change)="onCreateAnotherChange($event.checked)"
+    >
+      Create another
+    </mat-checkbox>
+  }
   <button mat-button type="button" class="close-button" (click)="attemptClose()">Cancel</button>
   <button mat-flat-button color="primary" type="submit" form="work-item-modal-form" [disabled]="submitting()">
     {{ isEditMode ? 'Save changes' : 'Create work item' }}
