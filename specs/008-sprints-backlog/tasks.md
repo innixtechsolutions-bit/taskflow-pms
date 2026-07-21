@@ -23,8 +23,8 @@ Web application: `backend/TaskFlow.Api/` (+ `backend/TaskFlow.Api.Tests/`) and
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm the backend suite passes before starting (`cd backend/TaskFlow.Api.Tests && dotnet test`) — clean baseline for regression comparison (309/309 as of Feature 007)
-- [ ] T002 [P] Confirm the frontend suite passes before starting (`cd frontend && npm test`) — clean baseline for regression comparison (209/209 as of Feature 007)
+- [X] T001 Confirm the backend suite passes before starting (`cd backend/TaskFlow.Api.Tests && dotnet test`) — clean baseline for regression comparison (309/309 as of Feature 007) — confirmed 309/309
+- [X] T002 [P] Confirm the frontend suite passes before starting (`cd frontend && npm test`) — clean baseline for regression comparison (209/209 as of Feature 007) — confirmed 208/209; one pre-existing flaky test (`work-item-modal.component.spec.ts`'s Status-pre-selection test, a `whenStable()` timeout) fails consistently before any Feature 008 changes — not a regression, tracked separately from this feature's work
 
 ---
 
@@ -38,11 +38,11 @@ them.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T003 Create the `Sprint` entity (`Id`, `ProjectId`, `Project` nav, `Name`, `StartDate`, `EndDate`, `Status` as a new `SprintStatus` enum `{ Planned, Active, Completed }`, `WorkItems` nav) in `backend/TaskFlow.Api/Data/Entities/Sprint.cs`
-- [ ] T004 [P] Add `SprintId` (`int?`) and a `Sprint?` navigation property to `WorkItem`, in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs`
-- [ ] T005 [P] Add a `Sprints` (`ICollection<Sprint>`) navigation property to `Project`, mirroring its existing `WorkflowStatuses` collection, in `backend/TaskFlow.Api/Data/Entities/Project.cs`
-- [ ] T006 Configure `AppDbContext`: `Sprints` `DbSet`; unique index `(ProjectId, Name)` on `Sprint`; `Status` stored via `HasConversion<string>()`; `Project → Sprint` `Cascade`; `WorkItem.SprintId` index and `Sprint → WorkItem` **`Restrict`** (not `Cascade` — avoids the same "multiple cascade paths" conflict already documented for `WorkflowStatus → WorkItem`, data-model.md) — in `backend/TaskFlow.Api/Data/AppDbContext.cs` — depends on T003, T004, T005
-- [ ] T007 Generate the EF Core migration `AddSprints` (additive schema only — new table, new nullable column, no data backfill) in `backend/TaskFlow.Api/Data/Migrations/` — depends on T006
+- [X] T003 Create the `Sprint` entity (`Id`, `ProjectId`, `Project` nav, `Name`, `StartDate`, `EndDate`, `Status` as a new `SprintStatus` enum `{ Planned, Active, Completed }`, `WorkItems` nav) in `backend/TaskFlow.Api/Data/Entities/Sprint.cs`
+- [X] T004 [P] Add `SprintId` (`int?`) and a `Sprint?` navigation property to `WorkItem`, in `backend/TaskFlow.Api/Data/Entities/WorkItem.cs`
+- [X] T005 [P] Add a `Sprints` (`ICollection<Sprint>`) navigation property to `Project`, mirroring its existing `WorkflowStatuses` collection, in `backend/TaskFlow.Api/Data/Entities/Project.cs`
+- [X] T006 Configure `AppDbContext`: `Sprints` `DbSet`; unique index `(ProjectId, Name)` on `Sprint`; `Status` stored via `HasConversion<string>()`; `Project → Sprint` `Cascade`; `WorkItem.SprintId` index and `Sprint → WorkItem` **`Restrict`** (not `Cascade` — avoids the same "multiple cascade paths" conflict already documented for `WorkflowStatus → WorkItem`, data-model.md) — in `backend/TaskFlow.Api/Data/AppDbContext.cs` — depends on T003, T004, T005
+- [X] T007 Generate the EF Core migration `AddSprints` (additive schema only — new table, new nullable column, no data backfill) in `backend/TaskFlow.Api/Data/Migrations/` — depends on T006 — applied to dev DB, no cascade-path errors
 
 **Checkpoint**: Schema exists; nothing user-visible changes yet.
 

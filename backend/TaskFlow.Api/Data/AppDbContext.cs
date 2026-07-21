@@ -20,6 +20,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<WorkItemLabel> WorkItemLabels => Set<WorkItemLabel>();
 
+    public DbSet<Sprint> Sprints => Set<Sprint>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -112,6 +114,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(w => w.WorkflowStatusId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Feature 008 — every Backlog/board sprint-filter query filters on this.
+            entity.HasIndex(w => w.SprintId);
+
+            // Restrict, not Cascade -- same "multiple cascade paths" reasoning as
+            // WorkflowStatus above: Project -> WorkItem is already Cascade, so a second
+            // Cascade path via Project -> Sprint -> WorkItem would be rejected by SQL
+            // Server outright (error 1785). Harmless in practice: a Project delete
+            // cascades both tables together, and a single Sprint is only ever
+            // deletable while empty (FR-010), so this Restrict never actually fires.
+            entity.HasOne(w => w.Sprint)
+                .WithMany(s => s.WorkItems)
+                .HasForeignKey(w => w.SprintId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<WorkflowStatus>(entity =>
@@ -172,6 +188,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(l => l.WorkItemLabels)
                 .HasForeignKey(wl => wl.LabelId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Sprint>(entity =>
+        {
+            // Case-insensitive per project (SQL Server default collation), same
+            // mechanism as WorkflowStatus.Name/Label.Name/Project.Name/User.Email above.
+            entity.HasIndex(s => new { s.ProjectId, s.Name }).IsUnique();
+
+            // Deleting a project deletes its sprints -- consistent with the existing
+            // Project -> WorkItem/WorkflowStatus/Label cascades.
+            entity.HasOne(s => s.Project)
+                .WithMany(p => p.Sprints)
+                .HasForeignKey(s => s.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Same readable-text-over-int rationale as User.Role/WorkItem.Type above.
+            entity.Property(s => s.Status).HasConversion<string>();
         });
     }
 }

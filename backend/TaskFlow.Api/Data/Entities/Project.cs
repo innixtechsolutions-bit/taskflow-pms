@@ -23,4 +23,8 @@ public class Project
     // per-project, managed list. Every project must have at least one Open-category
     // and one Done-category row at all times (FR-003), enforced in ProjectStatusService.
     public ICollection<WorkflowStatus> WorkflowStatuses { get; set; } = new List<WorkflowStatus>();
+
+    // Feature 008 — a project's own sprints. At most one may have Status ==
+    // Active at any time, enforced in SprintService.
+    public ICollection<Sprint> Sprints { get; set; } = new List<Sprint>();
 }

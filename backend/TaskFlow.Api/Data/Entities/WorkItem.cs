@@ -85,4 +85,12 @@ public class WorkItem
     // UsingEntity<>() table (research.md #3) so the (WorkItemId, LabelId)
     // unique index has a natural place to live (data-model.md).
     public ICollection<WorkItemLabel> Labels { get; set; } = new List<WorkItemLabel>();
+
+    // Feature 008 — optional; null means "in the backlog" (no sprint). Only
+    // Story/Task/SubTask may have this set -- Epic never does (enforced in
+    // WorkItemService, not the database, the same reasoning already applied
+    // to ParentWorkItemId's hierarchy rules -- see data-model.md).
+    public int? SprintId { get; set; }
+
+    public Sprint? Sprint { get; set; }
 }
