@@ -1510,4 +1510,106 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         Assert.Equal(sprint.Id, created.SprintId);
         Assert.Equal("Sprint 1", created.SprintName);
     }
+
+    // ---------------------------------------------------------------------
+    // US3 — UpdateSprintAsync (the Backlog view's drag interaction)
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task UpdateSprintAsync_sets_the_sprint_for_a_caller_with_edit_rights()
+    {
+        var user = AddUser("dragsprint-set@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var item = AddWorkItem(project.Id, user.Id);
+        var sut = CreateSut();
+
+        var result = await sut.UpdateSprintAsync(user.Id, "Developer", item.Id, sprint.Id);
+
+        Assert.Equal(sprint.Id, result.SprintId);
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_clears_the_sprint_when_given_null()
+    {
+        var user = AddUser("dragsprint-clear@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var item = AddWorkItem(project.Id, user.Id);
+        item.SprintId = sprint.Id;
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var result = await sut.UpdateSprintAsync(user.Id, "Developer", item.Id, null);
+
+        Assert.Null(result.SprintId);
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_rejects_a_caller_without_edit_rights()
+    {
+        var creator = AddUser("dragsprint-creator@example.com");
+        var stranger = AddUser("dragsprint-stranger@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var item = AddWorkItem(project.Id, creator.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<NotAuthorizedToEditWorkItemException>(
+            () => sut.UpdateSprintAsync(stranger.Id, "Developer", item.Id, sprint.Id));
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_rejects_an_Epic()
+    {
+        var user = AddUser("dragsprint-epic@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<EpicCannotBeInSprintException>(
+            () => sut.UpdateSprintAsync(user.Id, "Admin", epic.Id, sprint.Id));
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_rejects_a_sprint_from_a_different_project()
+    {
+        var user = AddUser("dragsprint-crossproject@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var otherProject = AddProject("Beta", user.Id);
+        var otherSprint = AddSprint(otherProject.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var item = AddWorkItem(project.Id, user.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<SprintNotFoundException>(
+            () => sut.UpdateSprintAsync(user.Id, "Admin", item.Id, otherSprint.Id));
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_rejects_moving_into_or_out_of_a_Completed_sprint()
+    {
+        var user = AddUser("dragsprint-readonly@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var completedSprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date.AddDays(-14), DateTime.UtcNow.Date, SprintStatus.Completed);
+        var unassigned = AddWorkItem(project.Id, user.Id);
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<SprintReadOnlyException>(
+            () => sut.UpdateSprintAsync(user.Id, "Admin", unassigned.Id, completedSprint.Id));
+
+        var alreadyInCompleted = AddWorkItem(project.Id, user.Id);
+        alreadyInCompleted.SprintId = completedSprint.Id;
+        Db.SaveChanges();
+        await Assert.ThrowsAsync<SprintReadOnlyException>(
+            () => sut.UpdateSprintAsync(user.Id, "Admin", alreadyInCompleted.Id, null));
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_throws_for_an_unknown_work_item()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<WorkItemNotFoundException>(() => sut.UpdateSprintAsync(1, "Admin", 999999, null));
+    }
 }

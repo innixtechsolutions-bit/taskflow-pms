@@ -56,7 +56,7 @@
   }
 </div>
 
-<div class="sprint-list">
+<div class="sprint-list" cdkDropListGroup>
   @for (sprint of backlog().sprints; track sprint.id) {
     <div class="sprint-section" [id]="'sprint-' + sprint.id">
       <div class="sprint-section-header">
@@ -68,13 +68,15 @@
           +
         </button>
       </div>
-      @if (sprint.items.length === 0) {
-        <p class="sprint-empty-hint">Plan this sprint by moving work items into it.</p>
-      } @else {
-        @for (item of sprint.items; track item.id) {
-          <app-backlog-item-row [item]="item" [projectId]="projectId()" />
+      <div class="sprint-section-body" cdkDropList [cdkDropListData]="sprint.items" (cdkDropListDropped)="onDrop($event, sprint.id)">
+        @if (sprint.items.length === 0) {
+          <p class="sprint-empty-hint">Plan this sprint by moving work items into it.</p>
+        } @else {
+          @for (item of sprint.items; track item.id) {
+            <app-backlog-item-row [item]="item" [projectId]="projectId()" [dragDisabled]="!canDrag(item, sprint.status)" />
+          }
         }
-      }
+      </div>
     </div>
   }
 
@@ -86,12 +88,14 @@
         +
       </button>
     </div>
-    @if (backlog().backlogItems.length === 0) {
-      <app-empty-state icon="inbox" message="No unscheduled work items" />
-    } @else {
-      @for (item of backlog().backlogItems; track item.id) {
-        <app-backlog-item-row [item]="item" [projectId]="projectId()" />
+    <div class="sprint-section-body" cdkDropList [cdkDropListData]="backlog().backlogItems" (cdkDropListDropped)="onDrop($event, null)">
+      @if (backlog().backlogItems.length === 0) {
+        <app-empty-state icon="inbox" message="No unscheduled work items" />
+      } @else {
+        @for (item of backlog().backlogItems; track item.id) {
+          <app-backlog-item-row [item]="item" [projectId]="projectId()" [dragDisabled]="!canDrag(item, null)" />
+        }
       }
-    }
+    </div>
   </div>
 </div>

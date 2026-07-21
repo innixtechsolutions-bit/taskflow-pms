@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { provideRouter } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { vi } from 'vitest';
@@ -6,8 +7,13 @@ import { BacklogComponent } from './backlog.component';
 import { Sprint, SprintsService } from '../sprints.service';
 import { WorkItem, WorkItemBacklog, WorkItemsService } from '../work-items.service';
 import { AuthService } from '../../auth/auth.service';
+import { NotificationService } from '../../shared/notification.service';
 import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
+
+function dropEvent(item: WorkItem): CdkDragDrop<WorkItem[]> {
+  return { item: { data: item } } as CdkDragDrop<WorkItem[]>;
+}
 
 function sampleWorkItem(overrides: Partial<WorkItem> = {}): WorkItem {
   return {
@@ -78,15 +84,19 @@ function configure(
     getAssignableUsers: ReturnType<typeof vi.fn>;
     getProjectLabels: ReturnType<typeof vi.fn>;
     createSprint: ReturnType<typeof vi.fn>;
+    updateWorkItemSprint: ReturnType<typeof vi.fn>;
   }> = {},
-  role: 'Developer' | 'Manager' | 'Admin' | null = 'Developer'
+  role: 'Developer' | 'Manager' | 'Admin' | null = 'Developer',
+  currentUser: { id: number } | null = { id: 1 }
 ) {
   const dialogOpen = vi.fn().mockReturnValue({});
+  const notificationService = { success: vi.fn(), error: vi.fn() };
   const workItemsService = {
     getBacklog: vi.fn().mockResolvedValue(sampleBacklog()),
     getStatuses: vi.fn().mockResolvedValue([]),
     getAssignableUsers: vi.fn().mockResolvedValue([]),
     getProjectLabels: vi.fn().mockResolvedValue([]),
+    updateWorkItemSprint: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
   const sprintsService = { getSprints: vi.fn().mockResolvedValue(sampleSprints()), createSprint: vi.fn() };
@@ -97,11 +107,12 @@ function configure(
       provideRouter([]),
       { provide: WorkItemsService, useValue: workItemsService },
       { provide: SprintsService, useValue: sprintsService },
-      { provide: AuthService, useValue: { currentRole: () => role } },
+      { provide: AuthService, useValue: { currentRole: () => role, currentUser: () => currentUser } },
+      { provide: NotificationService, useValue: notificationService },
       { provide: MatDialog, useValue: { open: dialogOpen } },
     ],
   });
-  return { dialogOpen, ...workItemsService };
+  return { dialogOpen, notificationService, ...workItemsService };
 }
 
 async function render(projectId = 1) {
@@ -199,5 +210,82 @@ describe('BacklogComponent', () => {
 
     const config = dialogOpen.mock.calls[0][1];
     expect(config.data.sprintId).toBeUndefined();
+  });
+
+  // US3 — drag-and-drop
+
+  it('onDrop moves an item into the target sprint section and persists it', async () => {
+    const { updateWorkItemSprint } = configure();
+    const fixture = await render();
+    const item = sampleBacklog().backlogItems[0]; // 'Unscheduled task', id 3
+
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: number | null) => void }).onDrop(dropEvent(item), 2);
+    fixture.detectChanges();
+
+    expect(updateWorkItemSprint).toHaveBeenCalledWith(item.id, 2);
+    const sections = fixture.nativeElement.querySelectorAll('.sprint-section');
+    expect(sections[1].textContent).toContain('Unscheduled task');
+  });
+
+  it('onDrop moves an item into the Backlog section when dropped there (target null)', async () => {
+    const { updateWorkItemSprint } = configure();
+    const fixture = await render();
+    const item = sampleBacklog().sprints[0].items[0]; // 'In sprint 1', id 2, sprintId 1
+
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: number | null) => void }).onDrop(dropEvent(item), null);
+    fixture.detectChanges();
+
+    expect(updateWorkItemSprint).toHaveBeenCalledWith(item.id, null);
+    expect(fixture.nativeElement.querySelector('.backlog-section').textContent).toContain('In sprint 1');
+  });
+
+  it('onDrop reverts the item to its source section and shows an error toast when the PATCH fails', async () => {
+    const { notificationService } = configure({ updateWorkItemSprint: vi.fn().mockRejectedValue(new Error('failed')) });
+    const fixture = await render();
+    const item = sampleBacklog().backlogItems[0]; // 'Unscheduled task', id 3
+
+    (fixture.componentInstance as unknown as { onDrop: (e: unknown, s: number | null) => void }).onDrop(dropEvent(item), 2);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.backlog-section').textContent).toContain('Unscheduled task');
+    expect(notificationService.error).toHaveBeenCalled();
+  });
+
+  function canDragOf(fixture: { componentInstance: unknown }): (i: WorkItem, sprintStatus: Sprint['status'] | null) => boolean {
+    const instance = fixture.componentInstance as { canDrag: (i: WorkItem, sprintStatus: Sprint['status'] | null) => boolean };
+    return instance.canDrag.bind(instance);
+  }
+
+  it('canDrag returns false for an Epic', async () => {
+    configure();
+    const fixture = await render();
+    const epic = sampleBacklog().backlogItems[1]; // 'Context epic'
+
+    expect(canDragOf(fixture)(epic, null)).toBe(false);
+  });
+
+  it('canDrag returns false for a caller without edit rights', async () => {
+    configure({}, 'Developer', { id: 99 });
+    const fixture = await render();
+    const item = sampleBacklog().backlogItems[0]; // createdByUserId 1, assigneeUserId null
+
+    expect(canDragOf(fixture)(item, null)).toBe(false);
+  });
+
+  it('canDrag returns false for any item inside a Completed section', async () => {
+    configure();
+    const fixture = await render();
+    const item = sampleBacklog().backlogItems[0];
+
+    expect(canDragOf(fixture)(item, 'Completed')).toBe(false);
+  });
+
+  it('canDrag returns true for a Story/Task the caller can edit in a non-Completed section', async () => {
+    configure();
+    const fixture = await render();
+    const item = sampleBacklog().backlogItems[0];
+
+    expect(canDragOf(fixture)(item, 'Planned')).toBe(true);
   });
 });

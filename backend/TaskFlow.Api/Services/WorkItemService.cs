@@ -181,6 +181,22 @@ public class WorkItemService(AppDbContext dbContext)
         return await ToDtoAsync(workItem.Id);
     }
 
+    // Feature 008 (US3). A field-scoped sibling to UpdateAsync, the same shape as
+    // UpdateStatusAsync just above -- the Backlog view's drag interaction only ever
+    // changes SprintId, never any other field (research.md #4).
+    public async Task<WorkItemDto> UpdateSprintAsync(int callerId, string callerRole, int id, int? sprintId)
+    {
+        var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
+        EnsureCanEdit(workItem, callerId, callerRole);
+
+        workItem.SprintId = await ResolveSprintIdAsync(workItem.ProjectId, workItem.Type, sprintId, workItem.SprintId);
+        workItem.UpdatedAt = DateTime.UtcNow;
+
+        await dbContext.SaveChangesAsync();
+
+        return await ToDtoAsync(workItem.Id);
+    }
+
     // Shared by Create/Update/UpdateStatus. A null requestedStatusId means "use the
     // project's default" -- its first Open-category status by position, mirroring
     // this field's old "defaults to ToDo" behavior before Feature 006. An explicit

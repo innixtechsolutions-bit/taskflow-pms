@@ -276,6 +276,13 @@ export class WorkItemsService {
     return firstValueFrom(this.http.get<string[]>(`/api/projects/${projectId}/labels`));
   }
 
+  // Feature 008 (US3) — field-scoped, mirrors updateWorkItemStatus above: the
+  // Backlog's drag interaction only ever changes SprintId, never any field it
+  // would otherwise risk clobbering. null clears the sprint (moves to backlog).
+  async updateWorkItemSprint(id: number, sprintId: number | null): Promise<WorkItem> {
+    return firstValueFrom(this.http.patch<WorkItem>(`/api/work-items/${id}/sprint`, { sprintId }));
+  }
+
   // Feature 008 (US2) — same filter set as getWorkItems (page/pageSize don't
   // apply; the Backlog view is unpaginated, matching getBoard's precedent).
   async getBacklog(projectId: number, filter: WorkItemsFilter = {}): Promise<WorkItemBacklog> {

@@ -138,18 +138,18 @@ reload; drag it back out and confirm it returns to the Backlog section.
 
 ### Tests for User Story 3
 
-- [ ] T036 [P] [US3] Backend test: `WorkItemService.UpdateSprintAsync` — reuses `EnsureCanEdit` (rejects a caller who is neither creator/assignee/Manager/Admin), rejects an `Epic`, rejects a target/source `Completed` sprint, rejects a cross-project sprint id, successfully sets and clears `SprintId` — `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`
-- [ ] T037 [P] [US3] Backend test: `PATCH api/work-items/{id}/sprint` — `200` on success, `403` denied path for a caller without edit rights, `400`/`404` for the Epic/read-only/not-found cases — `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`
-- [ ] T038 [P] [US3] Frontend test: `BacklogComponent.onDrop` moves an item optimistically between sections on a successful `PATCH`, and reverts the item to its original section with an error toast when the `PATCH` fails (mirrors `board.component.spec.ts`'s existing drag-revert test) — `frontend/src/app/projects/backlog/backlog.component.spec.ts`
-- [ ] T039 [P] [US3] Frontend test: `BacklogComponent.canDrag` returns `false` for an `Epic`, for a caller without edit rights on the item, and for any item inside a `Completed`-status section — same file
+- [X] T036 [P] [US3] Backend test: `WorkItemService.UpdateSprintAsync` — reuses `EnsureCanEdit` (rejects a caller who is neither creator/assignee/Manager/Admin), rejects an `Epic`, rejects a target/source `Completed` sprint, rejects a cross-project sprint id, successfully sets and clears `SprintId` — `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`
+- [X] T037 [P] [US3] Backend test: `PATCH api/work-items/{id}/sprint` — `200` on success, `403` denied path for a caller without edit rights, `400`/`404` for the Epic/read-only/not-found cases — `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`
+- [X] T038 [P] [US3] Frontend test: `BacklogComponent.onDrop` moves an item optimistically between sections on a successful `PATCH`, and reverts the item to its original section with an error toast when the `PATCH` fails (mirrors `board.component.spec.ts`'s existing drag-revert test) — `frontend/src/app/projects/backlog/backlog.component.spec.ts`
+- [X] T039 [P] [US3] Frontend test: `BacklogComponent.canDrag` returns `false` for an `Epic`, for a caller without edit rights on the item, and for any item inside a `Completed`-status section — same file
 
 ### Implementation for User Story 3
 
-- [ ] T040 [US3] Add `UpdateWorkItemSprintRequest` (`SprintId: int?`) — new `backend/TaskFlow.Api/Dtos/UpdateWorkItemSprintRequest.cs`
-- [ ] T041 [US3] Implement `WorkItemService.UpdateSprintAsync(callerId, callerRole, id, sprintId)` — `EnsureCanEdit` then `ResolveSprintIdAsync` (T028), mirroring `UpdateStatusAsync`'s shape exactly — `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T040; makes T036 pass
-- [ ] T042 [US3] Add the `PATCH api/work-items/{id}/sprint` action, catching `WorkItemNotFoundException`/`NotAuthorizedToEditWorkItemException`/`SprintNotFoundException`/`EpicCannotBeInSprintException`/`SprintReadOnlyException` — `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T041; makes T037 pass
-- [ ] T043 [P] [US3] Add `updateWorkItemSprint(id, sprintId)` — `frontend/src/app/projects/work-items.service.ts`
-- [ ] T044 [US3] Add `cdkDropListGroup` wrapping a `cdkDropList` per section (each sprint + the Backlog section) to `BacklogComponent`; implement `canDrag` (reuses `canEditWorkItem`, plus `Epic`-type and `Completed`-section checks) and `onDrop` (optimistic move + revert-on-failure, mirroring `BoardComponent.onDrop`) — `backlog.component.ts` (+ `.html`) — depends on T043; makes T038, T039 pass
+- [X] T040 [US3] Add `UpdateWorkItemSprintRequest` (`SprintId: int?`) — new `backend/TaskFlow.Api/Dtos/UpdateWorkItemSprintRequest.cs`
+- [X] T041 [US3] Implement `WorkItemService.UpdateSprintAsync(callerId, callerRole, id, sprintId)` — `EnsureCanEdit` then `ResolveSprintIdAsync` (T028), mirroring `UpdateStatusAsync`'s shape exactly — `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T040; makes T036 pass
+- [X] T042 [US3] Add the `PATCH api/work-items/{id}/sprint` action, catching `WorkItemNotFoundException`/`NotAuthorizedToEditWorkItemException`/`SprintNotFoundException`/`EpicCannotBeInSprintException`/`SprintReadOnlyException` — `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T041; makes T037 pass
+- [X] T043 [P] [US3] Add `updateWorkItemSprint(id, sprintId)` — `frontend/src/app/projects/work-items.service.ts`
+- [X] T044 [US3] Add `cdkDropListGroup` wrapping a `cdkDropList` per section (each sprint + the Backlog section) to `BacklogComponent`; implement `canDrag` (reuses `canEditWorkItem`, plus `Epic`-type and `Completed`-section checks) and `onDrop` (optimistic move + revert-on-failure, mirroring `BoardComponent.onDrop`) — `backlog.component.ts` (+ `.html`) — depends on T043; makes T038, T039 pass
 
 **Checkpoint**: Drag-and-drop planning works end-to-end —
 quickstart.md section 3 passes.

@@ -1017,4 +1017,69 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    // US3 -- PATCH .../work-items/{id}/sprint (the Backlog view's drag interaction)
+
+    [Fact]
+    public async Task UpdateSprint_returns_200_for_the_creator()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"dragsprint-creator-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+        var sprintId = await CreateSprintAsync(adminToken, projectId, "Sprint 1");
+
+        var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/sprint", creatorToken);
+        request.Content = JsonContent.Create(new { sprintId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        Assert.Equal(sprintId, body!.SprintId);
+    }
+
+    [Fact]
+    public async Task UpdateSprint_returns_403_for_an_unrelated_caller()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var creatorToken = await RegisterAndGetTokenAsync($"dragsprint-creator2-{Guid.NewGuid():N}@example.com");
+        var strangerToken = await RegisterAndGetTokenAsync($"dragsprint-stranger-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(creatorToken, projectId);
+        var sprintId = await CreateSprintAsync(adminToken, projectId, "Sprint 1");
+
+        var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/sprint", strangerToken);
+        request.Content = JsonContent.Create(new { sprintId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateSprint_returns_400_for_an_Epic()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"dragsprint-epic-{Guid.NewGuid():N}@example.com");
+        var epicId = await CreateItemOfTypeAsync(token, projectId, "Epic");
+        var sprintId = await CreateSprintAsync(adminToken, projectId, "Sprint 1");
+
+        var request = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{epicId}/sprint", token);
+        request.Content = JsonContent.Create(new { sprintId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateSprint_returns_404_for_an_unknown_work_item()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+
+        var request = AuthedRequest(HttpMethod.Patch, "/api/work-items/999999/sprint", adminToken);
+        request.Content = JsonContent.Create(new { sprintId = (int?)null });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }
