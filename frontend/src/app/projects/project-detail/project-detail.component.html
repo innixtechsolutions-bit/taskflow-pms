@@ -51,6 +51,15 @@
       >
         Tree
       </a>
+      <a
+        mat-tab-link
+        class="backlog-view-toggle"
+        [class.active]="viewMode() === 'backlog'"
+        [active]="viewMode() === 'backlog'"
+        (click)="setViewMode('backlog')"
+      >
+        Backlog
+      </a>
     </nav>
     <button mat-flat-button color="primary" type="button" class="new-work-item-button" (click)="openCreateModal()">
       New work item
@@ -60,6 +69,10 @@
   <mat-tab-nav-panel #viewTabPanel>
   @if (viewMode() === 'board') {
     <app-board [projectId]="p.id" />
+  }
+
+  @if (viewMode() === 'backlog') {
+    <app-backlog [projectId]="p.id" />
   }
 
   <ng-template #treeNodeTemplate let-node let-level="level">

@@ -28,14 +28,15 @@ import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardComponent } from '../board/board.component';
+import { BacklogComponent } from '../backlog/backlog.component';
 import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { canEditWorkItem } from '../work-item-permissions';
 
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 
-type ViewMode = 'flat' | 'tree' | 'board';
-const VIEW_MODES: ViewMode[] = ['flat', 'tree', 'board'];
+type ViewMode = 'flat' | 'tree' | 'board' | 'backlog';
+const VIEW_MODES: ViewMode[] = ['flat', 'tree', 'board', 'backlog'];
 
 function parseViewMode(value: string | null): ViewMode {
   return VIEW_MODES.includes(value as ViewMode) ? (value as ViewMode) : 'board';
@@ -62,6 +63,7 @@ function parseViewMode(value: string | null): ViewMode {
     FriendlyDatePipe,
     EmptyStateComponent,
     BoardComponent,
+    BacklogComponent,
   ],
   templateUrl: './project-detail.component.html',
 })

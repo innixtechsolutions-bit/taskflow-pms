@@ -1,0 +1,30 @@
+<div class="backlog-toolbar">
+  @if (canManageSprints()) {
+    <button mat-flat-button color="primary" type="button" class="create-sprint-button" (click)="openCreateSprintDialog()">
+      Create sprint
+    </button>
+  }
+</div>
+
+@if (sprints().length === 0) {
+  <app-empty-state icon="event_note" message="No sprints yet">
+    @if (canManageSprints()) {
+      <button empty-state-action mat-flat-button color="primary" type="button" (click)="openCreateSprintDialog()">
+        Create sprint
+      </button>
+    }
+  </app-empty-state>
+} @else {
+  <div class="sprint-list">
+    @for (sprint of sprints(); track sprint.id) {
+      <div class="sprint-section" [id]="'sprint-' + sprint.id">
+        <div class="sprint-section-header">
+          <span class="sprint-name">{{ sprint.name }}</span>
+          <span class="sprint-dates">{{ sprint.startDate | friendlyDate }} – {{ sprint.endDate | friendlyDate }}</span>
+          <span class="sprint-status">{{ sprint.status }}</span>
+          <span class="sprint-item-count">{{ sprint.itemCount }} work item(s)</span>
+        </div>
+      </div>
+    }
+  </div>
+}

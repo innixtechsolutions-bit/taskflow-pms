@@ -1,0 +1,54 @@
+<h2 mat-dialog-title>Create sprint</h2>
+
+<mat-dialog-content>
+  <form id="sprint-form" class="sprint-form" (submit)="onSubmit($event)" novalidate>
+    @if (serverError()) {
+      <p class="server-error" role="alert">{{ serverError() }}</p>
+    }
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Name</mat-label>
+      <input matInput id="sprintName" type="text" [value]="name()" (input)="onNameChange($any($event.target).value)" />
+      @if (touched() && nameError()) {
+        <mat-error>{{ nameError() }}</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Start date</mat-label>
+      <input
+        matInput
+        id="sprintStartDate"
+        [matDatepicker]="startDatePicker"
+        [value]="startDate()"
+        (dateInput)="onStartDateChange($event.value)"
+      />
+      <mat-datepicker-toggle matIconSuffix [for]="startDatePicker"></mat-datepicker-toggle>
+      <mat-datepicker #startDatePicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>End date</mat-label>
+      <input
+        matInput
+        id="sprintEndDate"
+        [matDatepicker]="endDatePicker"
+        [value]="endDate()"
+        (dateInput)="onEndDateChange($event.value)"
+      />
+      <mat-datepicker-toggle matIconSuffix [for]="endDatePicker"></mat-datepicker-toggle>
+      <mat-datepicker #endDatePicker></mat-datepicker>
+    </mat-form-field>
+
+    @if (touched() && dateRangeError()) {
+      <p class="date-range-error" role="alert">{{ dateRangeError() }}</p>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" class="close-button" (click)="close()">Cancel</button>
+  <button mat-flat-button color="primary" type="submit" form="sprint-form" [disabled]="submitting()">
+    Create sprint
+  </button>
+</mat-dialog-actions>

@@ -828,12 +828,12 @@ describe('ProjectDetailComponent board view', () => {
     expect(fixture.nativeElement.querySelector('.tree-view')).toBeNull();
   });
 
-  it('orders the view tabs Board, List, Tree, with Board first', async () => {
+  it('orders the view tabs Board, List, Tree, Backlog, with Board first', async () => {
     configure();
     const fixture = await render();
 
     const tabs = Array.from(fixture.nativeElement.querySelectorAll('.view-tab-nav a')) as HTMLAnchorElement[];
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Board', 'List', 'Tree']);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Board', 'List', 'Tree', 'Backlog']);
   });
 
   it('labels the former "Flat" tab as "List"', async () => {

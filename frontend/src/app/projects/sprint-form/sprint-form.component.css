@@ -1,0 +1,17 @@
+/* Same two-column layout convention as the work item modal — collapses to one
+   column on narrow viewports since mat-dialog already goes full-width there. */
+.sprint-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.sprint-form .span-2 {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 599px) {
+  .sprint-form {
+    grid-template-columns: 1fr;
+  }
+}
