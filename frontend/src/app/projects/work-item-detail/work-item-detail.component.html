@@ -14,6 +14,17 @@
         <p class="work-item-description">{{ i.description }}</p>
       }
 
+      @if (i.startDate || i.dueDate) {
+        <p class="work-item-dates">
+          @if (i.startDate) {
+            <span class="work-item-start-date">Start: {{ i.startDate | friendlyDate }}</span>
+          }
+          @if (i.dueDate) {
+            <span class="work-item-due-date">Due: {{ i.dueDate | friendlyDate }}</span>
+          }
+        </p>
+      }
+
       @if (i.parentTitle && i.parentWorkItemId) {
         <p class="work-item-parent">
           Parent:

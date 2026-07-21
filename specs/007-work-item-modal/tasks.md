@@ -124,20 +124,20 @@ confirm submission is blocked with a clear message, both client-side and
 
 ### Tests for User Story 3
 
-- [ ] T023 [P] [US3] Backend test: `WorkItemService.CreateAsync`/`UpdateAsync` persist `StartDate`; reject when `StartDate > DueDate` (`InvalidDateRangeException`); accept when equal, when only one date is set, or when neither is set — `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`
-- [ ] T024 [P] [US3] Backend test: `POST`/`PUT` work-items return `400` with `InvalidDateRangeException`'s message when `startDate > dueDate` — `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`
-- [ ] T025 [P] [US3] Frontend test: `WorkItemModalComponent` blocks submit with an inline message when Start date is after Due date, and allows it otherwise — `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
+- [X] T023 [P] [US3] Backend test: `WorkItemService.CreateAsync`/`UpdateAsync` persist `StartDate`; reject when `StartDate > DueDate` (`InvalidDateRangeException`); accept when equal, when only one date is set, or when neither is set — `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`
+- [X] T024 [P] [US3] Backend test: `POST`/`PUT` work-items return `400` with `InvalidDateRangeException`'s message when `startDate > dueDate` — `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`
+- [X] T025 [P] [US3] Frontend test: `WorkItemModalComponent` blocks submit with an inline message when Start date is after Due date, and allows it otherwise — `frontend/src/app/projects/work-item-modal/work-item-modal.component.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Add `InvalidDateRangeException` ("Start date must be on or before the due date.") to `backend/TaskFlow.Api/Services/WorkItemExceptions.cs`
-- [ ] T027 [US3] Add `StartDate` (`DateTime?`) to `WorkItemRequest` — `backend/TaskFlow.Api/Dtos/WorkItemRequest.cs`
-- [ ] T028 [P] [US3] Add `StartDate` to `WorkItemDto` and `WorkItemDetailDto` (not `WorkItemBoardCardDto` — out of scope per spec) — `backend/TaskFlow.Api/Dtos/WorkItemDto.cs`, `backend/TaskFlow.Api/Dtos/WorkItemDetailDto.cs`
-- [ ] T029 [US3] `WorkItemService.CreateAsync`/`UpdateAsync`: persist `StartDate`, throw `InvalidDateRangeException` when both dates are present and `StartDate > DueDate` — `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T026, T027; makes T023 pass
-- [ ] T030 [US3] Catch `InvalidDateRangeException` → `Problem(400, ...)` in the `Create` and `Update` actions — `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T029; makes T024 pass
-- [ ] T031 [P] [US3] Add `startDate?: string` to the frontend `WorkItemRequest`/`WorkItem`/`WorkItemDetail` interfaces — `frontend/src/app/projects/work-items.service.ts`
-- [ ] T032 [US3] Add the Start date field (`MatDatepicker`, reusing `toDateOnlyString`/`parseDateOnlyString`) and client-side start≤due validation message to `work-item-modal.component.ts` (+ `.html`) — depends on T013, T031; makes T025 pass
-- [ ] T033 [US3] Display Start date alongside Due date on the detail view — `frontend/src/app/projects/work-item-detail/work-item-detail.component.ts` (+ `.html`) — depends on T028, T031
+- [X] T026 [US3] Add `InvalidDateRangeException` ("Start date must be on or before the due date.") to `backend/TaskFlow.Api/Services/WorkItemExceptions.cs`
+- [X] T027 [US3] Add `StartDate` (`DateTime?`) to `WorkItemRequest` — `backend/TaskFlow.Api/Dtos/WorkItemRequest.cs`
+- [X] T028 [P] [US3] Add `StartDate` to `WorkItemDto` and `WorkItemDetailDto` (not `WorkItemBoardCardDto` — out of scope per spec) — `backend/TaskFlow.Api/Dtos/WorkItemDto.cs`, `backend/TaskFlow.Api/Dtos/WorkItemDetailDto.cs`
+- [X] T029 [US3] `WorkItemService.CreateAsync`/`UpdateAsync`: persist `StartDate`, throw `InvalidDateRangeException` when both dates are present and `StartDate > DueDate` — `backend/TaskFlow.Api/Services/WorkItemService.cs` — depends on T026, T027; makes T023 pass
+- [X] T030 [US3] Catch `InvalidDateRangeException` → `Problem(400, ...)` in the `Create` and `Update` actions — `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T029; makes T024 pass
+- [X] T031 [P] [US3] Add `startDate?: string` to the frontend `WorkItemRequest`/`WorkItem`/`WorkItemDetail` interfaces — `frontend/src/app/projects/work-items.service.ts`
+- [X] T032 [US3] Add the Start date field (`MatDatepicker`, reusing `toDateOnlyString`/`parseDateOnlyString`) and client-side start≤due validation message to `work-item-modal.component.ts` (+ `.html`) — depends on T013, T031; makes T025 pass
+- [X] T033 [US3] Display Start date alongside Due date on the detail view — `frontend/src/app/projects/work-item-detail/work-item-detail.component.ts` (+ `.html`) — depends on T028, T031
 
 **Checkpoint**: Start date is settable, validated client- and server-side, and
 visible on detail — quickstart.md section 3 passes.

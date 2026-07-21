@@ -60,6 +60,10 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+        catch (InvalidDateRangeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
     }
 
     [HttpGet("api/projects/{projectId}/work-items/parent-candidates")]
@@ -204,6 +208,10 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
         catch (TypeChangeInvalidatesChildrenException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidDateRangeException ex)
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }

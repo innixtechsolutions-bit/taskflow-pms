@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, HostListener, OnInit, computed, inject, signal } from '@angular/core';
 import { FormField, maxLength, minLength, required, form } from '@angular/forms/signals';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -102,11 +102,22 @@ export class WorkItemModalComponent implements OnInit {
   protected readonly statusId = signal<number | null>(null);
   protected readonly assigneeUserId = signal('');
   protected readonly dueDate = signal<Date | null>(null);
+  protected readonly startDate = signal<Date | null>(null);
   protected readonly parentWorkItemId = signal('');
   protected readonly parentCandidates = signal<WorkItemLookupItem[]>([]);
 
   protected readonly submitting = signal(false);
   protected readonly serverError = signal<string | null>(null);
+
+  // Client-side mirror of the server's start<=due enforcement (US3) — only
+  // constrained when both dates are set, matching InvalidDateRangeException.
+  protected readonly dateRangeError = computed<string | null>(() => {
+    const start = this.startDate();
+    const due = this.dueDate();
+    return start && due && start.getTime() > due.getTime()
+      ? 'Start date must be on or before the due date.'
+      : null;
+  });
 
   constructor() {
     // Our own Escape/close-button handling (attemptClose, below) replaces
@@ -217,6 +228,11 @@ export class WorkItemModalComponent implements OnInit {
     this.dueDate.set(value);
   }
 
+  protected onStartDateChange(value: Date | null): void {
+    this.markDirty();
+    this.startDate.set(value);
+  }
+
   private async loadExistingWorkItem(): Promise<void> {
     const item = await this.workItemsService.getWorkItem(this.workItemId!);
     this.titleModel.set({ title: item.title });
@@ -226,6 +242,7 @@ export class WorkItemModalComponent implements OnInit {
     this.statusId.set(item.statusId);
     this.assigneeUserId.set(item.assigneeUserId ? item.assigneeUserId.toString() : '');
     this.dueDate.set(item.dueDate ? parseDateOnlyString(item.dueDate) : null);
+    this.startDate.set(item.startDate ? parseDateOnlyString(item.startDate) : null);
     this.parentWorkItemId.set(item.parentWorkItemId ? item.parentWorkItemId.toString() : '');
     await this.loadParentCandidates();
   }
@@ -247,11 +264,15 @@ export class WorkItemModalComponent implements OnInit {
     if (!this.titleForm().valid()) {
       return;
     }
+    if (this.dateRangeError()) {
+      return;
+    }
 
     this.serverError.set(null);
     this.submitting.set(true);
     try {
       const dueDate = this.dueDate();
+      const startDate = this.startDate();
       const request = {
         type: this.type(),
         title: this.titleModel().title,
@@ -260,6 +281,7 @@ export class WorkItemModalComponent implements OnInit {
         statusId: this.statusId() ?? undefined,
         assigneeUserId: this.assigneeUserId() ? Number(this.assigneeUserId()) : undefined,
         dueDate: dueDate ? toDateOnlyString(dueDate) : undefined,
+        startDate: startDate ? toDateOnlyString(startDate) : undefined,
         parentWorkItemId: this.parentWorkItemId() ? Number(this.parentWorkItemId()) : undefined,
       };
       if (this.isEditMode) {

@@ -33,7 +33,8 @@
 /* Shared alert-style messages, used both on auth pages and elsewhere
    (e.g. the users list's role-change error). */
 .server-error,
-.session-expired {
+.session-expired,
+.date-range-error {
   color: var(--mat-sys-error);
   margin: 0 0 12px;
 }

@@ -31,6 +31,7 @@ export interface WorkItemRequest {
   statusId?: number;
   assigneeUserId?: number;
   dueDate?: string;
+  startDate?: string;
   parentWorkItemId?: number;
 }
 
@@ -50,6 +51,7 @@ export interface WorkItem {
   assigneeUserId: number | null;
   assigneeName: string | null;
   dueDate: string | null;
+  startDate: string | null;
   createdByUserId: number;
   createdByName: string;
   createdAt: string;

@@ -67,6 +67,7 @@ function sampleItem(overrides: Partial<WorkItem> = {}): WorkItem {
     assigneeUserId: null,
     assigneeName: null,
     dueDate: null,
+    startDate: null,
     createdByUserId: 10,
     createdByName: 'Creator',
     createdAt: '2026-01-01T00:00:00Z',

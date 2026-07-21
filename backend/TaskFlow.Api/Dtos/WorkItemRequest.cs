@@ -30,6 +30,8 @@ public class WorkItemRequest
 
     public DateTime? DueDate { get; set; }
 
+    public DateTime? StartDate { get; set; }
+
     // Required/optional/forbidden depending on Type — checked in WorkItemService
     // against data-model.md's Hierarchy rules table, not via a data annotation
     // (the same reasoning already applied to Priority/Status above).

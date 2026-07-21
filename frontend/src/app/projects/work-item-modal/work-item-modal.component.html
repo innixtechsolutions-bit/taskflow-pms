@@ -84,17 +84,34 @@
     </div>
 
     <mat-form-field appearance="outline">
+      <mat-label>Start date</mat-label>
+      <input
+        matInput
+        id="startDate"
+        [matDatepicker]="startDatePicker"
+        [value]="startDate()"
+        (dateInput)="onStartDateChange($event.value)"
+      />
+      <mat-datepicker-toggle matIconSuffix [for]="startDatePicker"></mat-datepicker-toggle>
+      <mat-datepicker #startDatePicker></mat-datepicker>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
       <mat-label>Due date</mat-label>
       <input
         matInput
         id="dueDate"
         [matDatepicker]="dueDatePicker"
         [value]="dueDate()"
-        (dateChange)="onDueDateChange($event.value)"
+        (dateInput)="onDueDateChange($event.value)"
       />
       <mat-datepicker-toggle matIconSuffix [for]="dueDatePicker"></mat-datepicker-toggle>
       <mat-datepicker #dueDatePicker></mat-datepicker>
     </mat-form-field>
+
+    @if (dateRangeError()) {
+      <p class="date-range-error" role="alert">{{ dateRangeError() }}</p>
+    }
   </form>
 </mat-dialog-content>
 

@@ -110,6 +110,28 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // Feature 007 (US3) — proves server-side enforcement independent of the UI,
+    // even though the client also blocks this before submitting.
+    [Fact]
+    public async Task Create_returns_400_for_a_start_date_after_the_due_date()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"creator-baddates-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new
+        {
+            type = "Task",
+            title = "Fix the login bug",
+            dueDate = "2026-08-01",
+            startDate = "2026-08-02"
+        });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task Create_returns_404_for_an_unknown_project()
     {

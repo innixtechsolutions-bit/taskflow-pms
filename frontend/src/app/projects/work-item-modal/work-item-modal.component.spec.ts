@@ -169,6 +169,46 @@ describe('WorkItemModalComponent (Assign to me, US2)', () => {
   });
 });
 
+describe('WorkItemModalComponent (start date, US3)', () => {
+  it('blocks submit with an inline message when Start date is after Due date', async () => {
+    const { createWorkItem } = configure({});
+    const { fixture } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
+    setInputValue(root.querySelector<HTMLInputElement>('#dueDate')!, '2026-08-01');
+    setInputValue(root.querySelector<HTMLInputElement>('#startDate')!, '2026-08-02');
+    fixture.detectChanges();
+
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(createWorkItem).not.toHaveBeenCalled();
+    expect(root.querySelector('.date-range-error')?.textContent).toContain(
+      'Start date must be on or before the due date.'
+    );
+  });
+
+  it('allows submit when Start date is on or before Due date', async () => {
+    const { createWorkItem } = configure({});
+    const { fixture } = await render();
+
+    const root = fixture.nativeElement as HTMLElement;
+    setInputValue(root.querySelector<HTMLInputElement>('#title')!, 'Fix the login bug');
+    setInputValue(root.querySelector<HTMLInputElement>('#dueDate')!, '2026-08-02');
+    setInputValue(root.querySelector<HTMLInputElement>('#startDate')!, '2026-08-01');
+    fixture.detectChanges();
+
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await fixture.whenStable();
+
+    expect(createWorkItem).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ startDate: '2026-08-01', dueDate: '2026-08-02' })
+    );
+  });
+});
+
 describe('WorkItemModalComponent (dirty-flag / confirm-discard)', () => {
   it('closes immediately on Escape when nothing has changed', async () => {
     const { close } = configure({});

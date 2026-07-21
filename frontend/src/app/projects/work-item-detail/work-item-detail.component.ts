@@ -11,6 +11,7 @@ import { PriorityChipComponent } from '../../shared/priority-chip/priority-chip.
 import { UserAvatarComponent } from '../../shared/user-avatar/user-avatar.component';
 import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { canEditWorkItem } from '../work-item-permissions';
 
 // Mirrors the backend's RequiredParentType mapping in reverse (data-model.md's
@@ -30,6 +31,7 @@ const CHILD_TYPE: Record<string, string> = { Epic: 'Story', Story: 'Task', Task:
     PriorityChipComponent,
     UserAvatarComponent,
     EmptyStateComponent,
+    FriendlyDatePipe,
   ],
   templateUrl: './work-item-detail.component.html',
 })

@@ -17,6 +17,7 @@ public record WorkItemDto(
     int? AssigneeUserId,
     string? AssigneeName,
     DateTime? DueDate,
+    DateTime? StartDate,
     int CreatedByUserId,
     string CreatedByName,
     DateTime CreatedAt,

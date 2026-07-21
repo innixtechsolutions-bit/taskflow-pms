@@ -40,6 +40,7 @@ public class WorkItemService(AppDbContext dbContext)
         }
 
         await ValidateParentAsync(projectId, type, request.ParentWorkItemId);
+        EnsureValidDateRange(request.StartDate, request.DueDate);
 
         var now = DateTime.UtcNow;
         var workItem = new WorkItem
@@ -52,6 +53,7 @@ public class WorkItemService(AppDbContext dbContext)
             WorkflowStatusId = statusId,
             AssigneeUserId = request.AssigneeUserId,
             DueDate = request.DueDate,
+            StartDate = request.StartDate,
             CreatedByUserId = creatorUserId,
             CreatedAt = now,
             UpdatedAt = now,
@@ -121,6 +123,7 @@ public class WorkItemService(AppDbContext dbContext)
         }
 
         await ValidateParentAsync(workItem.ProjectId, type, request.ParentWorkItemId);
+        EnsureValidDateRange(request.StartDate, request.DueDate);
 
         // ProjectId is never assigned here — it's immutable after creation (FR-014) and
         // WorkItemRequest doesn't even carry one, so there's no path that could change it.
@@ -131,6 +134,7 @@ public class WorkItemService(AppDbContext dbContext)
         workItem.WorkflowStatusId = statusId;
         workItem.AssigneeUserId = request.AssigneeUserId;
         workItem.DueDate = request.DueDate;
+        workItem.StartDate = request.StartDate;
         workItem.UpdatedAt = DateTime.UtcNow;
         workItem.ParentWorkItemId = request.ParentWorkItemId;
 
@@ -185,6 +189,16 @@ public class WorkItemService(AppDbContext dbContext)
         // should never be null in practice -- InvalidWorkItemStatusException here would
         // only mean the project itself doesn't exist, which callers already check first.
         return defaultStatus?.Id ?? throw new InvalidWorkItemStatusException();
+    }
+
+    // Enforced only when both dates are set (US3) -- a start date with no due date,
+    // or a due date with no start date, is unconstrained.
+    private static void EnsureValidDateRange(DateTime? startDate, DateTime? dueDate)
+    {
+        if (startDate.HasValue && dueDate.HasValue && startDate.Value > dueDate.Value)
+        {
+            throw new InvalidDateRangeException();
+        }
     }
 
     // Shared by UpdateAsync and UpdateStatusAsync -- "the caller is this item's
@@ -274,6 +288,7 @@ public class WorkItemService(AppDbContext dbContext)
                 w.AssigneeUserId,
                 AssigneeName = w.Assignee != null ? w.Assignee.FullName : null,
                 w.DueDate,
+                w.StartDate,
                 w.CreatedByUserId,
                 CreatedByName = w.CreatedBy!.FullName,
                 w.CreatedAt,
@@ -298,7 +313,7 @@ public class WorkItemService(AppDbContext dbContext)
             workItem.Id, workItem.ProjectId, workItem.Type, workItem.Title, workItem.Description,
             workItem.Priority, workItem.StatusId, workItem.StatusName, workItem.StatusCategory, workItem.StatusColorKey,
             workItem.AssigneeUserId, workItem.AssigneeName,
-            workItem.DueDate, workItem.CreatedByUserId, workItem.CreatedByName, workItem.CreatedAt, workItem.UpdatedAt,
+            workItem.DueDate, workItem.StartDate, workItem.CreatedByUserId, workItem.CreatedByName, workItem.CreatedAt, workItem.UpdatedAt,
             workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children);
     }
 
@@ -380,6 +395,7 @@ public class WorkItemService(AppDbContext dbContext)
                 w.AssigneeUserId,
                 w.Assignee != null ? w.Assignee.FullName : null,
                 w.DueDate,
+                w.StartDate,
                 w.CreatedByUserId,
                 w.CreatedBy!.FullName,
                 w.CreatedAt,
@@ -407,6 +423,7 @@ public class WorkItemService(AppDbContext dbContext)
                 w.AssigneeUserId,
                 w.Assignee != null ? w.Assignee.FullName : null,
                 w.DueDate,
+                w.StartDate,
                 w.CreatedByUserId,
                 w.CreatedBy!.FullName,
                 w.CreatedAt,

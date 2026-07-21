@@ -41,3 +41,7 @@ public class TypeChangeInvalidatesParentException() : Exception(
 
 public class TypeChangeInvalidatesChildrenException() : Exception(
     "Cannot change type: the item's existing children would no longer be valid for the new type.");
+
+// FR (US3): enforced only when both dates are present -- a start date with no due
+// date, or vice versa, is unconstrained.
+public class InvalidDateRangeException() : Exception("Start date must be on or before the due date.");

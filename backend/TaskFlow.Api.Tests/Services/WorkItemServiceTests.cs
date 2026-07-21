@@ -744,6 +744,48 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         Assert.Equal(request.DueDate, result.DueDate);
     }
 
+    // Feature 007 (US3) -- start <= due is enforced only when both dates are set;
+    // a due date with no start date (covered by the test above) and a start date
+    // with no due date are both unconstrained.
+    [Theory]
+    [InlineData(-1, true)]  // one day before due -> ok
+    [InlineData(0, true)]   // exactly on due -> ok
+    [InlineData(1, false)]  // one day after due -> rejected
+    public async Task CreateAsync_enforces_start_on_or_before_due_when_both_are_set(int startOffsetDaysFromDue, bool expectedValid)
+    {
+        var user = AddUser("dates@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var due = new DateTime(2026, 8, 1);
+        var request = ValidRequest();
+        request.DueDate = due;
+        request.StartDate = due.AddDays(startOffsetDaysFromDue);
+
+        if (expectedValid)
+        {
+            var result = await sut.CreateAsync(user.Id, project.Id, request);
+            Assert.Equal(request.StartDate, result.StartDate);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<InvalidDateRangeException>(() => sut.CreateAsync(user.Id, project.Id, request));
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsync_accepts_a_start_date_with_no_due_date()
+    {
+        var user = AddUser("start-only@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.StartDate = new DateTime(2026, 8, 1);
+
+        var result = await sut.CreateAsync(user.Id, project.Id, request);
+
+        Assert.Equal(request.StartDate, result.StartDate);
+    }
+
     [Fact]
     public async Task CreateAsync_rejects_an_assignee_that_is_not_an_existing_user()
     {
@@ -841,6 +883,37 @@ public class WorkItemServiceTests : SqlServerTestDatabase
 
         await Assert.ThrowsAsync<WorkItemNotFoundException>(
             () => sut.UpdateAsync(1, "Admin", 999999, EditRequest()));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_a_start_date_after_the_due_date()
+    {
+        var creator = AddUser("update-dates-bad@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var item = AddWorkItem(project.Id, creator.Id);
+        var sut = CreateSut();
+        var request = EditRequest();
+        request.DueDate = new DateTime(2026, 8, 1);
+        request.StartDate = new DateTime(2026, 8, 2);
+
+        await Assert.ThrowsAsync<InvalidDateRangeException>(
+            () => sut.UpdateAsync(creator.Id, "Developer", item.Id, request));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_persists_a_valid_start_date()
+    {
+        var creator = AddUser("update-dates-ok@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var item = AddWorkItem(project.Id, creator.Id);
+        var sut = CreateSut();
+        var request = EditRequest();
+        request.DueDate = new DateTime(2026, 8, 2);
+        request.StartDate = new DateTime(2026, 8, 1);
+
+        var result = await sut.UpdateAsync(creator.Id, "Developer", item.Id, request);
+
+        Assert.Equal(request.StartDate, result.StartDate);
     }
 
     // Feature 005 (Kanban Board) -- a field-scoped status update, introduced so
