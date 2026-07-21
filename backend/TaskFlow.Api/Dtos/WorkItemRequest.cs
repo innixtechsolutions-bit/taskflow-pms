@@ -42,4 +42,10 @@ public class WorkItemRequest
     // against data-model.md's Hierarchy rules table, not via a data annotation
     // (the same reasoning already applied to Priority/Status above).
     public int? ParentWorkItemId { get; set; }
+
+    // Feature 008 — optional; null means "no sprint" (the backlog). Must belong to
+    // this item's own project, must not be set on an Epic, and must not target a
+    // Completed sprint — validated in WorkItemService.ResolveSprintIdAsync, not here
+    // (same reasoning as every other cross-entity reference on this DTO).
+    public int? SprintId { get; set; }
 }

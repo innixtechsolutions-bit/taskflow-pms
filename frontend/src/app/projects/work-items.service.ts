@@ -37,6 +37,8 @@ export interface WorkItemRequest {
   // an omitted/null Labels as "no labels" on PUT's replace-the-whole-set
   // semantics (data-model.md), so a real edit must include the full current set.
   labels?: string[];
+  // Feature 008 — optional; omitted/undefined means "no sprint" (the backlog).
+  sprintId?: number;
 }
 
 // Status fields are flattened (statusId/statusName/statusCategory/statusColorKey),
@@ -62,6 +64,9 @@ export interface WorkItem {
   updatedAt: string;
   parentWorkItemId: number | null;
   labels: string[];
+  // Feature 008 — null means "no sprint" (the backlog).
+  sprintId: number | null;
+  sprintName: string | null;
 }
 
 export interface UserLookupItem {
@@ -159,6 +164,23 @@ export interface WorkItemBoard {
   items: WorkItemBoardCard[];
 }
 
+// Feature 008 (US2) — the Backlog view's response shape. Sprints arrive
+// pre-ordered soonest-start-first; BacklogItems are every filtered item with
+// no sprint assignment (including every Epic, which can never have one).
+export interface BacklogSprintSection {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: 'Planned' | 'Active' | 'Completed';
+  items: WorkItem[];
+}
+
+export interface WorkItemBacklog {
+  sprints: BacklogSprintSection[];
+  backlogItems: WorkItem[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorkItemsService {
   private readonly http = inject(HttpClient);
@@ -252,5 +274,18 @@ export class WorkItemsService {
   // the List view's label filter dropdown.
   async getProjectLabels(projectId: number): Promise<string[]> {
     return firstValueFrom(this.http.get<string[]>(`/api/projects/${projectId}/labels`));
+  }
+
+  // Feature 008 (US2) — same filter set as getWorkItems (page/pageSize don't
+  // apply; the Backlog view is unpaginated, matching getBoard's precedent).
+  async getBacklog(projectId: number, filter: WorkItemsFilter = {}): Promise<WorkItemBacklog> {
+    const params: Record<string, string | number> = {};
+    if (filter.statusId) params['statusId'] = filter.statusId;
+    if (filter.type) params['type'] = filter.type;
+    if (filter.priority) params['priority'] = filter.priority;
+    if (filter.assigneeUserId) params['assigneeUserId'] = filter.assigneeUserId;
+    if (filter.search) params['search'] = filter.search;
+    if (filter.label) params['label'] = filter.label;
+    return firstValueFrom(this.http.get<WorkItemBacklog>(`/api/projects/${projectId}/backlog`, { params }));
   }
 }

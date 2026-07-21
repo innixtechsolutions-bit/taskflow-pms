@@ -1,0 +1,40 @@
+.backlog-item-row {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.backlog-item-row:last-child {
+  border-bottom: none;
+}
+
+.item-row-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.item-row-type {
+  color: #64748b;
+  font-size: 12px;
+  min-width: 48px;
+}
+
+.item-row-title {
+  flex: 1;
+}
+
+.item-row-due-date {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.unassigned-indicator {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px dashed var(--color-border);
+  display: inline-block;
+}

@@ -48,6 +48,10 @@ export interface WorkItemModalData {
   statusId?: number;
   parentWorkItemId?: number;
   type?: string;
+  // Feature 008 (US2, FR-024) — create mode only. An invisible pass-through:
+  // the created item is pre-assigned to this sprint, but the modal itself
+  // gains no visible Sprint field (out of scope for this feature's UI).
+  sprintId?: number;
   onSaved: () => void;
 }
 
@@ -373,7 +377,9 @@ export class WorkItemModalComponent implements OnInit {
       if (this.isEditMode) {
         await this.workItemsService.updateWorkItem(this.workItemId!, request);
       } else {
-        await this.workItemsService.createWorkItem(this.projectId, request);
+        // Feature 008 — create-mode-only, invisible pre-assignment (FR-024); never
+        // sent on edit, since an edit's SprintId is never touched by this modal.
+        await this.workItemsService.createWorkItem(this.projectId, { ...request, sprintId: this.data.sprintId });
       }
       this.notificationService.success(this.isEditMode ? 'Work item updated.' : 'Work item created.');
       this.data.onSaved();

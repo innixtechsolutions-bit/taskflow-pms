@@ -74,6 +74,8 @@ function sampleItem(overrides: Partial<WorkItem> = {}): WorkItem {
     updatedAt: '2026-01-01T00:00:00Z',
     parentWorkItemId: null,
     labels: [],
+    sprintId: null,
+    sprintName: null,
     ...overrides,
   };
 }

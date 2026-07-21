@@ -42,6 +42,7 @@ public class WorkItemService(AppDbContext dbContext)
         await ValidateParentAsync(projectId, type, request.ParentWorkItemId);
         EnsureValidDateRange(request.StartDate, request.DueDate);
         var labels = await NormalizeAndAttachLabelsAsync(projectId, request.Labels);
+        var sprintId = await ResolveSprintIdAsync(projectId, type, request.SprintId, currentSprintId: null);
 
         var now = DateTime.UtcNow;
         var workItem = new WorkItem
@@ -59,7 +60,8 @@ public class WorkItemService(AppDbContext dbContext)
             CreatedAt = now,
             UpdatedAt = now,
             ParentWorkItemId = request.ParentWorkItemId,
-            Labels = labels
+            Labels = labels,
+            SprintId = sprintId
         };
 
         dbContext.WorkItems.Add(workItem);
@@ -127,6 +129,7 @@ public class WorkItemService(AppDbContext dbContext)
         await ValidateParentAsync(workItem.ProjectId, type, request.ParentWorkItemId);
         EnsureValidDateRange(request.StartDate, request.DueDate);
         var newLabels = await NormalizeAndAttachLabelsAsync(workItem.ProjectId, request.Labels);
+        var sprintId = await ResolveSprintIdAsync(workItem.ProjectId, type, request.SprintId, workItem.SprintId);
 
         // ProjectId is never assigned here — it's immutable after creation (FR-014) and
         // WorkItemRequest doesn't even carry one, so there's no path that could change it.
@@ -140,6 +143,7 @@ public class WorkItemService(AppDbContext dbContext)
         workItem.StartDate = request.StartDate;
         workItem.UpdatedAt = DateTime.UtcNow;
         workItem.ParentWorkItemId = request.ParentWorkItemId;
+        workItem.SprintId = sprintId;
 
         // Replace-the-whole-set (PUT semantics, same as every other field here) --
         // every existing attachment for this item is removed and the newly
@@ -213,6 +217,47 @@ public class WorkItemService(AppDbContext dbContext)
         {
             throw new InvalidDateRangeException();
         }
+    }
+
+    // Feature 008 (US2/US3) — shared by CreateAsync/UpdateAsync/UpdateSprintAsync
+    // (data-model.md's validation table). currentSprintId is the item's sprint
+    // *before* this call — null on create. When the caller is moving the item away
+    // from its current sprint (clearing it or reassigning elsewhere), that current
+    // sprint must not be Completed (FR-009's read-only rule applies to both sides of
+    // a move, not just the destination). Returns the resolved SprintId to assign
+    // (null means "no sprint").
+    private async Task<int?> ResolveSprintIdAsync(int projectId, WorkItemType type, int? requestedSprintId, int? currentSprintId)
+    {
+        if (currentSprintId.HasValue && currentSprintId != requestedSprintId)
+        {
+            var currentSprint = await dbContext.Sprints.FindAsync(currentSprintId.Value);
+            if (currentSprint?.Status == SprintStatus.Completed)
+            {
+                throw new SprintReadOnlyException();
+            }
+        }
+
+        if (!requestedSprintId.HasValue)
+        {
+            return null;
+        }
+
+        if (type == WorkItemType.Epic)
+        {
+            throw new EpicCannotBeInSprintException();
+        }
+
+        var sprint = await dbContext.Sprints.FirstOrDefaultAsync(s => s.Id == requestedSprintId.Value && s.ProjectId == projectId);
+        if (sprint is null)
+        {
+            throw new SprintNotFoundException();
+        }
+        if (sprint.Status == SprintStatus.Completed)
+        {
+            throw new SprintReadOnlyException();
+        }
+
+        return sprint.Id;
     }
 
     // Shared by Create/UpdateAsync (US5, data-model.md's Label validation rules).
@@ -371,7 +416,9 @@ public class WorkItemService(AppDbContext dbContext)
                 w.UpdatedAt,
                 w.ParentWorkItemId,
                 ParentTitle = w.ParentWorkItem != null ? w.ParentWorkItem.Title : null,
-                Labels = w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()
+                Labels = w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList(),
+                w.SprintId,
+                SprintName = w.Sprint != null ? w.Sprint.Name : null
             })
             .SingleOrDefaultAsync() ?? throw new WorkItemNotFoundException();
 
@@ -391,7 +438,8 @@ public class WorkItemService(AppDbContext dbContext)
             workItem.Priority, workItem.StatusId, workItem.StatusName, workItem.StatusCategory, workItem.StatusColorKey,
             workItem.AssigneeUserId, workItem.AssigneeName,
             workItem.DueDate, workItem.StartDate, workItem.CreatedByUserId, workItem.CreatedByName, workItem.CreatedAt, workItem.UpdatedAt,
-            workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children, workItem.Labels);
+            workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children, workItem.Labels,
+            workItem.SprintId, workItem.SprintName);
     }
 
     // Bare-minimum listing (pulled forward into US4 since edit/delete controls need
@@ -407,11 +455,53 @@ public class WorkItemService(AppDbContext dbContext)
             throw new ProjectNotFoundException();
         }
 
-        // Each .Where() below only appends a predicate to this query's expression tree —
-        // nothing touches the database until it's enumerated (.CountAsync()/.ToListAsync()
-        // further down), so five conditionally-appended .Where() calls still produce one
-        // SQL query with up to five AND conditions, not five separate round-trips
-        // (research.md §4).
+        var query = BuildFilteredQuery(projectId, statusId, type, priority, assigneeUserId, search, label);
+
+        // Clamped, never rejected (spec.md Edge Cases) — a caller asking for too much
+        // just gets the maximum instead of an error.
+        pageSize = Math.Min(pageSize, 100);
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderByDescending(w => w.UpdatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(w => new WorkItemDto(
+                w.Id,
+                w.ProjectId,
+                w.Type.ToString(),
+                w.Title,
+                w.Description,
+                w.Priority.ToString(),
+                w.WorkflowStatusId,
+                w.WorkflowStatus!.Name,
+                w.WorkflowStatus.Category.ToString(),
+                w.WorkflowStatus.ColorKey.ToString(),
+                w.AssigneeUserId,
+                w.Assignee != null ? w.Assignee.FullName : null,
+                w.DueDate,
+                w.StartDate,
+                w.CreatedByUserId,
+                w.CreatedBy!.FullName,
+                w.CreatedAt,
+                w.UpdatedAt,
+                w.ParentWorkItemId,
+                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList(),
+                w.SprintId,
+                w.Sprint != null ? w.Sprint.Name : null))
+            .ToListAsync();
+
+        return new PagedResult<WorkItemDto>(items, page, pageSize, totalCount);
+    }
+
+    // Feature 008 (research.md #5) — extracted out of GetWorkItemsAsync so it and
+    // GetBacklogAsync share one WHERE-clause definition instead of maintaining two
+    // near-identical filter chains that could silently drift apart. Each .Where()
+    // below only appends a predicate to the expression tree -- nothing touches the
+    // database until the caller enumerates it.
+    private IQueryable<WorkItem> BuildFilteredQuery(
+        int projectId, int? statusId, string? type, string? priority, int? assigneeUserId, string? search, string? label)
+    {
         var query = dbContext.WorkItems.Where(w => w.ProjectId == projectId);
 
         if (statusId.HasValue)
@@ -456,39 +546,63 @@ public class WorkItemService(AppDbContext dbContext)
             query = query.Where(w => w.Labels.Any(wl => wl.Label!.Name == label));
         }
 
-        // Clamped, never rejected (spec.md Edge Cases) — a caller asking for too much
-        // just gets the maximum instead of an error.
-        pageSize = Math.Min(pageSize, 100);
+        return query;
+    }
 
-        var totalCount = await query.CountAsync();
+    // Feature 008 (US2) — one query for the whole project's filtered items (same
+    // predicate GetWorkItemsAsync uses, projected straight to WorkItemDto the same
+    // way GetWorkItemsAsync itself does — a method call like a shared "ToDto" helper
+    // can't appear inside an EF Core Select(), so the projection is written out
+    // in full here as well), then an in-memory grouping pass by SprintId -- the same
+    // "one query + Dictionary/GroupBy" shape GetBoardAsync/GetTreeAsync already use
+    // for their own groupings (research.md #5). Items with SprintId == null
+    // (including every Epic, which can never have one) land in BacklogItems.
+    public async Task<WorkItemBacklogDto> GetBacklogAsync(
+        int projectId, int? statusId, string? type, string? priority, int? assigneeUserId, string? search, string? label = null)
+    {
+        var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
+        if (!projectExists)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        var query = BuildFilteredQuery(projectId, statusId, type, priority, assigneeUserId, search, label);
+
         var items = await query
             .OrderByDescending(w => w.UpdatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(w => new WorkItemDto(
-                w.Id,
-                w.ProjectId,
-                w.Type.ToString(),
-                w.Title,
-                w.Description,
-                w.Priority.ToString(),
-                w.WorkflowStatusId,
-                w.WorkflowStatus!.Name,
-                w.WorkflowStatus.Category.ToString(),
-                w.WorkflowStatus.ColorKey.ToString(),
-                w.AssigneeUserId,
-                w.Assignee != null ? w.Assignee.FullName : null,
-                w.DueDate,
-                w.StartDate,
-                w.CreatedByUserId,
-                w.CreatedBy!.FullName,
-                w.CreatedAt,
-                w.UpdatedAt,
-                w.ParentWorkItemId,
-                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()))
+            .Select(w => new
+            {
+                w.SprintId,
+                Dto = new WorkItemDto(
+                    w.Id, w.ProjectId, w.Type.ToString(), w.Title, w.Description, w.Priority.ToString(),
+                    w.WorkflowStatusId, w.WorkflowStatus!.Name, w.WorkflowStatus.Category.ToString(), w.WorkflowStatus.ColorKey.ToString(),
+                    w.AssigneeUserId, w.Assignee != null ? w.Assignee.FullName : null,
+                    w.DueDate, w.StartDate, w.CreatedByUserId, w.CreatedBy!.FullName, w.CreatedAt, w.UpdatedAt,
+                    w.ParentWorkItemId, w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList(),
+                    w.SprintId, w.Sprint != null ? w.Sprint.Name : null)
+            })
             .ToListAsync();
 
-        return new PagedResult<WorkItemDto>(items, page, pageSize, totalCount);
+        var itemsBySprint = items
+            .Where(i => i.SprintId.HasValue)
+            .GroupBy(i => i.SprintId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(i => i.Dto).ToList());
+
+        var sprints = await dbContext.Sprints
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.StartDate)
+            .Select(s => new { s.Id, s.Name, s.StartDate, s.EndDate, Status = s.Status.ToString() })
+            .ToListAsync();
+
+        var sections = sprints
+            .Select(s => new BacklogSprintSectionDto(
+                s.Id, s.Name, s.StartDate, s.EndDate, s.Status,
+                itemsBySprint.TryGetValue(s.Id, out var sprintItems) ? sprintItems : []))
+            .ToList();
+
+        var backlogItems = items.Where(i => !i.SprintId.HasValue).Select(i => i.Dto).ToList();
+
+        return new WorkItemBacklogDto(sections, backlogItems);
     }
 
     private async Task<WorkItemDto> ToDtoAsync(int id) =>
@@ -514,7 +628,9 @@ public class WorkItemService(AppDbContext dbContext)
                 w.CreatedAt,
                 w.UpdatedAt,
                 w.ParentWorkItemId,
-                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()))
+                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList(),
+                w.SprintId,
+                w.Sprint != null ? w.Sprint.Name : null))
             .SingleOrDefaultAsync() ?? throw new WorkItemNotFoundException();
 
     // The chain's rank: Epic(0) < Story(1) < Task(2) < SubTask(3). A valid parent is

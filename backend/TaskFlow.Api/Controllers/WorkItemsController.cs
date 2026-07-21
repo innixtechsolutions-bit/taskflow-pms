@@ -72,6 +72,41 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+        catch (SprintNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (EpicCannotBeInSprintException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (SprintReadOnlyException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+    }
+
+    [HttpGet("api/projects/{projectId}/backlog")]
+    public async Task<ActionResult<WorkItemBacklogDto>> GetBacklog(
+        int projectId, [FromQuery] int? statusId = null, [FromQuery] string? type = null, [FromQuery] string? priority = null,
+        [FromQuery] int? assigneeUserId = null, [FromQuery] string? search = null, [FromQuery] string? label = null)
+    {
+        try
+        {
+            return Ok(await workItemService.GetBacklogAsync(projectId, statusId, type, priority, assigneeUserId, search, label));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (InvalidWorkItemTypeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidWorkItemPriorityException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
     }
 
     [HttpGet("api/projects/{projectId}/labels")]
@@ -241,6 +276,18 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
         catch (TooManyLabelsException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (SprintNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (EpicCannotBeInSprintException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (SprintReadOnlyException ex)
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }

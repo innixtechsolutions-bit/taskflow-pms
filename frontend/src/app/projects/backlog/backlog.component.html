@@ -1,4 +1,54 @@
 <div class="backlog-toolbar">
+  <div class="backlog-filters">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
+      <mat-label>Status</mat-label>
+      <mat-select id="backlogStatusFilter" [value]="statusFilter()" (selectionChange)="onStatusFilterChange($event.value)">
+        <mat-option value="">All statuses</mat-option>
+        @for (s of statuses(); track s.id) {
+          <mat-option [value]="s.id.toString()">{{ s.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
+      <mat-label>Type</mat-label>
+      <mat-select id="backlogTypeFilter" [value]="typeFilter()" (selectionChange)="onTypeFilterChange($event.value)">
+        <mat-option value="">All types</mat-option>
+        @for (t of types; track t) {
+          <mat-option [value]="t">{{ t }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
+      <mat-label>Priority</mat-label>
+      <mat-select id="backlogPriorityFilter" [value]="priorityFilter()" (selectionChange)="onPriorityFilterChange($event.value)">
+        <mat-option value="">All priorities</mat-option>
+        @for (p of priorities; track p) {
+          <mat-option [value]="p">{{ p }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field">
+      <mat-label>Assignee</mat-label>
+      <mat-select id="backlogAssigneeFilter" [value]="assigneeFilter()" (selectionChange)="onAssigneeFilterChange($event.value)">
+        <mat-option value="">All assignees</mat-option>
+        @for (u of assignableUsers(); track u.id) {
+          <mat-option [value]="u.id.toString()">{{ u.fullName }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="filter-field search-field">
+      <mat-label>Search</mat-label>
+      <input matInput id="backlogSearchFilter" type="text" [value]="searchInput()" (input)="searchInput.set($any($event.target).value)" />
+      <button matIconSuffix type="button" class="search-button" aria-label="Search" (click)="onSearch()">
+        <mat-icon>search</mat-icon>
+      </button>
+    </mat-form-field>
+  </div>
+
   @if (canManageSprints()) {
     <button mat-flat-button color="primary" type="button" class="create-sprint-button" (click)="openCreateSprintDialog()">
       Create sprint
@@ -6,25 +56,42 @@
   }
 </div>
 
-@if (sprints().length === 0) {
-  <app-empty-state icon="event_note" message="No sprints yet">
-    @if (canManageSprints()) {
-      <button empty-state-action mat-flat-button color="primary" type="button" (click)="openCreateSprintDialog()">
-        Create sprint
-      </button>
-    }
-  </app-empty-state>
-} @else {
-  <div class="sprint-list">
-    @for (sprint of sprints(); track sprint.id) {
-      <div class="sprint-section" [id]="'sprint-' + sprint.id">
-        <div class="sprint-section-header">
-          <span class="sprint-name">{{ sprint.name }}</span>
-          <span class="sprint-dates">{{ sprint.startDate | friendlyDate }} – {{ sprint.endDate | friendlyDate }}</span>
-          <span class="sprint-status">{{ sprint.status }}</span>
-          <span class="sprint-item-count">{{ sprint.itemCount }} work item(s)</span>
-        </div>
+<div class="sprint-list">
+  @for (sprint of backlog().sprints; track sprint.id) {
+    <div class="sprint-section" [id]="'sprint-' + sprint.id">
+      <div class="sprint-section-header">
+        <span class="sprint-name">{{ sprint.name }}</span>
+        <span class="sprint-dates">{{ sprint.startDate | friendlyDate }} – {{ sprint.endDate | friendlyDate }}</span>
+        <span class="sprint-status">{{ sprint.status }}</span>
+        <span class="sprint-item-count">{{ sprint.items.length }} work item(s)</span>
+        <button type="button" class="section-create-button" (click)="openCreateItemDialog(sprint.id)" title="Add to {{ sprint.name }}" aria-label="Add to {{ sprint.name }}">
+          +
+        </button>
       </div>
+      @if (sprint.items.length === 0) {
+        <p class="sprint-empty-hint">Plan this sprint by moving work items into it.</p>
+      } @else {
+        @for (item of sprint.items; track item.id) {
+          <app-backlog-item-row [item]="item" [projectId]="projectId()" />
+        }
+      }
+    </div>
+  }
+
+  <div class="backlog-section">
+    <div class="sprint-section-header">
+      <span class="sprint-name">Backlog</span>
+      <span class="sprint-item-count">{{ backlog().backlogItems.length }} work item(s)</span>
+      <button type="button" class="section-create-button" (click)="openCreateItemDialog()" title="Add to Backlog" aria-label="Add to Backlog">
+        +
+      </button>
+    </div>
+    @if (backlog().backlogItems.length === 0) {
+      <app-empty-state icon="inbox" message="No unscheduled work items" />
+    } @else {
+      @for (item of backlog().backlogItems; track item.id) {
+        <app-backlog-item-row [item]="item" [projectId]="projectId()" />
+      }
     }
   </div>
-}
+</div>

@@ -28,4 +28,6 @@ public record WorkItemDetailDto(
     string? ParentTitle,
     int TotalDescendantCount,
     List<WorkItemChildDto> Children,
-    List<string> Labels);
+    List<string> Labels,
+    int? SprintId,
+    string? SprintName);

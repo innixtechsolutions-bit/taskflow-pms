@@ -1371,4 +1371,143 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         Assert.Equal("Deeply nested subtask", bySearch.Items.Single().Title);
         Assert.Equal(5, all.TotalCount);
     }
+
+    // Feature 008 — a sprint isn't created through WorkItemService, so tests here seed
+    // it directly, the same way AddStatus/AddWorkItem below already do for their own
+    // entities.
+    private Sprint AddSprint(int projectId, string name, DateTime start, DateTime end, SprintStatus status = SprintStatus.Planned)
+    {
+        var sprint = new Sprint { ProjectId = projectId, Name = name, StartDate = start, EndDate = end, Status = status };
+        Db.Sprints.Add(sprint);
+        Db.SaveChanges();
+        return sprint;
+    }
+
+    [Fact]
+    public async Task GetBacklogAsync_groups_items_into_sprint_sections_soonest_first_plus_a_backlog_section()
+    {
+        var user = AddUser("backlog-grouping@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var later = AddSprint(project.Id, "Sprint 2", DateTime.UtcNow.Date.AddDays(20), DateTime.UtcNow.Date.AddDays(34));
+        var sooner = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var inSooner = AddWorkItem(project.Id, user.Id, title: "In sprint 1");
+        inSooner.SprintId = sooner.Id;
+        var inLater = AddWorkItem(project.Id, user.Id, title: "In sprint 2");
+        inLater.SprintId = later.Id;
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, title: "Context epic");
+        var unscheduled = AddWorkItem(project.Id, user.Id, title: "Unscheduled task");
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var backlog = await sut.GetBacklogAsync(project.Id, null, null, null, null, null, null);
+
+        Assert.Equal(new[] { sooner.Id, later.Id }, backlog.Sprints.Select(s => s.Id));
+        Assert.Equal("In sprint 1", backlog.Sprints[0].Items.Single().Title);
+        Assert.Equal("In sprint 2", backlog.Sprints[1].Items.Single().Title);
+        Assert.Equal(
+            new[] { "Context epic", "Unscheduled task" },
+            backlog.BacklogItems.Select(i => i.Title).OrderBy(t => t).ToArray());
+    }
+
+    [Fact]
+    public async Task GetBacklogAsync_applies_the_same_filters_to_every_section()
+    {
+        var user = AddUser("backlog-filters@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var highInSprint = AddWorkItem(project.Id, user.Id, priority: WorkItemPriority.High, title: "High in sprint");
+        highInSprint.SprintId = sprint.Id;
+        var lowInSprint = AddWorkItem(project.Id, user.Id, priority: WorkItemPriority.Low, title: "Low in sprint");
+        lowInSprint.SprintId = sprint.Id;
+        AddWorkItem(project.Id, user.Id, priority: WorkItemPriority.High, title: "High unscheduled");
+        AddWorkItem(project.Id, user.Id, priority: WorkItemPriority.Low, title: "Low unscheduled");
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var backlog = await sut.GetBacklogAsync(project.Id, null, null, "High", null, null, null);
+
+        Assert.Equal("High in sprint", backlog.Sprints.Single().Items.Single().Title);
+        Assert.Equal("High unscheduled", backlog.BacklogItems.Single().Title);
+    }
+
+    [Fact]
+    public async Task GetBacklogAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetBacklogAsync(999999, null, null, null, null, null, null));
+    }
+
+    [Fact]
+    public async Task CreateAsync_and_UpdateAsync_reject_a_sprint_from_a_different_project()
+    {
+        var user = AddUser("sprint-cross-project@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var otherProject = AddProject("Beta", user.Id);
+        var otherSprint = AddSprint(otherProject.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var sut = CreateSut();
+        var createRequest = RequestOfType("Task");
+        createRequest.SprintId = otherSprint.Id;
+
+        await Assert.ThrowsAsync<SprintNotFoundException>(() => sut.CreateAsync(user.Id, project.Id, createRequest));
+
+        var item = AddWorkItem(project.Id, user.Id);
+        var updateRequest = RequestOfType("Task");
+        updateRequest.SprintId = otherSprint.Id;
+        await Assert.ThrowsAsync<SprintNotFoundException>(() => sut.UpdateAsync(user.Id, "Admin", item.Id, updateRequest));
+    }
+
+    [Fact]
+    public async Task CreateAsync_and_UpdateAsync_reject_an_Epic_assigned_to_a_sprint()
+    {
+        var user = AddUser("sprint-epic@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var sut = CreateSut();
+        var createRequest = RequestOfType("Epic");
+        createRequest.SprintId = sprint.Id;
+
+        await Assert.ThrowsAsync<EpicCannotBeInSprintException>(() => sut.CreateAsync(user.Id, project.Id, createRequest));
+
+        var epic = AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic);
+        var updateRequest = RequestOfType("Epic");
+        updateRequest.SprintId = sprint.Id;
+        await Assert.ThrowsAsync<EpicCannotBeInSprintException>(() => sut.UpdateAsync(user.Id, "Admin", epic.Id, updateRequest));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_rejects_assigning_to_or_clearing_from_a_Completed_sprint()
+    {
+        var user = AddUser("sprint-readonly@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var completedSprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date.AddDays(-14), DateTime.UtcNow.Date, SprintStatus.Completed);
+        var sut = CreateSut();
+
+        var unassigned = AddWorkItem(project.Id, user.Id);
+        var assignRequest = RequestOfType("Task");
+        assignRequest.SprintId = completedSprint.Id;
+        await Assert.ThrowsAsync<SprintReadOnlyException>(() => sut.UpdateAsync(user.Id, "Admin", unassigned.Id, assignRequest));
+
+        var alreadyInCompleted = AddWorkItem(project.Id, user.Id);
+        alreadyInCompleted.SprintId = completedSprint.Id;
+        Db.SaveChanges();
+        var clearRequest = RequestOfType("Task");
+        await Assert.ThrowsAsync<SprintReadOnlyException>(() => sut.UpdateAsync(user.Id, "Admin", alreadyInCompleted.Id, clearRequest));
+    }
+
+    [Fact]
+    public async Task CreateAsync_assigns_a_valid_sprint_and_it_is_reflected_in_the_returned_dto()
+    {
+        var user = AddUser("sprint-assign-valid@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var sut = CreateSut();
+        var request = RequestOfType("Task");
+        request.SprintId = sprint.Id;
+
+        var created = await sut.CreateAsync(user.Id, project.Id, request);
+
+        Assert.Equal(sprint.Id, created.SprintId);
+        Assert.Equal("Sprint 1", created.SprintName);
+    }
 }

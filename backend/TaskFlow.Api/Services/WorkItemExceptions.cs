@@ -50,3 +50,9 @@ public class InvalidDateRangeException() : Exception("Start date must be on or b
 public class InvalidLabelException() : Exception("Each label must be 1–30 characters.");
 
 public class TooManyLabelsException() : Exception("A work item may have at most 5 labels.");
+
+// Feature 008 US2 — sprint-assignment rules (data-model.md's validation table).
+public class EpicCannotBeInSprintException() : Exception("An Epic cannot be assigned to a sprint.");
+
+public class SprintReadOnlyException() : Exception(
+    "This sprint is Completed and read-only — its item assignments cannot change.");

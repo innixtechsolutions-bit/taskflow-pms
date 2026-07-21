@@ -912,4 +912,109 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         var body = await response.Content.ReadFromJsonAsync<PagedResult<WorkItemDto>>();
         Assert.Equal("Findable story title", body!.Items.Single().Title);
     }
+
+    // Feature 008 -------------------------------------------------------------
+
+    private async Task<int> CreateSprintAsync(string adminToken, int projectId, string name, int startOffsetDays = 0, int endOffsetDays = 14)
+    {
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/sprints", adminToken);
+        request.Content = JsonContent.Create(new
+        {
+            name,
+            startDate = DateTime.UtcNow.Date.AddDays(startOffsetDays),
+            endDate = DateTime.UtcNow.Date.AddDays(endOffsetDays)
+        });
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<SprintDto>();
+        return body!.Id;
+    }
+
+    private async Task<int> CreateItemInSprintAsync(string token, int projectId, string type, int sprintId, string title = "Some item")
+    {
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type, title, sprintId });
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        return body!.Id;
+    }
+
+    [Fact]
+    public async Task GetBacklog_returns_sprint_sections_and_a_backlog_section()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"backlog-{Guid.NewGuid():N}@example.com");
+        var sprintId = await CreateSprintAsync(adminToken, projectId, "Sprint 1");
+        var inSprintId = await CreateItemInSprintAsync(token, projectId, "Task", sprintId, "In the sprint");
+        var unscheduledId = await CreateItemOfTypeAsync(token, projectId, "Task", title: "Unscheduled");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/backlog", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemBacklogDto>();
+        var section = body!.Sprints.Single(s => s.Id == sprintId);
+        Assert.Equal("Sprint 1", section.Name);
+        Assert.Contains(section.Items, i => i.Id == inSprintId);
+        Assert.Contains(body.BacklogItems, i => i.Id == unscheduledId);
+    }
+
+    [Fact]
+    public async Task GetBacklog_honors_query_filters()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"backlog-filter-{Guid.NewGuid():N}@example.com");
+        await CreateItemOfTypeAsync(token, projectId, "Epic", title: "Epic in backlog");
+        await CreateItemOfTypeAsync(token, projectId, "Task", title: "Task in backlog");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/backlog?type=Epic", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemBacklogDto>();
+        Assert.Equal("Epic in backlog", body!.BacklogItems.Single().Title);
+    }
+
+    [Fact]
+    public async Task GetBacklog_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"backlog-noproject-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/backlog", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_returns_400_when_assigning_an_Epic_to_a_sprint()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"epic-sprint-{Guid.NewGuid():N}@example.com");
+        var sprintId = await CreateSprintAsync(adminToken, projectId, "Sprint 1");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Epic", title = "An epic", sprintId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_returns_404_for_a_sprint_from_a_different_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var otherProjectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"cross-project-sprint-{Guid.NewGuid():N}@example.com");
+        var otherSprintId = await CreateSprintAsync(adminToken, otherProjectId, "Sprint 1");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Some item", sprintId = otherSprintId });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

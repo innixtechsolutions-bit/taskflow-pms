@@ -23,4 +23,6 @@ public record WorkItemDto(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     int? ParentWorkItemId,
-    List<string> Labels);
+    List<string> Labels,
+    int? SprintId,
+    string? SprintName);

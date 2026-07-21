@@ -1,0 +1,21 @@
+<div
+  class="backlog-item-row"
+  [class.drag-disabled]="dragDisabled()"
+  cdkDrag
+  [cdkDragData]="item()"
+  [cdkDragDisabled]="dragDisabled()"
+>
+  <a class="item-row-link" [routerLink]="['/projects', projectId(), 'work-items', item().id]">
+    <span class="item-row-type">{{ item().type }}</span>
+    <span class="item-row-title">{{ item().title }}</span>
+    <app-status-chip class="item-row-status" [name]="item().statusName" [colorKey]="item().statusColorKey" />
+    @if (item().dueDate) {
+      <span class="item-row-due-date">{{ item().dueDate | friendlyDate }}</span>
+    }
+    @if (item().assigneeName) {
+      <app-user-avatar [fullName]="item().assigneeName!" />
+    } @else {
+      <span class="unassigned-indicator" title="Unassigned" aria-label="Unassigned"></span>
+    }
+  </a>
+</div>
