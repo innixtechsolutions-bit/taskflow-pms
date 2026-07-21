@@ -1,7 +1,9 @@
 import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
 import { BoardColumn, WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
+import { Sprint, SprintsService } from '../sprints.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { BoardCardComponent } from './board-card.component';
 import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
@@ -13,22 +15,28 @@ interface BoardColumnView extends BoardColumn {
   items: WorkItemBoardCard[];
 }
 
+type BoardMode = 'all' | 'active';
+
 /**
  * The Kanban board: columns rendered purely from the backend's ordered
  * column list (a project's own WorkflowStatus rows, Feature 006 — no
  * client-side status->name lookup anywhere in this component), each with a
  * header (name + count), its cards, and a per-column empty state
- * (FR-005-FR-008, FR-021).
+ * (FR-005-FR-008, FR-021). Feature 008 (US5) adds an "All items"/"Active
+ * sprint" toggle — this component stays self-contained for it, fetching the
+ * project's own sprints itself (research.md #6), the same way it already
+ * owns its own board data and `refresh()`.
  */
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [EmptyStateComponent, BoardCardComponent, DragDropModule],
+  imports: [EmptyStateComponent, BoardCardComponent, DragDropModule, RouterLink],
   templateUrl: './board.component.html',
   styleUrl: './board.component.css',
 })
 export class BoardComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
+  private readonly sprintsService = inject(SprintsService);
   private readonly authService = inject(AuthService);
   private readonly notificationService = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
@@ -36,6 +44,10 @@ export class BoardComponent implements OnInit {
   readonly projectId = input.required<number>();
 
   private readonly board = signal<WorkItemBoard | null>(null);
+  protected readonly mode = signal<BoardMode>('all');
+  private readonly sprints = signal<Sprint[]>([]);
+
+  protected readonly activeSprint = computed<Sprint | undefined>(() => this.sprints().find((s) => s.status === 'Active'));
 
   protected readonly columns = computed<BoardColumnView[]>(() => {
     const board = this.board();
@@ -50,6 +62,7 @@ export class BoardComponent implements OnInit {
 
   ngOnInit(): void {
     void this.load();
+    void this.loadSprints();
   }
 
   // Public so ProjectDetailComponent (this component's host when viewMode is
@@ -59,7 +72,27 @@ export class BoardComponent implements OnInit {
     void this.load();
   }
 
+  private async loadSprints(): Promise<void> {
+    this.sprints.set(await this.sprintsService.getSprints(this.projectId()));
+  }
+
+  protected setMode(mode: BoardMode): void {
+    this.mode.set(mode);
+    void this.load();
+  }
+
   private async load(): Promise<void> {
+    if (this.mode() === 'active') {
+      const sprintId = this.activeSprint()?.id;
+      if (sprintId === undefined) {
+        // No Active sprint to scope to — the empty state covers this; skip
+        // the request entirely rather than firing one with a nonsensical filter.
+        this.board.set({ columns: [], items: [] });
+        return;
+      }
+      this.board.set(await this.workItemsService.getBoard(this.projectId(), sprintId));
+      return;
+    }
     this.board.set(await this.workItemsService.getBoard(this.projectId()));
   }
 

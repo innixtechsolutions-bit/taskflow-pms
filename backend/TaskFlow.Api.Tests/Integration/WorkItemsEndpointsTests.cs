@@ -1082,4 +1082,25 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    // US5 -- GET .../work-items/board?sprintId=
+
+    [Fact]
+    public async Task GetBoard_with_a_sprintId_returns_only_that_sprints_items()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"board-sprintfilter-{Guid.NewGuid():N}@example.com");
+        var sprintId = await CreateSprintAsync(adminToken, projectId, "Sprint 1");
+        var inSprintId = await CreateItemInSprintAsync(token, projectId, "Task", sprintId, "In sprint");
+        await CreateItemOfTypeAsync(token, projectId, "Task", title: "Not in sprint");
+
+        var response = await _client.SendAsync(AuthedRequest(
+            HttpMethod.Get, $"/api/projects/{projectId}/work-items/board?sprintId={sprintId}", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<WorkItemBoardDto>();
+        Assert.Equal(4, body!.Columns.Count);
+        Assert.Equal(inSprintId, body.Items.Single().Id);
+    }
 }

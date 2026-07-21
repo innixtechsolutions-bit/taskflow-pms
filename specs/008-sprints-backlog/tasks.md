@@ -211,16 +211,16 @@ with normal drag/edit behavior; toggle back and confirm all 5 reappear.
 
 ### Tests for User Story 5
 
-- [ ] T059 [P] [US5] Backend test: `WorkItemService.GetBoardAsync` with a `sprintId` filters rows to that sprint while columns stay the full project list; omitting it behaves exactly as before (regression) — `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`
-- [ ] T060 [P] [US5] Backend test: `GET api/projects/{projectId}/work-items/board?sprintId=` returns the filtered `WorkItemBoardDto` — `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`
-- [ ] T061 [P] [US5] Frontend test: `BoardComponent` in "Active sprint" mode calls `getBoard` with the resolved Active sprint's id and renders the empty state (with a Backlog link) when none is Active; "All items" mode is unaffected (regression) — `frontend/src/app/projects/board/board.component.spec.ts`
+- [X] T059 [P] [US5] Backend test: `WorkItemService.GetBoardAsync` with a `sprintId` filters rows to that sprint while columns stay the full project list; omitting it behaves exactly as before (regression) — `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs`
+- [X] T060 [P] [US5] Backend test: `GET api/projects/{projectId}/work-items/board?sprintId=` returns the filtered `WorkItemBoardDto` — `backend/TaskFlow.Api.Tests/Integration/WorkItemsEndpointsTests.cs`
+- [X] T061 [P] [US5] Frontend test: `BoardComponent` in "Active sprint" mode calls `getBoard` with the resolved Active sprint's id and renders the empty state (with a Backlog link) when none is Active; "All items" mode is unaffected (regression) — `frontend/src/app/projects/board/board.component.spec.ts`. Also updated `project-detail.component.spec.ts`'s three `TestBed` configs to provide a `SprintsService` mock, now that `BoardComponent` injects it.
 
 ### Implementation for User Story 5
 
-- [ ] T062 [US5] Add an optional `sprintId` parameter to `WorkItemService.GetBoardAsync`, filtering rows when present — `backend/TaskFlow.Api/Services/WorkItemService.cs` — makes T059 pass
-- [ ] T063 [US5] Add `[FromQuery] int? sprintId` to the `GetBoard` action — `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T062; makes T060 pass
-- [ ] T064 [P] [US5] Add an optional `sprintId` parameter to `getBoard(projectId, sprintId?)` — `frontend/src/app/projects/work-items.service.ts`
-- [ ] T065 [US5] Add the "All items"/"Active sprint" toggle to `BoardComponent`: self-fetch the project's sprints via `SprintsService`, derive the Active one, call `getBoard(projectId, activeSprintId)` in "Active sprint" mode, and render `EmptyStateComponent` with a link to the Backlog tab when none is Active — `board.component.ts` (+ `.html`) — depends on T064; makes T061 pass
+- [X] T062 [US5] Add an optional `sprintId` parameter to `WorkItemService.GetBoardAsync`, filtering rows when present — `backend/TaskFlow.Api/Services/WorkItemService.cs` — makes T059 pass
+- [X] T063 [US5] Add `[FromQuery] int? sprintId` to the `GetBoard` action — `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` — depends on T062; makes T060 pass
+- [X] T064 [P] [US5] Add an optional `sprintId` parameter to `getBoard(projectId, sprintId?)` — `frontend/src/app/projects/work-items.service.ts`
+- [X] T065 [US5] Add the "All items"/"Active sprint" toggle to `BoardComponent`: self-fetch the project's sprints via `SprintsService`, derive the Active one, call `getBoard(projectId, activeSprintId)` in "Active sprint" mode, and render `EmptyStateComponent` with a link to the Backlog tab when none is Active — `board.component.ts` (+ `.html`) — depends on T064; makes T061 pass
 
 **Checkpoint**: The Board's sprint-scoped mode works and "All items" is
 unchanged — quickstart.md section 5 passes.

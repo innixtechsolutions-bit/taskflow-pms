@@ -8,6 +8,7 @@ import { ProjectDetailComponent } from './project-detail.component';
 import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { ProjectsService } from '../projects.service';
 import { ProjectStatus, WorkItem, WorkItemsService } from '../work-items.service';
+import { SprintsService } from '../sprints.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 
@@ -117,6 +118,7 @@ function configure(
           getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
         },
       },
+      { provide: SprintsService, useValue: { getSprints: vi.fn().mockResolvedValue([]) } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       {
         provide: ActivatedRoute,
@@ -814,6 +816,7 @@ describe('ProjectDetailComponent board view', () => {
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
           },
         },
+        { provide: SprintsService, useValue: { getSprints: vi.fn().mockResolvedValue([]) } },
         { provide: AuthService, useValue: { currentUser: () => ({ id: 1, role: 'Developer' }), currentRole: () => 'Developer' } },
         {
           provide: ActivatedRoute,
@@ -863,6 +866,7 @@ describe('ProjectDetailComponent board view', () => {
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
           },
         },
+        { provide: SprintsService, useValue: { getSprints: vi.fn().mockResolvedValue([]) } },
         { provide: AuthService, useValue: { currentUser: () => ({ id: 1, role: 'Developer' }), currentRole: () => 'Developer' } },
         {
           provide: ActivatedRoute,

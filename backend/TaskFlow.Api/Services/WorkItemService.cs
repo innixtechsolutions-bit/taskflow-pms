@@ -774,7 +774,11 @@ public class WorkItemService(AppDbContext dbContext)
     // to compute DirectChildrenCount/DirectChildrenDoneCount for *every* item, not
     // just tree roots, since the board shows every item as its own card regardless
     // of depth (research.md #2).
-    public async Task<WorkItemBoardDto> GetBoardAsync(int projectId)
+    // Feature 008 (US5) — sprintId is optional; when present, only that sprint's
+    // items are included and the column list is unaffected (spec FR-017/FR-020) —
+    // "All items" mode (sprintId omitted) is the exact same query as before this
+    // feature, unchanged.
+    public async Task<WorkItemBoardDto> GetBoardAsync(int projectId, int? sprintId = null)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
         if (!projectExists)
@@ -782,8 +786,13 @@ public class WorkItemService(AppDbContext dbContext)
             throw new ProjectNotFoundException();
         }
 
-        var rows = await dbContext.WorkItems
-            .Where(w => w.ProjectId == projectId)
+        var query = dbContext.WorkItems.Where(w => w.ProjectId == projectId);
+        if (sprintId.HasValue)
+        {
+            query = query.Where(w => w.SprintId == sprintId.Value);
+        }
+
+        var rows = await query
             .OrderByDescending(w => w.UpdatedAt)
             .Select(w => new WorkItemBoardRow(
                 w.Id,

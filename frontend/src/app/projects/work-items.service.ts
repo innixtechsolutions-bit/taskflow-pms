@@ -251,8 +251,12 @@ export class WorkItemsService {
 
   // Also unpaginated (FR-020) — every item in the project, flat, grouped by
   // status client-side using the returned columns' order (research.md #2).
-  async getBoard(projectId: number): Promise<WorkItemBoard> {
-    return firstValueFrom(this.http.get<WorkItemBoard>(`/api/projects/${projectId}/work-items/board`));
+  // Feature 008 (US5) — sprintId is optional; omitted means "All items"
+  // (unchanged, FR-020), present means "Active sprint" mode (FR-017).
+  async getBoard(projectId: number, sprintId?: number): Promise<WorkItemBoard> {
+    const params: Record<string, number> = {};
+    if (sprintId !== undefined) params['sprintId'] = sprintId;
+    return firstValueFrom(this.http.get<WorkItemBoard>(`/api/projects/${projectId}/work-items/board`, { params }));
   }
 
   // Field-scoped, not the full updateWorkItem() PUT — the board's drag interaction

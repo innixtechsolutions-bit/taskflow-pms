@@ -1,33 +1,55 @@
-<div class="board" cdkDropListGroup>
-  @for (column of columns(); track column.statusId) {
-    <div class="board-column">
-      <div class="board-column-header">
-        <span class="board-column-label">{{ column.name }}</span>
-        <span class="board-column-count">{{ column.items.length }}</span>
-        <button
-          type="button"
-          class="board-column-add"
-          (click)="openCreateModal(column.statusId)"
-          title="Add to {{ column.name }}"
-          aria-label="Add to {{ column.name }}"
-        >
-          +
-        </button>
-      </div>
-      <div
-        class="board-column-body"
-        cdkDropList
-        [cdkDropListData]="column.items"
-        (cdkDropListDropped)="onDrop($event, column.statusId)"
-      >
-        @if (column.items.length === 0) {
-          <app-empty-state icon="inbox" message="No items" />
-        } @else {
-          @for (item of column.items; track item.id) {
-            <app-board-card [card]="item" [projectId]="projectId()" [dragDisabled]="!canDrag(item)" />
-          }
-        }
-      </div>
-    </div>
-  }
+<div class="board-mode-toggle">
+  <button type="button" class="all-items-toggle" [class.active]="mode() === 'all'" (click)="setMode('all')">
+    All items
+  </button>
+  <button type="button" class="active-sprint-toggle" [class.active]="mode() === 'active'" (click)="setMode('active')">
+    Active sprint
+  </button>
 </div>
+
+@if (mode() === 'active' && !activeSprint()) {
+  <app-empty-state icon="event_busy" message="No sprint is currently active">
+    <a
+      empty-state-action
+      class="no-active-sprint-backlog-link"
+      [routerLink]="['/projects', projectId()]"
+      [queryParams]="{ view: 'backlog' }"
+    >
+      Go to the Backlog to start one
+    </a>
+  </app-empty-state>
+} @else {
+  <div class="board" cdkDropListGroup>
+    @for (column of columns(); track column.statusId) {
+      <div class="board-column">
+        <div class="board-column-header">
+          <span class="board-column-label">{{ column.name }}</span>
+          <span class="board-column-count">{{ column.items.length }}</span>
+          <button
+            type="button"
+            class="board-column-add"
+            (click)="openCreateModal(column.statusId)"
+            title="Add to {{ column.name }}"
+            aria-label="Add to {{ column.name }}"
+          >
+            +
+          </button>
+        </div>
+        <div
+          class="board-column-body"
+          cdkDropList
+          [cdkDropListData]="column.items"
+          (cdkDropListDropped)="onDrop($event, column.statusId)"
+        >
+          @if (column.items.length === 0) {
+            <app-empty-state icon="inbox" message="No items" />
+          } @else {
+            @for (item of column.items; track item.id) {
+              <app-board-card [card]="item" [projectId]="projectId()" [dragDisabled]="!canDrag(item)" />
+            }
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

@@ -154,11 +154,11 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
     }
 
     [HttpGet("api/projects/{projectId}/work-items/board")]
-    public async Task<ActionResult<WorkItemBoardDto>> GetBoard(int projectId)
+    public async Task<ActionResult<WorkItemBoardDto>> GetBoard(int projectId, [FromQuery] int? sprintId = null)
     {
         try
         {
-            return Ok(await workItemService.GetBoardAsync(projectId));
+            return Ok(await workItemService.GetBoardAsync(projectId, sprintId));
         }
         catch (ProjectNotFoundException ex)
         {

@@ -1612,4 +1612,40 @@ public class WorkItemServiceTests : SqlServerTestDatabase
 
         await Assert.ThrowsAsync<WorkItemNotFoundException>(() => sut.UpdateSprintAsync(1, "Admin", 999999, null));
     }
+
+    // ---------------------------------------------------------------------
+    // US5 — GetBoardAsync's sprintId filter
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetBoardAsync_with_a_sprintId_returns_only_that_sprints_items_but_all_columns()
+    {
+        var user = AddUser("board-sprintfilter@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var inSprint = AddWorkItem(project.Id, user.Id, title: "In sprint");
+        inSprint.SprintId = sprint.Id;
+        AddWorkItem(project.Id, user.Id, title: "Not in sprint");
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var board = await sut.GetBoardAsync(project.Id, sprint.Id);
+
+        Assert.Equal(4, board.Columns.Count);
+        Assert.Equal("In sprint", board.Items.Single().Title);
+    }
+
+    [Fact]
+    public async Task GetBoardAsync_without_a_sprintId_returns_every_item_unchanged()
+    {
+        var user = AddUser("board-nosprintfilter@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Item A");
+        AddWorkItem(project.Id, user.Id, title: "Item B");
+        var sut = CreateSut();
+
+        var board = await sut.GetBoardAsync(project.Id);
+
+        Assert.Equal(2, board.Items.Count);
+    }
 }

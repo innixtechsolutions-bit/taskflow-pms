@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { BoardComponent } from './board.component';
 import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { WorkItemBoard, WorkItemBoardCard, WorkItemsService } from '../work-items.service';
+import { Sprint, SprintsService } from '../sprints.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 
@@ -66,21 +67,24 @@ function sampleBoard(): WorkItemBoard {
 function configure(
   getBoard = vi.fn().mockResolvedValue(sampleBoard()),
   authState = { id: 1, role: 'Developer' as const },
-  updateWorkItemStatus = vi.fn().mockResolvedValue(undefined)
+  updateWorkItemStatus = vi.fn().mockResolvedValue(undefined),
+  getSprints = vi.fn().mockResolvedValue([] as Sprint[])
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   const dialogOpen = vi.fn().mockReturnValue({});
+  TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [BoardComponent],
     providers: [
       provideRouter([]),
       { provide: WorkItemsService, useValue: { getBoard, updateWorkItemStatus } },
+      { provide: SprintsService, useValue: { getSprints } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: NotificationService, useValue: notificationService },
       { provide: MatDialog, useValue: { open: dialogOpen } },
     ],
   });
-  return { getBoard, updateWorkItemStatus, notificationService, dialogOpen };
+  return { getBoard, updateWorkItemStatus, getSprints, notificationService, dialogOpen };
 }
 
 async function render(projectId = 1) {
@@ -230,5 +234,45 @@ describe('BoardComponent', () => {
     await fixture.whenStable();
 
     expect(getBoard).toHaveBeenCalled();
+  });
+
+  // US5 — sprint-scoped Board
+
+  function sampleSprints(): Sprint[] {
+    return [
+      { id: 1, projectId: 1, name: 'Sprint 1', startDate: '2026-08-01', endDate: '2026-08-15', status: 'Completed', itemCount: 0 },
+      { id: 2, projectId: 1, name: 'Sprint 2', startDate: '2026-08-16', endDate: '2026-08-30', status: 'Active', itemCount: 3 },
+    ];
+  }
+
+  it('"All items" mode is unaffected: calls getBoard with no sprintId', async () => {
+    const { getBoard } = configure(undefined, undefined, undefined, vi.fn().mockResolvedValue(sampleSprints()));
+    await render(1);
+
+    expect(getBoard).toHaveBeenCalledWith(1);
+  });
+
+  it('"Active sprint" mode calls getBoard with the resolved Active sprint\'s id', async () => {
+    const { getBoard } = configure(undefined, undefined, undefined, vi.fn().mockResolvedValue(sampleSprints()));
+    const fixture = await render(1);
+    getBoard.mockClear();
+
+    (fixture.nativeElement.querySelector('.active-sprint-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(getBoard).toHaveBeenCalledWith(1, 2);
+  });
+
+  it('shows an empty state with a Backlog link when no sprint is Active', async () => {
+    const noActive = sampleSprints().map((s) => ({ ...s, status: 'Completed' as const }));
+    configure(undefined, undefined, undefined, vi.fn().mockResolvedValue(noActive));
+    const fixture = await render(1);
+
+    (fixture.nativeElement.querySelector('.active-sprint-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-empty-state')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.no-active-sprint-backlog-link')).toBeTruthy();
   });
 });
