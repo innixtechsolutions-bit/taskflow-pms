@@ -27,4 +27,5 @@ public record WorkItemDetailDto(
     int? ParentWorkItemId,
     string? ParentTitle,
     int TotalDescendantCount,
-    List<WorkItemChildDto> Children);
+    List<WorkItemChildDto> Children,
+    List<string> Labels);

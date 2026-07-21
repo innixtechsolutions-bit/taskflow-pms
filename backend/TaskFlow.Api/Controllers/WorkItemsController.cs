@@ -64,6 +64,27 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+        catch (InvalidLabelException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (TooManyLabelsException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+    }
+
+    [HttpGet("api/projects/{projectId}/labels")]
+    public async Task<ActionResult<List<string>>> GetProjectLabels(int projectId)
+    {
+        try
+        {
+            return Ok(await workItemService.GetProjectLabelsAsync(projectId));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
     }
 
     [HttpGet("api/projects/{projectId}/work-items/parent-candidates")]
@@ -114,11 +135,11 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
     public async Task<ActionResult<PagedResult<WorkItemDto>>> GetWorkItems(
         int projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
         [FromQuery] int? statusId = null, [FromQuery] string? type = null, [FromQuery] string? priority = null,
-        [FromQuery] int? assigneeUserId = null, [FromQuery] string? search = null)
+        [FromQuery] int? assigneeUserId = null, [FromQuery] string? search = null, [FromQuery] string? label = null)
     {
         try
         {
-            var result = await workItemService.GetWorkItemsAsync(projectId, page, pageSize, statusId, type, priority, assigneeUserId, search);
+            var result = await workItemService.GetWorkItemsAsync(projectId, page, pageSize, statusId, type, priority, assigneeUserId, search, label);
             return Ok(result);
         }
         catch (ProjectNotFoundException ex)
@@ -212,6 +233,14 @@ public class WorkItemsController(WorkItemService workItemService) : ControllerBa
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
         catch (InvalidDateRangeException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (InvalidLabelException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (TooManyLabelsException ex)
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }

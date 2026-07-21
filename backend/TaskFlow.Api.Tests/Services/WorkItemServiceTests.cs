@@ -786,6 +786,190 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         Assert.Equal(request.StartDate, result.StartDate);
     }
 
+    // Feature 007 (US5) -- label-normalization: trim, 1-30 chars, cap at 5,
+    // case-insensitive dedupe within one request, and reuse an existing
+    // project label on a case-insensitive name match instead of duplicating it.
+    [Fact]
+    public async Task CreateAsync_trims_and_persists_labels()
+    {
+        var user = AddUser("labels-trim@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.Labels = ["  backend  ", "urgent"];
+
+        var result = await sut.CreateAsync(user.Id, project.Id, request);
+
+        Assert.Equal(["backend", "urgent"], result.Labels.OrderBy(l => l).ToList());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task CreateAsync_rejects_a_blank_label(string label)
+    {
+        var user = AddUser($"labels-blank-{Guid.NewGuid():N}@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.Labels = [label];
+
+        await Assert.ThrowsAsync<InvalidLabelException>(() => sut.CreateAsync(user.Id, project.Id, request));
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_label_over_30_characters()
+    {
+        var user = AddUser("labels-toolong@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.Labels = [new string('a', 31)];
+
+        await Assert.ThrowsAsync<InvalidLabelException>(() => sut.CreateAsync(user.Id, project.Id, request));
+    }
+
+    [Fact]
+    public async Task CreateAsync_rejects_a_sixth_label()
+    {
+        var user = AddUser("labels-toomany@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.Labels = ["a", "b", "c", "d", "e", "f"];
+
+        await Assert.ThrowsAsync<TooManyLabelsException>(() => sut.CreateAsync(user.Id, project.Id, request));
+    }
+
+    [Fact]
+    public async Task CreateAsync_dedupes_labels_case_insensitively_within_one_request()
+    {
+        var user = AddUser("labels-dedupe@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var request = ValidRequest();
+        request.Labels = ["Backend", "backend", "BACKEND"];
+
+        var result = await sut.CreateAsync(user.Id, project.Id, request);
+
+        Assert.Equal(["Backend"], result.Labels);
+    }
+
+    [Fact]
+    public async Task CreateAsync_reuses_an_existing_project_label_on_a_case_insensitive_match()
+    {
+        var user = AddUser("labels-reuse@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var first = ValidRequest("First item");
+        first.Labels = ["backend"];
+        await sut.CreateAsync(user.Id, project.Id, first);
+
+        var second = ValidRequest("Second item");
+        second.Labels = ["BACKEND"];
+        await sut.CreateAsync(user.Id, project.Id, second);
+
+        Assert.Equal(1, Db.Labels.Count(l => l.ProjectId == project.Id));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_replaces_the_whole_label_set()
+    {
+        var creator = AddUser("labels-update@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var sut = CreateSut();
+        var createRequest = ValidRequest();
+        createRequest.Labels = ["backend", "urgent"];
+        var created = await sut.CreateAsync(creator.Id, project.Id, createRequest);
+
+        var editRequest = EditRequest();
+        editRequest.Labels = ["frontend"];
+        var result = await sut.UpdateAsync(creator.Id, "Developer", created.Id, editRequest);
+
+        Assert.Equal(["frontend"], result.Labels);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_clears_labels_when_omitted()
+    {
+        var creator = AddUser("labels-clear@example.com");
+        var project = AddProject("Alpha", creator.Id);
+        var sut = CreateSut();
+        var createRequest = ValidRequest();
+        createRequest.Labels = ["backend"];
+        var created = await sut.CreateAsync(creator.Id, project.Id, createRequest);
+
+        var result = await sut.UpdateAsync(creator.Id, "Developer", created.Id, EditRequest());
+
+        Assert.Empty(result.Labels);
+    }
+
+    [Fact]
+    public async Task GetProjectLabelsAsync_returns_only_labels_referenced_by_at_least_one_work_item_alphabetically()
+    {
+        var user = AddUser("labels-list@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+        var withLabels = ValidRequest("Item one");
+        withLabels.Labels = ["zeta", "alpha"];
+        await sut.CreateAsync(user.Id, project.Id, withLabels);
+        // An orphan label with no work item attached -- must not appear (research.md #5).
+        Db.Labels.Add(new Label { ProjectId = project.Id, Name = "orphan", CreatedAt = DateTime.UtcNow });
+        Db.SaveChanges();
+
+        var result = await sut.GetProjectLabelsAsync(project.Id);
+
+        Assert.Equal(["alpha", "zeta"], result);
+    }
+
+    [Fact]
+    public async Task GetProjectLabelsAsync_returns_an_empty_list_not_an_error_when_the_project_has_no_labels()
+    {
+        var user = AddUser("labels-empty@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        var result = await sut.GetProjectLabelsAsync(project.Id);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetProjectLabelsAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetProjectLabelsAsync(999999));
+    }
+
+    [Fact]
+    public async Task GetWorkItemsAsync_label_filter_matches_case_insensitively_and_combines_with_other_filters()
+    {
+        var user = AddUser("labels-filter@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        var backendHigh = RequestOfType("Task", title: "Backend high");
+        backendHigh.Priority = "High";
+        backendHigh.Labels = ["Backend"];
+        await sut.CreateAsync(user.Id, project.Id, backendHigh);
+
+        var backendLow = RequestOfType("Task", title: "Backend low");
+        backendLow.Priority = "Low";
+        backendLow.Labels = ["backend"];
+        await sut.CreateAsync(user.Id, project.Id, backendLow);
+
+        var frontend = RequestOfType("Task", title: "Frontend item");
+        frontend.Labels = ["frontend"];
+        await sut.CreateAsync(user.Id, project.Id, frontend);
+
+        var byLabel = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, null, null, null, label: "BACKEND");
+        var combined = await sut.GetWorkItemsAsync(project.Id, 1, 20, null, null, "High", null, null, label: "backend");
+
+        Assert.Equal(["Backend high", "Backend low"], byLabel.Items.Select(i => i.Title).OrderBy(t => t).ToList());
+        Assert.Equal(["Backend high"], combined.Items.Select(i => i.Title).ToList());
+    }
+
     [Fact]
     public async Task CreateAsync_rejects_an_assignee_that_is_not_an_existing_user()
     {

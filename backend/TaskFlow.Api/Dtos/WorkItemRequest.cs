@@ -32,6 +32,12 @@ public class WorkItemRequest
 
     public DateTime? StartDate { get; set; }
 
+    // 0-5 free-form, project-scoped names -- validated/normalized in
+    // WorkItemService, not here (same reasoning as Type/Priority/Status above).
+    // Omitted entirely means "no labels", the same as every other optional field
+    // on this PUT-replaces-the-resource request.
+    public List<string>? Labels { get; set; }
+
     // Required/optional/forbidden depending on Type — checked in WorkItemService
     // against data-model.md's Hierarchy rules table, not via a data annotation
     // (the same reasoning already applied to Priority/Status above).

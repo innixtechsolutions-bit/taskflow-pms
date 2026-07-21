@@ -22,4 +22,5 @@ public record WorkItemDto(
     string CreatedByName,
     DateTime CreatedAt,
     DateTime UpdatedAt,
-    int? ParentWorkItemId);
+    int? ParentWorkItemId,
+    List<string> Labels);

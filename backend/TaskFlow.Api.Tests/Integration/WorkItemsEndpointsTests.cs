@@ -132,6 +132,73 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    // Feature 007 (US5) — proves server-side enforcement independent of the UI.
+    [Fact]
+    public async Task Create_returns_400_for_a_label_over_30_characters()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"creator-badlabel-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new
+        {
+            type = "Task",
+            title = "Fix the login bug",
+            labels = new[] { new string('a', 31) }
+        });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_returns_400_for_more_than_five_labels()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"creator-toomanylabels-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new
+        {
+            type = "Task",
+            title = "Fix the login bug",
+            labels = new[] { "a", "b", "c", "d", "e", "f" }
+        });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetProjectLabels_returns_200_with_only_labels_in_use()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"labels-list-{Guid.NewGuid():N}@example.com");
+
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Task", title = "Fix the login bug", labels = new[] { "backend" } });
+        await _client.SendAsync(request);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/labels", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<string>>();
+        Assert.Equal(["backend"], body);
+    }
+
+    [Fact]
+    public async Task GetProjectLabels_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"labels-noproject-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/labels", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task Create_returns_404_for_an_unknown_project()
     {

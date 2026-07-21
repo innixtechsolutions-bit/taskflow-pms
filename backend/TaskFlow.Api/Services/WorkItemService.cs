@@ -41,6 +41,7 @@ public class WorkItemService(AppDbContext dbContext)
 
         await ValidateParentAsync(projectId, type, request.ParentWorkItemId);
         EnsureValidDateRange(request.StartDate, request.DueDate);
+        var labels = await NormalizeAndAttachLabelsAsync(projectId, request.Labels);
 
         var now = DateTime.UtcNow;
         var workItem = new WorkItem
@@ -57,7 +58,8 @@ public class WorkItemService(AppDbContext dbContext)
             CreatedByUserId = creatorUserId,
             CreatedAt = now,
             UpdatedAt = now,
-            ParentWorkItemId = request.ParentWorkItemId
+            ParentWorkItemId = request.ParentWorkItemId,
+            Labels = labels
         };
 
         dbContext.WorkItems.Add(workItem);
@@ -124,6 +126,7 @@ public class WorkItemService(AppDbContext dbContext)
 
         await ValidateParentAsync(workItem.ProjectId, type, request.ParentWorkItemId);
         EnsureValidDateRange(request.StartDate, request.DueDate);
+        var newLabels = await NormalizeAndAttachLabelsAsync(workItem.ProjectId, request.Labels);
 
         // ProjectId is never assigned here — it's immutable after creation (FR-014) and
         // WorkItemRequest doesn't even carry one, so there's no path that could change it.
@@ -137,6 +140,17 @@ public class WorkItemService(AppDbContext dbContext)
         workItem.StartDate = request.StartDate;
         workItem.UpdatedAt = DateTime.UtcNow;
         workItem.ParentWorkItemId = request.ParentWorkItemId;
+
+        // Replace-the-whole-set (PUT semantics, same as every other field here) --
+        // every existing attachment for this item is removed and the newly
+        // normalized set is attached in its place, rather than diffing the two.
+        var existingLabelRows = await dbContext.WorkItemLabels.Where(wl => wl.WorkItemId == workItem.Id).ToListAsync();
+        dbContext.WorkItemLabels.RemoveRange(existingLabelRows);
+        foreach (var wl in newLabels)
+        {
+            wl.WorkItemId = workItem.Id;
+        }
+        dbContext.WorkItemLabels.AddRange(newLabels);
 
         await dbContext.SaveChangesAsync();
 
@@ -199,6 +213,68 @@ public class WorkItemService(AppDbContext dbContext)
         {
             throw new InvalidDateRangeException();
         }
+    }
+
+    // Shared by Create/UpdateAsync (US5, data-model.md's Label validation rules).
+    // Trims, rejects out-of-range names, dedupes case-insensitively within the
+    // request, caps at 5, and finds-or-creates each project-scoped Label row —
+    // never attaches the same label twice and never duplicates an existing one
+    // on a case-insensitive name match. Omitted/null requestedNames means "no
+    // labels", matching every other optional field on this PUT-replaces-the-
+    // resource request.
+    private async Task<List<WorkItemLabel>> NormalizeAndAttachLabelsAsync(int projectId, List<string>? requestedNames)
+    {
+        var normalized = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in requestedNames ?? [])
+        {
+            var trimmed = raw.Trim();
+            if (trimmed.Length is < 1 or > 30)
+            {
+                throw new InvalidLabelException();
+            }
+            if (seen.Add(trimmed))
+            {
+                normalized.Add(trimmed);
+            }
+        }
+        if (normalized.Count > 5)
+        {
+            throw new TooManyLabelsException();
+        }
+
+        var result = new List<WorkItemLabel>();
+        foreach (var name in normalized)
+        {
+            // Case-insensitive via SQL Server's default collation, same mechanism as
+            // every other name-uniqueness lookup in this codebase (research.md #4).
+            var label = await dbContext.Labels.FirstOrDefaultAsync(l => l.ProjectId == projectId && l.Name == name);
+            if (label is null)
+            {
+                label = new Label { ProjectId = projectId, Name = name, CreatedAt = DateTime.UtcNow };
+                dbContext.Labels.Add(label);
+            }
+            result.Add(new WorkItemLabel { Label = label });
+        }
+        return result;
+    }
+
+    // US5 — labels currently attached to >=1 work item, for the modal's
+    // autocomplete suggestions and the List view's filter dropdown
+    // (research.md #5: query-time filter, no orphan-cleanup bookkeeping).
+    public async Task<List<string>> GetProjectLabelsAsync(int projectId)
+    {
+        var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
+        if (!projectExists)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        return await dbContext.Labels
+            .Where(l => l.ProjectId == projectId && l.WorkItemLabels.Any())
+            .OrderBy(l => l.Name)
+            .Select(l => l.Name)
+            .ToListAsync();
     }
 
     // Shared by UpdateAsync and UpdateStatusAsync -- "the caller is this item's
@@ -294,7 +370,8 @@ public class WorkItemService(AppDbContext dbContext)
                 w.CreatedAt,
                 w.UpdatedAt,
                 w.ParentWorkItemId,
-                ParentTitle = w.ParentWorkItem != null ? w.ParentWorkItem.Title : null
+                ParentTitle = w.ParentWorkItem != null ? w.ParentWorkItem.Title : null,
+                Labels = w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()
             })
             .SingleOrDefaultAsync() ?? throw new WorkItemNotFoundException();
 
@@ -314,7 +391,7 @@ public class WorkItemService(AppDbContext dbContext)
             workItem.Priority, workItem.StatusId, workItem.StatusName, workItem.StatusCategory, workItem.StatusColorKey,
             workItem.AssigneeUserId, workItem.AssigneeName,
             workItem.DueDate, workItem.StartDate, workItem.CreatedByUserId, workItem.CreatedByName, workItem.CreatedAt, workItem.UpdatedAt,
-            workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children);
+            workItem.ParentWorkItemId, workItem.ParentTitle, descendantIds.Count, children, workItem.Labels);
     }
 
     // Bare-minimum listing (pulled forward into US4 since edit/delete controls need
@@ -322,7 +399,7 @@ public class WorkItemService(AppDbContext dbContext)
     // with the full filter/search set.
     public async Task<PagedResult<WorkItemDto>> GetWorkItemsAsync(
         int projectId, int page, int pageSize,
-        int? statusId, string? type, string? priority, int? assigneeUserId, string? search)
+        int? statusId, string? type, string? priority, int? assigneeUserId, string? search, string? label = null)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
         if (!projectExists)
@@ -372,6 +449,13 @@ public class WorkItemService(AppDbContext dbContext)
             query = query.Where(w => w.Title.Contains(search));
         }
 
+        // US5 — case-insensitive exact match within the project (same collation
+        // mechanism as every other name lookup here), AND-ed with the filters above.
+        if (!string.IsNullOrWhiteSpace(label))
+        {
+            query = query.Where(w => w.Labels.Any(wl => wl.Label!.Name == label));
+        }
+
         // Clamped, never rejected (spec.md Edge Cases) — a caller asking for too much
         // just gets the maximum instead of an error.
         pageSize = Math.Min(pageSize, 100);
@@ -400,7 +484,8 @@ public class WorkItemService(AppDbContext dbContext)
                 w.CreatedBy!.FullName,
                 w.CreatedAt,
                 w.UpdatedAt,
-                w.ParentWorkItemId))
+                w.ParentWorkItemId,
+                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()))
             .ToListAsync();
 
         return new PagedResult<WorkItemDto>(items, page, pageSize, totalCount);
@@ -428,7 +513,8 @@ public class WorkItemService(AppDbContext dbContext)
                 w.CreatedBy!.FullName,
                 w.CreatedAt,
                 w.UpdatedAt,
-                w.ParentWorkItemId))
+                w.ParentWorkItemId,
+                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()))
             .SingleOrDefaultAsync() ?? throw new WorkItemNotFoundException();
 
     // The chain's rank: Epic(0) < Story(1) < Task(2) < SubTask(3). A valid parent is
@@ -489,7 +575,7 @@ public class WorkItemService(AppDbContext dbContext)
         }
     }
 
-    private record WorkItemTreeRow(int Id, string Type, string Title, int StatusId, string StatusName, string StatusCategory, string StatusColorKey, string Priority, string? AssigneeName, int? ParentWorkItemId);
+    private record WorkItemTreeRow(int Id, string Type, string Title, int StatusId, string StatusName, string StatusCategory, string StatusColorKey, string Priority, string? AssigneeName, int? ParentWorkItemId, List<string> Labels);
 
     public async Task<List<WorkItemTreeNodeDto>> GetTreeAsync(int projectId)
     {
@@ -520,7 +606,8 @@ public class WorkItemService(AppDbContext dbContext)
                 w.WorkflowStatus.ColorKey.ToString(),
                 w.Priority.ToString(),
                 w.Assignee != null ? w.Assignee.FullName : null,
-                w.ParentWorkItemId))
+                w.ParentWorkItemId,
+                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()))
             .ToListAsync();
 
         var childrenByParent = items
@@ -542,13 +629,13 @@ public class WorkItemService(AppDbContext dbContext)
 
         return new WorkItemTreeNodeDto(
             row.Id, row.Type, row.Title, row.StatusId, row.StatusName, row.StatusCategory, row.StatusColorKey,
-            row.Priority, row.AssigneeName, childRows.Count, doneCount, childNodes);
+            row.Priority, row.AssigneeName, childRows.Count, doneCount, childNodes, row.Labels);
     }
 
     private record WorkItemBoardRow(
         int Id, string Type, string Title, int StatusId, string StatusName, string StatusCategory, string StatusColorKey, string Priority,
         int? AssigneeUserId, string? AssigneeName, DateTime? DueDate, DateTime UpdatedAt,
-        int CreatedByUserId, int? ParentWorkItemId);
+        int CreatedByUserId, int? ParentWorkItemId, List<string> Labels);
 
     // Feature 005 (Kanban Board). Same shape as GetTreeAsync above: one query for
     // the whole project, then an in-memory Dictionary/GroupBy pass -- but applied
@@ -580,7 +667,8 @@ public class WorkItemService(AppDbContext dbContext)
                 w.DueDate,
                 w.UpdatedAt,
                 w.CreatedByUserId,
-                w.ParentWorkItemId))
+                w.ParentWorkItemId,
+                w.Labels.OrderBy(wl => wl.Label!.Name).Select(wl => wl.Label!.Name).ToList()))
             .ToListAsync();
 
         var childrenByParent = rows
@@ -595,7 +683,7 @@ public class WorkItemService(AppDbContext dbContext)
             return new WorkItemBoardCardDto(
                 row.Id, row.Type, row.Title, row.StatusId, row.StatusName, row.StatusCategory, row.StatusColorKey, row.Priority,
                 row.AssigneeUserId, row.AssigneeName, row.DueDate, row.UpdatedAt,
-                row.CreatedByUserId, childRows.Count, doneCount);
+                row.CreatedByUserId, childRows.Count, doneCount, row.Labels);
         }).ToList();
 
         // Feature 006 — columns come from this project's own WorkflowStatus rows,

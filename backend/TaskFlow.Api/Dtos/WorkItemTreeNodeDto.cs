@@ -16,4 +16,5 @@ public record WorkItemTreeNodeDto(
     string? AssigneeName,
     int DirectChildrenCount,
     int DirectChildrenDoneCount,
-    List<WorkItemTreeNodeDto> Children);
+    List<WorkItemTreeNodeDto> Children,
+    List<string> Labels);

@@ -45,3 +45,8 @@ public class TypeChangeInvalidatesChildrenException() : Exception(
 // FR (US3): enforced only when both dates are present -- a start date with no due
 // date, or vice versa, is unconstrained.
 public class InvalidDateRangeException() : Exception("Start date must be on or before the due date.");
+
+// US5 label-normalization rules (data-model.md).
+public class InvalidLabelException() : Exception("Each label must be 1–30 characters.");
+
+public class TooManyLabelsException() : Exception("A work item may have at most 5 labels.");

@@ -20,4 +20,5 @@ public record WorkItemBoardCardDto(
     DateTime UpdatedAt,
     int CreatedByUserId,
     int DirectChildrenCount,
-    int DirectChildrenDoneCount);
+    int DirectChildrenDoneCount,
+    List<string> Labels);
