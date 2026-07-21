@@ -14,13 +14,18 @@ public abstract class SqlServerTestDatabase : IAsyncLifetime
 
     protected AppDbContext Db { get; private set; } = null!;
 
+    // Feature 008 -- exposed so a test can open a second, independent DbContext
+    // against this same disposable database (e.g. to genuinely race two concurrent
+    // SprintService.StartAsync calls against real SQL Server, not just one context).
+    protected string ConnectionString { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
-        var connectionString =
+        ConnectionString =
             $"Server=localhost;Database={_databaseName};Trusted_Connection=True;TrustServerCertificate=True";
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer(connectionString)
+            .UseSqlServer(ConnectionString)
             .Options;
 
         Db = new AppDbContext(options);

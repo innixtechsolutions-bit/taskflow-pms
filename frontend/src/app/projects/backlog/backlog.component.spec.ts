@@ -10,6 +10,7 @@ import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 import { WorkItemModalComponent } from '../work-item-modal/work-item-modal.component';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
+import { CompleteSprintDialogComponent } from '../complete-sprint-dialog/complete-sprint-dialog.component';
 
 function dropEvent(item: WorkItem): CdkDragDrop<WorkItem[]> {
   return { item: { data: item } } as CdkDragDrop<WorkItem[]>;
@@ -99,7 +100,13 @@ function configure(
     updateWorkItemSprint: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
-  const sprintsService = { getSprints: vi.fn().mockResolvedValue(sampleSprints()), createSprint: vi.fn() };
+  const sprintsService = {
+    getSprints: vi.fn().mockResolvedValue(sampleSprints()),
+    createSprint: vi.fn(),
+    startSprint: vi.fn().mockResolvedValue({ status: 'Active' }),
+    completeSprint: vi.fn().mockResolvedValue({ status: 'Completed' }),
+    deleteSprint: vi.fn().mockResolvedValue(undefined),
+  };
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [BacklogComponent],
@@ -112,7 +119,7 @@ function configure(
       { provide: MatDialog, useValue: { open: dialogOpen } },
     ],
   });
-  return { dialogOpen, notificationService, ...workItemsService };
+  return { dialogOpen, notificationService, ...workItemsService, ...sprintsService };
 }
 
 async function render(projectId = 1) {
@@ -287,5 +294,82 @@ describe('BacklogComponent', () => {
     const item = sampleBacklog().backlogItems[0];
 
     expect(canDragOf(fixture)(item, 'Planned')).toBe(true);
+  });
+
+  // US4 — lifecycle actions
+
+  it('shows a Start action for a Manager/Admin on a Planned sprint with items, and starts it on click', async () => {
+    const { startSprint, getBacklog } = configure({}, 'Manager');
+    const fixture = await render();
+    getBacklog.mockClear();
+
+    const sections = fixture.nativeElement.querySelectorAll('.sprint-section');
+    const startButton = sections[0].querySelector('.start-sprint-button') as HTMLButtonElement;
+    expect(startButton.disabled).toBe(false);
+    startButton.click();
+    await fixture.whenStable();
+
+    expect(startSprint).toHaveBeenCalledWith(1, 1);
+    expect(getBacklog).toHaveBeenCalled();
+  });
+
+  it('disables Start for an empty Planned sprint', async () => {
+    configure({}, 'Manager');
+    const fixture = await render();
+
+    const sections = fixture.nativeElement.querySelectorAll('.sprint-section');
+    const startButton = sections[1].querySelector('.start-sprint-button') as HTMLButtonElement; // Sprint 2, 0 items
+    expect(startButton.disabled).toBe(true);
+  });
+
+  it('shows a Delete action only for an empty Planned sprint, and confirms before deleting', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { deleteSprint, getBacklog } = configure({}, 'Manager');
+    const fixture = await render();
+    getBacklog.mockClear();
+
+    const sections = fixture.nativeElement.querySelectorAll('.sprint-section');
+    expect(sections[0].querySelector('.delete-sprint-button')).toBeNull(); // Sprint 1 has an item
+    const deleteButton = sections[1].querySelector('.delete-sprint-button') as HTMLButtonElement; // Sprint 2, empty
+    expect(deleteButton).toBeTruthy();
+    deleteButton.click();
+    await fixture.whenStable();
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(deleteSprint).toHaveBeenCalledWith(1, 2);
+    expect(getBacklog).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a Complete action for an Active sprint and opens CompleteSprintDialogComponent with the not-Done count and destination candidates', async () => {
+    const activeBacklog: WorkItemBacklog = {
+      sprints: [
+        { id: 1, name: 'Sprint 1', startDate: '2026-08-01', endDate: '2026-08-15', status: 'Active', items: [
+          sampleWorkItem({ id: 2, title: 'Not done', statusCategory: 'Open', sprintId: 1 }),
+          sampleWorkItem({ id: 5, title: 'Done', statusCategory: 'Done', sprintId: 1 }),
+        ] },
+        { id: 2, name: 'Sprint 2', startDate: '2026-08-16', endDate: '2026-08-30', status: 'Planned', items: [] },
+      ],
+      backlogItems: [],
+    };
+    const { dialogOpen } = configure({ getBacklog: vi.fn().mockResolvedValue(activeBacklog) }, 'Manager');
+    const fixture = await render();
+
+    const sections = fixture.nativeElement.querySelectorAll('.sprint-section');
+    expect(sections[0].querySelector('.start-sprint-button')).toBeNull();
+    (sections[0].querySelector('.complete-sprint-button') as HTMLButtonElement).click();
+
+    expect(dialogOpen).toHaveBeenCalledWith(CompleteSprintDialogComponent, expect.anything());
+    const config = dialogOpen.mock.calls[0][1];
+    expect(config.data.notDoneCount).toBe(1);
+    expect(config.data.destinationCandidates.map((s: Sprint) => s.id)).toEqual([2]);
+  });
+
+  it('hides Start/Complete/Delete actions for a Developer', async () => {
+    configure({}, 'Developer');
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('.start-sprint-button')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.delete-sprint-button')).toBeNull();
   });
 });

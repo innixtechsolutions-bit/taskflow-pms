@@ -186,4 +186,148 @@ public class SprintsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture<T
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // ---------------------------------------------------------------------
+    // US4 — Start / Complete / Delete
+    // ---------------------------------------------------------------------
+
+    private async Task<int> CreateItemInSprintAsync(string token, int projectId, int sprintId, string title = "Some item")
+    {
+        var request = AuthedRequest(HttpMethod.Post, $"/api/projects/{projectId}/work-items", token);
+        request.Content = JsonContent.Create(new { type = "Task", title, sprintId });
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<WorkItemDto>();
+        return body!.Id;
+    }
+
+    [Fact]
+    public async Task StartSprint_returns_200_for_a_Manager_or_Admin_and_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"start-{Guid.NewGuid():N}@example.com");
+        var sprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+        await CreateItemInSprintAsync(token, projectId, sprintId);
+
+        var denied = await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/start", token));
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        var allowed = await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/start", adminToken));
+        Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        var body = await allowed.Content.ReadFromJsonAsync<SprintDto>();
+        Assert.Equal("Active", body!.Status);
+    }
+
+    [Fact]
+    public async Task StartSprint_returns_409_when_another_sprint_is_already_Active()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"start-conflict-{Guid.NewGuid():N}@example.com");
+        var firstSprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+        await CreateItemInSprintAsync(token, projectId, firstSprintId);
+        await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{firstSprintId}/start", adminToken));
+        var secondSprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 2", startOffsetDays: 20, endOffsetDays: 34)).Id;
+        await CreateItemInSprintAsync(token, projectId, secondSprintId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{secondSprintId}/start", adminToken));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task StartSprint_returns_400_for_an_empty_sprint()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var sprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/start", adminToken));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CompleteSprint_returns_200_for_a_Manager_or_Admin_and_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"complete-{Guid.NewGuid():N}@example.com");
+        var sprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+        var itemId = await CreateItemInSprintAsync(token, projectId, sprintId);
+        await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/start", adminToken));
+        var doneStatusId = await FindStatusIdAsync(token, projectId, "Done");
+        await _client.SendAsync(new HttpRequestMessage(HttpMethod.Patch, $"/api/work-items/{itemId}/status")
+        {
+            Content = JsonContent.Create(new { statusId = doneStatusId }),
+            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", token) }
+        });
+
+        var denied = await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/complete", token));
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/complete", adminToken);
+        request.Content = JsonContent.Create(new { });
+        var response = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<SprintDto>();
+        Assert.Equal("Completed", body!.Status);
+    }
+
+    private async Task<int> FindStatusIdAsync(string token, int projectId, string statusName)
+    {
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/statuses", token));
+        var body = await response.Content.ReadFromJsonAsync<List<WorkflowStatusDto>>();
+        return body!.Single(s => s.Name == statusName).Id;
+    }
+
+    [Fact]
+    public async Task CompleteSprint_returns_400_with_itemCount_when_a_resolution_is_required_but_missing()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"complete-needsdest-{Guid.NewGuid():N}@example.com");
+        var sprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+        await CreateItemInSprintAsync(token, projectId, sprintId);
+        await CreateItemInSprintAsync(token, projectId, sprintId, "Second item");
+        await _client.SendAsync(AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/start", adminToken));
+
+        var request = AuthedRequest(HttpMethod.Put, $"/api/projects/{projectId}/sprints/{sprintId}/complete", adminToken);
+        request.Content = JsonContent.Create(new { });
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal(2, problem.GetProperty("itemCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task DeleteSprint_returns_204_for_a_Manager_or_Admin_and_403_for_a_Developer()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"delete-{Guid.NewGuid():N}@example.com");
+        var sprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+
+        var denied = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/sprints/{sprintId}", token));
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+
+        var allowed = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/sprints/{sprintId}", adminToken));
+        Assert.Equal(HttpStatusCode.NoContent, allowed.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteSprint_returns_400_for_a_sprint_that_has_items()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"delete-hasitems-{Guid.NewGuid():N}@example.com");
+        var sprintId = (await CreateSprintAsync(adminToken, projectId, "Sprint 1")).Id;
+        await CreateItemInSprintAsync(token, projectId, sprintId);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Delete, $"/api/projects/{projectId}/sprints/{sprintId}", adminToken));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

@@ -6,11 +6,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { ProjectStatus, UserLookupItem, WorkItem, WorkItemBacklog, WorkItemsFilter, WorkItemsService } from '../work-items.service';
-import { SprintStatus } from '../sprints.service';
+import { BacklogSprintSection, ProjectStatus, UserLookupItem, WorkItem, WorkItemBacklog, WorkItemsFilter, WorkItemsService } from '../work-items.service';
+import { Sprint, SprintStatus, SprintsService } from '../sprints.service';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 import { SprintFormComponent } from '../sprint-form/sprint-form.component';
+import { CompleteSprintDialogComponent } from '../complete-sprint-dialog/complete-sprint-dialog.component';
 import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
@@ -49,6 +50,7 @@ const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
 })
 export class BacklogComponent implements OnInit {
   private readonly workItemsService = inject(WorkItemsService);
+  private readonly sprintsService = inject(SprintsService);
   private readonly authService = inject(AuthService);
   private readonly notificationService = inject(NotificationService);
   private readonly dialog = inject(MatDialog);
@@ -194,5 +196,45 @@ export class BacklogComponent implements OnInit {
       this.backlog.set(previousBacklog);
       this.notificationService.error(`Could not move "${item.title}". Please try again.`);
     });
+  }
+
+  // US4 — Start/Complete/Delete, Manager/Admin gated (server-enforced regardless).
+
+  protected startSprint(sprint: BacklogSprintSection): void {
+    this.sprintsService
+      .startSprint(this.projectId(), sprint.id)
+      .then(() => void this.load())
+      .catch(() => this.notificationService.error(`Could not start "${sprint.name}". Please try again.`));
+  }
+
+  // Not-Done count comes from this section's own already-loaded items
+  // (research.md #8) — no extra network call. Destination candidates are
+  // every other Planned/Active sprint in the project.
+  protected openCompleteSprintDialog(sprint: BacklogSprintSection): void {
+    const notDoneCount = sprint.items.filter((i) => i.statusCategory !== 'Done').length;
+    const destinationCandidates: Sprint[] = this.backlog()
+      .sprints.filter((s) => s.id !== sprint.id && (s.status === 'Planned' || s.status === 'Active'))
+      .map((s) => ({ id: s.id, projectId: this.projectId(), name: s.name, startDate: s.startDate, endDate: s.endDate, status: s.status, itemCount: s.items.length }));
+
+    this.dialog.open(CompleteSprintDialogComponent, {
+      data: {
+        projectId: this.projectId(),
+        sprintId: sprint.id,
+        sprintName: sprint.name,
+        notDoneCount,
+        destinationCandidates,
+        onCompleted: () => void this.load(),
+      },
+    });
+  }
+
+  protected deleteSprint(sprint: BacklogSprintSection): void {
+    if (!confirm(`Delete "${sprint.name}"? This cannot be undone.`)) {
+      return;
+    }
+    this.sprintsService
+      .deleteSprint(this.projectId(), sprint.id)
+      .then(() => void this.load())
+      .catch(() => this.notificationService.error(`Could not delete "${sprint.name}". Please try again.`));
   }
 }

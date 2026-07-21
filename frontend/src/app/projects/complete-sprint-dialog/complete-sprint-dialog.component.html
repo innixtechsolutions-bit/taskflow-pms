@@ -1,0 +1,40 @@
+<h2 mat-dialog-title>Complete "{{ data.sprintName }}"</h2>
+
+<mat-dialog-content>
+  <form id="complete-sprint-form" (submit)="onSubmit($event)" novalidate>
+    @if (serverError()) {
+      <p class="server-error" role="alert">{{ serverError() }}</p>
+    }
+
+    @if (!needsResolution) {
+      <p>All of this sprint's items are already Done. Complete it now?</p>
+    } @else {
+      <p>{{ data.notDoneCount }} item(s) are not yet Done. Where should they go?</p>
+
+      <mat-radio-group class="resolution-group" [value]="resolution()" (change)="resolution.set($event.value)">
+        <mat-radio-button value="Backlog">Move {{ data.notDoneCount }} item(s) to the Backlog</mat-radio-button>
+        <mat-radio-button value="Sprint" [disabled]="data.destinationCandidates.length === 0">
+          Move {{ data.notDoneCount }} item(s) to another sprint
+        </mat-radio-button>
+      </mat-radio-group>
+
+      @if (resolution() === 'Sprint') {
+        <mat-form-field appearance="outline">
+          <mat-label>Destination sprint</mat-label>
+          <mat-select [value]="destinationSprintId()" (selectionChange)="destinationSprintId.set($event.value)">
+            @for (s of data.destinationCandidates; track s.id) {
+              <mat-option [value]="s.id">{{ s.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" class="close-button" (click)="close()">Cancel</button>
+  <button mat-flat-button color="primary" type="submit" form="complete-sprint-form" [disabled]="submitting() || !canSubmit()">
+    Complete sprint
+  </button>
+</mat-dialog-actions>

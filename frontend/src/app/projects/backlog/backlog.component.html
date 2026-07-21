@@ -64,6 +64,27 @@
         <span class="sprint-dates">{{ sprint.startDate | friendlyDate }} – {{ sprint.endDate | friendlyDate }}</span>
         <span class="sprint-status">{{ sprint.status }}</span>
         <span class="sprint-item-count">{{ sprint.items.length }} work item(s)</span>
+        @if (canManageSprints()) {
+          @if (sprint.status === 'Planned') {
+            <button
+              type="button"
+              class="start-sprint-button"
+              [disabled]="sprint.items.length === 0"
+              (click)="startSprint(sprint)"
+            >
+              Start sprint
+            </button>
+            @if (sprint.items.length === 0) {
+              <button type="button" class="delete-sprint-button" (click)="deleteSprint(sprint)" aria-label="Delete {{ sprint.name }}">
+                Delete
+              </button>
+            }
+          } @else if (sprint.status === 'Active') {
+            <button type="button" class="complete-sprint-button" (click)="openCompleteSprintDialog(sprint)">
+              Complete sprint
+            </button>
+          }
+        }
         <button type="button" class="section-create-button" (click)="openCreateItemDialog(sprint.id)" title="Add to {{ sprint.name }}" aria-label="Add to {{ sprint.name }}">
           +
         </button>

@@ -196,6 +196,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // mechanism as WorkflowStatus.Name/Label.Name/Project.Name/User.Email above.
             entity.HasIndex(s => new { s.ProjectId, s.Name }).IsUnique();
 
+            // Feature 008 (/speckit-analyze finding C2) -- a filtered unique index,
+            // not just SprintService.StartAsync's application-level "no other Active
+            // sprint" check. That check alone is a classic check-then-act race: two
+            // concurrent Start calls can both pass it before either commits. This
+            // index makes SQL Server itself refuse a second Active row per project
+            // regardless of timing -- SprintService.StartAsync catches the resulting
+            // DbUpdateException and translates it to the same AnotherSprintActiveException
+            // the ordinary (non-racing) path already throws.
+            entity.HasIndex(s => s.ProjectId)
+                .IsUnique()
+                .HasFilter("[Status] = 'Active'")
+                .HasDatabaseName("IX_Sprints_ProjectId_ActiveOnly");
+
             // Deleting a project deletes its sprints -- consistent with the existing
             // Project -> WorkItem/WorkflowStatus/Label cascades.
             entity.HasOne(s => s.Project)
