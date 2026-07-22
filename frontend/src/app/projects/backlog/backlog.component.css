@@ -47,9 +47,15 @@
 
 .sprint-dates,
 .sprint-status,
-.sprint-item-count {
+.sprint-item-count,
+.sprint-days-remaining {
   color: #64748b;
   font-size: 13px;
+}
+
+.sprint-days-remaining.overdue {
+  color: var(--color-priority-critical-text);
+  font-weight: 600;
 }
 
 .section-create-button {

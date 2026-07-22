@@ -275,4 +275,23 @@ describe('BoardComponent', () => {
     expect(fixture.nativeElement.querySelector('app-empty-state')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('.no-active-sprint-backlog-link')).toBeTruthy();
   });
+
+  it('shows the days-remaining/overdue indicator for the Active sprint in "Active sprint" mode', async () => {
+    // Real dates relative to "now" (not a faked clock) — fake timers don't mix
+    // safely with fixture.whenStable()'s zone-based async settling.
+    const threeDaysOut = new Date();
+    threeDaysOut.setDate(threeDaysOut.getDate() + 3);
+    const endDate = `${threeDaysOut.getFullYear()}-${String(threeDaysOut.getMonth() + 1).padStart(2, '0')}-${String(threeDaysOut.getDate()).padStart(2, '0')}`;
+    const sprints: Sprint[] = [
+      { id: 2, projectId: 1, name: 'Sprint 2', startDate: '2026-07-01', endDate, status: 'Active', itemCount: 3 },
+    ];
+    configure(undefined, undefined, undefined, vi.fn().mockResolvedValue(sprints));
+    const fixture = await render(1);
+
+    (fixture.nativeElement.querySelector('.active-sprint-toggle') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.sprint-days-remaining')?.textContent).toContain('3 days remaining');
+  });
 });

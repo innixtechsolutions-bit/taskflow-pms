@@ -10,6 +10,7 @@ import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { AuthService } from '../../auth/auth.service';
 import { NotificationService } from '../../shared/notification.service';
 import { canEditWorkItem } from '../work-item-permissions';
+import { sprintDaysRemaining } from '../backlog/sprint-days-remaining';
 
 interface BoardColumnView extends BoardColumn {
   items: WorkItemBoardCard[];
@@ -80,6 +81,20 @@ export class BoardComponent implements OnInit {
     this.mode.set(mode);
     void this.load();
   }
+
+  // US6 — same indicator as the Backlog view's, for the Active sprint being
+  // shown here (FR-019).
+  protected readonly daysRemainingLabel = computed<string | null>(() => {
+    const sprint = this.activeSprint();
+    if (!sprint) {
+      return null;
+    }
+    const result = sprintDaysRemaining(sprint.endDate, sprint.status);
+    if (!result) {
+      return null;
+    }
+    return result.overdue ? 'Overdue' : `${result.days} ${result.days === 1 ? 'day' : 'days'} remaining`;
+  });
 
   private async load(): Promise<void> {
     if (this.mode() === 'active') {

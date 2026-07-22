@@ -63,6 +63,9 @@
         <span class="sprint-name">{{ sprint.name }}</span>
         <span class="sprint-dates">{{ sprint.startDate | friendlyDate }} – {{ sprint.endDate | friendlyDate }}</span>
         <span class="sprint-status">{{ sprint.status }}</span>
+        @if (daysRemainingLabel(sprint); as label) {
+          <span class="sprint-days-remaining" [class.overdue]="label === 'Overdue'">{{ label }}</span>
+        }
         <span class="sprint-item-count">{{ sprint.items.length }} work item(s)</span>
         @if (canManageSprints()) {
           @if (sprint.status === 'Planned') {

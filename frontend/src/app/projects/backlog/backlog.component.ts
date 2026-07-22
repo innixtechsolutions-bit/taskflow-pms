@@ -17,6 +17,7 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { BacklogItemRowComponent } from './backlog-item-row.component';
 import { canEditWorkItem } from '../work-item-permissions';
+import { sprintDaysRemaining } from './sprint-days-remaining';
 
 const TYPES = ['Epic', 'Story', 'Task', 'SubTask'];
 const PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
@@ -121,6 +122,18 @@ export class BacklogComponent implements OnInit {
   protected onSearch(): void {
     this.searchFilter.set(this.searchInput());
     void this.load();
+  }
+
+  // US6 — Active-sprint-only (FR-025's null case renders nothing).
+  protected daysRemainingLabel(sprint: BacklogSprintSection): string | null {
+    const result = sprintDaysRemaining(sprint.endDate, sprint.status);
+    if (!result) {
+      return null;
+    }
+    if (result.overdue) {
+      return 'Overdue';
+    }
+    return `${result.days} ${result.days === 1 ? 'day' : 'days'} remaining`;
   }
 
   protected canManageSprints(): boolean {

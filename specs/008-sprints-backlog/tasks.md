@@ -240,13 +240,14 @@ places.
 
 ### Tests for User Story 6
 
-- [ ] T066 [P] [US6] Frontend test: `sprintDaysRemaining(endDate, status)` returns a days-remaining count for a future end date, an overdue flag for a past end date, and nothing for a `Planned`/`Completed` sprint — new `frontend/src/app/projects/backlog/sprint-days-remaining.spec.ts` (written first, per spec's explicit test-first requirement)
+- [X] T066 [P] [US6] Frontend test: `sprintDaysRemaining(endDate, status)` returns a days-remaining count for a future end date, an overdue flag for a past end date, and nothing for a `Planned`/`Completed` sprint — new `frontend/src/app/projects/backlog/sprint-days-remaining.spec.ts` (written first, per spec's explicit test-first requirement)
+- [X] T066a [P] [US6] Frontend test (added during implementation): `BacklogComponent` shows the indicator only on an Active sprint's section; `BoardComponent` shows it in "Active sprint" mode's header — `backlog.component.spec.ts`, `board.component.spec.ts` (dates computed relative to the real clock, not `vi.useFakeTimers()`, which doesn't mix safely with `fixture.whenStable()`'s zone-based async settling)
 
 ### Implementation for User Story 6
 
-- [ ] T067 [US6] Implement `sprintDaysRemaining()` — a pure function mirroring `overdue.ts`'s date-only string comparison (no `new Date().getters()` on `endDate`, to avoid the UTC/local calendar-day shift research.md #3 documents) — new `frontend/src/app/projects/backlog/sprint-days-remaining.ts` — makes T066 pass
-- [ ] T068 [US6] Show the days-remaining/overdue indicator on each Active sprint's section header — `backlog.component.ts` (+ `.html`) — depends on T067
-- [ ] T069 [US6] Show the same indicator in `BoardComponent`'s "Active sprint" mode header — `board.component.ts` (+ `.html`) — depends on T067
+- [X] T067 [US6] Implement `sprintDaysRemaining()` — a pure function mirroring `overdue.ts`'s date-only string comparison (no `new Date().getters()` on `endDate`, to avoid the UTC/local calendar-day shift research.md #3 documents) — new `frontend/src/app/projects/backlog/sprint-days-remaining.ts` — makes T066 pass
+- [X] T068 [US6] Show the days-remaining/overdue indicator on each Active sprint's section header — `backlog.component.ts` (+ `.html` + `.css`) — depends on T067; makes T066a pass
+- [X] T069 [US6] Show the same indicator in `BoardComponent`'s "Active sprint" mode header — `board.component.ts` (+ `.html` + `.css`) — depends on T067; makes T066a pass
 
 **Checkpoint**: All six user stories are complete, matching spec.md's
 Success Check — quickstart.md section 6 passes.

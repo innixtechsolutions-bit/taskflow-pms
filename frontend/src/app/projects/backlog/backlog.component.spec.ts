@@ -372,4 +372,27 @@ describe('BacklogComponent', () => {
     expect(fixture.nativeElement.querySelector('.start-sprint-button')).toBeNull();
     expect(fixture.nativeElement.querySelector('.delete-sprint-button')).toBeNull();
   });
+
+  // US6 — days remaining / overdue indicator
+
+  it("shows a days-remaining/overdue indicator on an Active sprint's section, and none on a Planned one", async () => {
+    // Real dates relative to "now" (not a faked clock) — fake timers don't mix
+    // safely with fixture.whenStable()'s zone-based async settling.
+    const threeDaysOut = new Date();
+    threeDaysOut.setDate(threeDaysOut.getDate() + 3);
+    const endDate = `${threeDaysOut.getFullYear()}-${String(threeDaysOut.getMonth() + 1).padStart(2, '0')}-${String(threeDaysOut.getDate()).padStart(2, '0')}`;
+    const activeBacklog: WorkItemBacklog = {
+      sprints: [
+        { id: 1, name: 'Sprint 1', startDate: '2026-07-01', endDate, status: 'Active', items: [] },
+        { id: 2, name: 'Sprint 2', startDate: '2026-08-16', endDate: '2026-08-30', status: 'Planned', items: [] },
+      ],
+      backlogItems: [],
+    };
+    configure({ getBacklog: vi.fn().mockResolvedValue(activeBacklog) });
+    const fixture = await render();
+
+    const sections = fixture.nativeElement.querySelectorAll('.sprint-section');
+    expect(sections[0].querySelector('.sprint-days-remaining')?.textContent).toContain('3 days remaining');
+    expect(sections[1].querySelector('.sprint-days-remaining')).toBeNull();
+  });
 });

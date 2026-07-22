@@ -5,6 +5,9 @@
   <button type="button" class="active-sprint-toggle" [class.active]="mode() === 'active'" (click)="setMode('active')">
     Active sprint
   </button>
+  @if (mode() === 'active' && daysRemainingLabel(); as label) {
+    <span class="sprint-days-remaining" [class.overdue]="label === 'Overdue'">{{ label }}</span>
+  }
 </div>
 
 @if (mode() === 'active' && !activeSprint()) {
