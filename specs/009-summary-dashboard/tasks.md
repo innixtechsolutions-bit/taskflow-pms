@@ -169,11 +169,11 @@ Existing two-project layout: `backend/TaskFlow.Api/` + `backend/TaskFlow.Api.Tes
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T047 [P] [US5] `work-item-detail.component.spec.ts`: fetches `getWorkItemActivity()` and renders it via `<app-activity-feed>`, filtered to just that item's entries in `frontend/src/app/projects/work-item-detail/work-item-detail.component.spec.ts`
+- [X] T047 [P] [US5] `work-item-detail.component.spec.ts`: fetches `getWorkItemActivity()` and renders it via `<app-activity-feed>`, filtered to just that item's entries in `frontend/src/app/projects/work-item-detail/work-item-detail.component.spec.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T048 [US5] Wire `WorkItemDetailComponent` to fetch `getWorkItemActivity()` and render `<app-activity-feed>` in a new Activity section in `frontend/src/app/projects/work-item-detail/work-item-detail.component.ts` / `.html` (depends on T035 from US4; makes T047 pass)
+- [X] T048 [US5] Wire `WorkItemDetailComponent` to fetch `getWorkItemActivity()` and render `<app-activity-feed>` in a new Activity section in `frontend/src/app/projects/work-item-detail/work-item-detail.component.ts` / `.html` (depends on T035 from US4; makes T047 pass)
 
 **Checkpoint**: All five user stories are independently functional and demoable.
 

@@ -71,6 +71,9 @@
       @if (canDelete()) {
         <button mat-button type="button" class="delete-button" (click)="onDelete()">Delete</button>
       }
+
+      <h3>Activity</h3>
+      <app-activity-feed [entries]="activityEntries()" />
     </mat-card-content>
   </mat-card>
 }

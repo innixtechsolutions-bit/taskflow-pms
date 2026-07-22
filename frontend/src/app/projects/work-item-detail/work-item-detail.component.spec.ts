@@ -48,7 +48,8 @@ const detailWithNoParentOrChildren = {
 function configure(
   getWorkItemDetail = vi.fn().mockResolvedValue(detailWithParentAndChildren),
   authState: { id: number; role: string } | null = { id: 1, role: 'Developer' },
-  deleteWorkItem = vi.fn().mockResolvedValue(undefined)
+  deleteWorkItem = vi.fn().mockResolvedValue(undefined),
+  getWorkItemActivity = vi.fn().mockResolvedValue([])
 ) {
   const notificationService = { success: vi.fn(), error: vi.fn() };
   const dialogOpen = vi.fn().mockReturnValue({});
@@ -56,14 +57,14 @@ function configure(
     imports: [WorkItemDetailComponent],
     providers: [
       provideRouter([]),
-      { provide: WorkItemsService, useValue: { getWorkItemDetail, deleteWorkItem } },
+      { provide: WorkItemsService, useValue: { getWorkItemDetail, deleteWorkItem, getWorkItemActivity } },
       { provide: AuthService, useValue: { currentUser: () => authState, currentRole: () => authState?.role ?? null } },
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ projectId: '1', id: '5' }) } } },
       { provide: NotificationService, useValue: notificationService },
       { provide: MatDialog, useValue: { open: dialogOpen } },
     ],
   });
-  return { getWorkItemDetail, deleteWorkItem, notificationService, dialogOpen };
+  return { getWorkItemDetail, deleteWorkItem, notificationService, dialogOpen, getWorkItemActivity };
 }
 
 async function render() {
@@ -202,5 +203,31 @@ describe('WorkItemDetailComponent', () => {
 
     expect(notificationService.error).toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+});
+
+describe('WorkItemDetailComponent activity history (Feature 009 US5)', () => {
+  it("fetches this item's own activity and renders it via the shared activity feed", async () => {
+    const activityEntries = [
+      {
+        id: 1,
+        workItemId: 5,
+        workItemTitle: 'The Story',
+        workItemType: 'Story',
+        eventType: 'Created' as const,
+        field: null,
+        oldValue: null,
+        newValue: null,
+        actorUserId: 1,
+        actorName: 'Ada Lovelace',
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const { getWorkItemActivity } = configure(undefined, undefined, undefined, vi.fn().mockResolvedValue(activityEntries));
+    const fixture = await render();
+
+    expect(getWorkItemActivity).toHaveBeenCalledWith(5);
+    expect(fixture.nativeElement.querySelector('app-activity-feed')).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain("Ada Lovelace created Story 'The Story'");
   });
 });

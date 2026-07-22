@@ -3,7 +3,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { WorkItemDetail, WorkItemsService } from '../work-items.service';
+import { ActivityEntry, WorkItemDetail, WorkItemsService } from '../work-items.service';
 import { openWorkItemModal } from '../work-item-modal/open-work-item-modal';
 import { AuthService } from '../../auth/auth.service';
 import { StatusChipComponent } from '../../shared/status-chip/status-chip.component';
@@ -14,6 +14,7 @@ import { NotificationService } from '../../shared/notification.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { FriendlyDatePipe } from '../../shared/friendly-date.pipe';
 import { canEditWorkItem } from '../work-item-permissions';
+import { ActivityFeedComponent } from '../activity-feed/activity-feed.component';
 
 // Mirrors the backend's RequiredParentType mapping in reverse (data-model.md's
 // Hierarchy rules table) — the type a new child would need, given this item's type.
@@ -34,6 +35,7 @@ const CHILD_TYPE: Record<string, string> = { Epic: 'Story', Story: 'Task', Task:
     UserAvatarComponent,
     EmptyStateComponent,
     FriendlyDatePipe,
+    ActivityFeedComponent,
   ],
   templateUrl: './work-item-detail.component.html',
 })
@@ -48,13 +50,22 @@ export class WorkItemDetailComponent implements OnInit {
   private readonly workItemId = Number(this.route.snapshot.paramMap.get('id'));
 
   protected readonly item = signal<WorkItemDetail | null>(null);
+  protected readonly activityEntries = signal<ActivityEntry[]>([]);
 
   ngOnInit(): void {
     void this.load();
+    void this.loadActivity();
   }
 
   private async load(): Promise<void> {
     this.item.set(await this.workItemsService.getWorkItemDetail(this.workItemId));
+  }
+
+  // Feature 009 (US5) — the same activity log US4 introduced, filtered to
+  // just this item, rendered via the same shared ActivityFeedComponent the
+  // project Summary tab uses (FR-021's "consistent rendering" requirement).
+  private async loadActivity(): Promise<void> {
+    this.activityEntries.set(await this.workItemsService.getWorkItemActivity(this.workItemId));
   }
 
   // Replaces the removed .../work-items/new?parentWorkItemId=&type= routerLink
