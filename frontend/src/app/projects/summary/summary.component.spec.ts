@@ -6,8 +6,16 @@ import { ActivityEntry, PagedResult, ProjectSummary, WorkItemsService } from '..
 function sampleSummary(overrides: Partial<ProjectSummary> = {}): ProjectSummary {
   return {
     statCards: { total: 10, completed: 4, completedPercent: 40, inProgress: 6, dueSoon: 2 },
-    statusBreakdown: [],
-    priorityBreakdown: [],
+    statusBreakdown: [
+      { statusId: 1, name: 'To Do', colorKey: 'Slate', count: 3 },
+      { statusId: 2, name: 'Done', colorKey: 'Green', count: 4 },
+    ],
+    priorityBreakdown: [
+      { priority: 'Low', count: 1 },
+      { priority: 'Medium', count: 2 },
+      { priority: 'High', count: 0 },
+      { priority: 'Critical', count: 0 },
+    ],
     workload: [],
     ...overrides,
   };
@@ -100,6 +108,16 @@ describe('SummaryComponent', () => {
     expect(getProjectActivity).toHaveBeenCalledWith(42, 2, 20);
     const rows = fixture.nativeElement.querySelectorAll('.activity-entry');
     expect(rows.length).toBe(2);
+  });
+
+  it('renders the status donut and priority bar chart from the fetched summary', async () => {
+    configure();
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('app-status-donut-chart')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('app-priority-bar-chart')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.status-donut-legend-item').length).toBe(2);
+    expect(fixture.nativeElement.querySelectorAll('.priority-bar-row').length).toBe(4);
   });
 
   it('hides "Load more" once every entry has been loaded', async () => {

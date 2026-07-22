@@ -1,0 +1,11 @@
+<div class="priority-bar-chart">
+  @for (item of breakdown(); track item.priority) {
+    <div class="priority-bar-row">
+      <span class="priority-bar-label">{{ item.priority }}</span>
+      <div class="priority-bar-track">
+        <div class="priority-bar-fill" [style.width.%]="percent(item.count)" [style.background]="colorVar(item.priority)"></div>
+      </div>
+      <span class="priority-bar-count">{{ item.count }}</span>
+    </div>
+  }
+</div>

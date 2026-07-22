@@ -17,6 +17,11 @@
       <span class="stat-card-label">Due Soon</span>
     </div>
   </div>
+
+  <div class="breakdown-row">
+    <app-status-donut-chart [breakdown]="s.statusBreakdown" />
+    <app-priority-bar-chart [breakdown]="s.priorityBreakdown" />
+  </div>
 }
 
 <div class="activity-section">

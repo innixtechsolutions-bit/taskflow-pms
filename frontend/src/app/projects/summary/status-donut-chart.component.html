@@ -1,0 +1,25 @@
+<div class="status-donut-chart">
+  <svg viewBox="0 0 100 100" class="donut-svg">
+    <circle class="donut-track" cx="50" cy="50" [attr.r]="radius" />
+    @for (segment of segments(); track segment.colorVar + segment.dashOffset) {
+      <circle
+        class="donut-segment"
+        cx="50"
+        cy="50"
+        [attr.r]="radius"
+        [style.stroke]="segment.colorVar"
+        [attr.stroke-dasharray]="segment.dashArray"
+        [attr.stroke-dashoffset]="segment.dashOffset"
+      />
+    }
+  </svg>
+  <ul class="status-donut-legend">
+    @for (item of breakdown(); track item.statusId) {
+      <li class="status-donut-legend-item">
+        <span class="legend-swatch" [style.background]="colorVar(item.colorKey)"></span>
+        <span class="legend-name">{{ item.name }}</span>
+        <span class="legend-count">{{ item.count }}</span>
+      </li>
+    }
+  </ul>
+</div>

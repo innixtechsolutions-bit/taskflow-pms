@@ -125,16 +125,16 @@ Existing two-project layout: `backend/TaskFlow.Api/` + `backend/TaskFlow.Api.Tes
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T037 [P] [US2] `donut-segments.spec.ts`: segment percentages always sum to 100%, a zero-item project produces an empty/neutral state, a single-status project produces one full segment in `frontend/src/app/projects/summary/donut-segments.spec.ts`
-- [ ] T038 [P] [US2] `status-donut-chart.component.spec.ts`: segments match the project's own column names, order, and colors in `frontend/src/app/projects/summary/status-donut-chart.component.spec.ts`
-- [ ] T039 [P] [US2] `priority-bar-chart.component.spec.ts`: always renders all 4 priority levels, including any at zero count in `frontend/src/app/projects/summary/priority-bar-chart.component.spec.ts`
+- [X] T037 [P] [US2] `donut-segments.spec.ts`: segment percentages always sum to 100%, a zero-item project produces an empty/neutral state, a single-status project produces one full segment in `frontend/src/app/projects/summary/donut-segments.spec.ts`
+- [X] T038 [P] [US2] `status-donut-chart.component.spec.ts`: segments match the project's own column names, order, and colors in `frontend/src/app/projects/summary/status-donut-chart.component.spec.ts`
+- [X] T039 [P] [US2] `priority-bar-chart.component.spec.ts`: always renders all 4 priority levels, including any at zero count in `frontend/src/app/projects/summary/priority-bar-chart.component.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T040 [P] [US2] Create `donutSegments()` pure function (turns `{count, colorVar}[]` into `{colorVar, dashArray, dashOffset}[]`) in `frontend/src/app/projects/summary/donut-segments.ts` (makes T037 pass)
-- [ ] T041 [US2] Create `StatusDonutChartComponent` — stacked SVG `<circle>` arcs via `donutSegments()`, each colored by its status's `--color-chip-{key}-text` token (research.md #14) in `frontend/src/app/projects/summary/status-donut-chart.component.ts` / `.html` / `.css` (depends on T040; makes T038 pass)
-- [ ] T042 [US2] Create `PriorityBarChartComponent` — flexbox bars with `width: {percent}%`, each colored by its level's `--color-priority-{level}-text` token in `frontend/src/app/projects/summary/priority-bar-chart.component.ts` / `.html` / `.css` (makes T039 pass)
-- [ ] T043 [US2] Wire both charts into `SummaryComponent`'s template in `frontend/src/app/projects/summary/summary.component.html` (depends on T041, T042)
+- [X] T040 [P] [US2] Create `donutSegments()` pure function (turns `{count, colorVar}[]` into `{colorVar, dashArray, dashOffset}[]`) in `frontend/src/app/projects/summary/donut-segments.ts` (makes T037 pass)
+- [X] T041 [US2] Create `StatusDonutChartComponent` — stacked SVG `<circle>` arcs via `donutSegments()`, each colored by its status's `--color-chip-{key}-text` token (research.md #14) in `frontend/src/app/projects/summary/status-donut-chart.component.ts` / `.html` / `.css` (depends on T040; makes T038 pass)
+- [X] T042 [US2] Create `PriorityBarChartComponent` — flexbox bars with `width: {percent}%`, each colored by its level's `--color-priority-{level}-text` token in `frontend/src/app/projects/summary/priority-bar-chart.component.ts` / `.html` / `.css` (makes T039 pass)
+- [X] T043 [US2] Wire both charts into `SummaryComponent`'s template in `frontend/src/app/projects/summary/summary.component.html` (depends on T041, T042)
 
 **Checkpoint**: Status/priority breakdowns render correctly per project.
 

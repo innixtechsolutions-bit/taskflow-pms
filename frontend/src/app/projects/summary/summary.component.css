@@ -26,6 +26,13 @@
   color: #64748b;
 }
 
+.breakdown-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-5);
+}
+
 .activity-heading {
   font-size: 1.1rem;
   margin: 0 0 var(--space-3);
