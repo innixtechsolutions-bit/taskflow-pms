@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-22
 
-**Status**: Draft
+**Status**: Planned
 
 **Input**: User description: "Add a per-project Summary view — stat cards, status/priority breakdowns, team workload, and recent activity — so anyone opening a project gets an at-a-glance picture instead of having to read the full item list. This feature also introduces an Activity Log — recording who changed what and when — because the recent-activity card needs real data to show, and no such record exists yet anywhere in the system. Activity entries are recorded when a work item is created, or when its Status, Priority, Assignee, or Sprint changes; entries are append-only and never edited or deleted. Summary becomes the new default tab (Board/Backlog/List/Tree remain available). Stat cards: total items, completed (count + %), in progress, due soon (7 days, excludes Done). Status breakdown uses the project's own workflow columns and colors; priority breakdown shows all four levels even at zero. Team workload lists assignees (plus zero-load Managers/Admins and an Unassigned row when applicable) sorted by open-item count descending. A project-level activity feed and a work-item-level activity history both render the same log as readable, relative-timestamped sentences."
 
@@ -139,7 +139,7 @@ As any signed-in user viewing a work item's detail page, I can see that item's o
 **Activity Log (new capability)**
 - **FR-012**: System MUST record a new, append-only activity entry whenever a work item is created, capturing the item's id and title, the actor, and a creation marker, with a timestamp.
 - **FR-013**: System MUST record a new activity entry whenever an existing work item's Status, Priority, Assignee, or Sprint changes, capturing: the work item (id + title), the actor, the changed field name, the old value, the new value (old/new expressed using display names, not internal IDs), and a timestamp.
-- **FR-014**: System MUST NOT record an activity entry for changes to any other work item field (title, description, dates, labels, hierarchy, or work item creation/edit/delete of a project itself).
+- **FR-014**: System MUST NOT record an activity entry for changes to any other work item field (title, description, dates, labels, hierarchy) or for creation/edit/deletion of a Project entity itself.
 - **FR-015**: Each activity entry MUST be scoped to a project, derived from the work item's project at the time of the change.
 - **FR-016**: Writing an activity entry MUST occur in the same transaction as the change it records: a change is never persisted without its corresponding entry, and an entry is never persisted without its corresponding change succeeding.
 - **FR-017**: Activity entries MUST be immutable: no API MUST expose the ability to edit or delete an existing entry.

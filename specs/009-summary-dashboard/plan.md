@@ -313,7 +313,7 @@ gets its own service (`ActivityLogService`) because, unlike `Label`, it has
 genuinely separate read surfaces (a paginated project feed, an unpaginated
 per-item history) distinct from `WorkItemService`'s existing responsibilities
 — but no controller of its own, since its three routes fit naturally beside
-`WorkItemsController`'s existing mixed route groups (research.md #17).
+`WorkItemsController`'s existing mixed route groups (research.md #16).
 
 ## Complexity Tracking
 
