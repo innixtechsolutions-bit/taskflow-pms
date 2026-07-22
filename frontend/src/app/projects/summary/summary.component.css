@@ -1,0 +1,27 @@
+.stat-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  min-width: 140px;
+}
+
+.stat-card-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+}
+
+.stat-card-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}

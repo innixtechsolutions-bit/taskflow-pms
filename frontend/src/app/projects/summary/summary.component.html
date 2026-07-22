@@ -1,0 +1,20 @@
+@if (summary(); as s) {
+  <div class="stat-card-row">
+    <div class="stat-card stat-card-total">
+      <span class="stat-card-value">{{ s.statCards.total }}</span>
+      <span class="stat-card-label">Total</span>
+    </div>
+    <div class="stat-card stat-card-completed">
+      <span class="stat-card-value">{{ s.statCards.completed }} ({{ s.statCards.completedPercent }}%)</span>
+      <span class="stat-card-label">Completed</span>
+    </div>
+    <div class="stat-card stat-card-in-progress">
+      <span class="stat-card-value">{{ s.statCards.inProgress }}</span>
+      <span class="stat-card-label">In Progress</span>
+    </div>
+    <div class="stat-card stat-card-due-soon">
+      <span class="stat-card-value">{{ s.statCards.dueSoon }}</span>
+      <span class="stat-card-label">Due Soon</span>
+    </div>
+  </div>
+}

@@ -1103,4 +1103,33 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
         Assert.Equal(4, body!.Columns.Count);
         Assert.Equal(inSprintId, body.Items.Single().Id);
     }
+
+    // Feature 009 US1 -- GET .../summary
+
+    [Fact]
+    public async Task GetSummary_returns_200_with_the_correct_shape_for_a_seeded_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"summary-shape-{Guid.NewGuid():N}@example.com");
+        await CreateWorkItemAsync(token, projectId, "Some item");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/summary", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ProjectSummaryDto>();
+        Assert.Equal(1, body!.StatCards.Total);
+        Assert.Equal(4, body.StatusBreakdown.Count);
+        Assert.Equal(4, body.PriorityBreakdown.Count);
+    }
+
+    [Fact]
+    public async Task GetSummary_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"summary-404-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/summary", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

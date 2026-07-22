@@ -181,6 +181,41 @@ export interface WorkItemBacklog {
   backlogItems: WorkItem[];
 }
 
+// Feature 009 (US1) — mirrors backend ProjectSummaryDto 1:1, no client-side
+// mapping, same convention as every other DTO above.
+export interface StatCards {
+  total: number;
+  completed: number;
+  completedPercent: number;
+  inProgress: number;
+  dueSoon: number;
+}
+
+export interface StatusBreakdownItem {
+  statusId: number;
+  name: string;
+  colorKey: ChipColor;
+  count: number;
+}
+
+export interface PriorityBreakdownItem {
+  priority: WorkItemPriority;
+  count: number;
+}
+
+export interface WorkloadRow {
+  userId: number | null;
+  displayName: string;
+  openItemCount: number;
+}
+
+export interface ProjectSummary {
+  statCards: StatCards;
+  statusBreakdown: StatusBreakdownItem[];
+  priorityBreakdown: PriorityBreakdownItem[];
+  workload: WorkloadRow[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorkItemsService {
   private readonly http = inject(HttpClient);
@@ -298,5 +333,10 @@ export class WorkItemsService {
     if (filter.search) params['search'] = filter.search;
     if (filter.label) params['label'] = filter.label;
     return firstValueFrom(this.http.get<WorkItemBacklog>(`/api/projects/${projectId}/backlog`, { params }));
+  }
+
+  // Feature 009 (US1).
+  async getProjectSummary(projectId: number): Promise<ProjectSummary> {
+    return firstValueFrom(this.http.get<ProjectSummary>(`/api/projects/${projectId}/summary`));
   }
 }

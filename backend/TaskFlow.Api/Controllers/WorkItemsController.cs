@@ -171,6 +171,20 @@ public class WorkItemsController(WorkItemService workItemService, ActivityLogSer
         }
     }
 
+    // Feature 009 (US1).
+    [HttpGet("api/projects/{projectId}/summary")]
+    public async Task<ActionResult<ProjectSummaryDto>> GetSummary(int projectId)
+    {
+        try
+        {
+            return Ok(await workItemService.GetSummaryAsync(projectId));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+    }
+
     [HttpGet("api/projects/{projectId}/work-items")]
     public async Task<ActionResult<PagedResult<WorkItemDto>>> GetWorkItems(
         int projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,

@@ -844,6 +844,125 @@ public class WorkItemService(AppDbContext dbContext, ActivityLogService activity
         return new WorkItemBoardDto(columns, items);
     }
 
+    private record WorkItemSummaryRow(int StatusId, string StatusCategory, WorkItemPriority Priority, int? AssigneeUserId, DateTime? DueDate);
+
+    // Feature 009 (US1) — same shape as GetBoardAsync/GetTreeAsync/GetBacklogAsync
+    // above: one query over the project's WorkItems, then a handful of small
+    // in-memory grouping passes (research.md #8/#11).
+    public async Task<ProjectSummaryDto> GetSummaryAsync(int projectId)
+    {
+        var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);
+        if (!projectExists)
+        {
+            throw new ProjectNotFoundException();
+        }
+
+        var rows = await dbContext.WorkItems
+            .Where(w => w.ProjectId == projectId)
+            .Select(w => new WorkItemSummaryRow(
+                w.WorkflowStatusId, w.WorkflowStatus!.Category.ToString(), w.Priority, w.AssigneeUserId, w.DueDate))
+            .ToListAsync();
+
+        var statCards = BuildStatCards(rows);
+
+        var countsByStatus = rows.GroupBy(r => r.StatusId).ToDictionary(g => g.Key, g => g.Count());
+        var statusColumns = await dbContext.WorkflowStatuses
+            .Where(s => s.ProjectId == projectId)
+            .OrderBy(s => s.Position)
+            .Select(s => new { s.Id, s.Name, ColorKey = s.ColorKey.ToString() })
+            .ToListAsync();
+        var statusBreakdown = statusColumns
+            .Select(s => new StatusBreakdownItemDto(s.Id, s.Name, s.ColorKey, countsByStatus.GetValueOrDefault(s.Id)))
+            .ToList();
+
+        // Enum.GetValues(), not a GroupBy over rows -- a GroupBy alone would simply
+        // omit any level with zero matching items (FR-008, research.md #11).
+        var countsByPriority = rows.GroupBy(r => r.Priority).ToDictionary(g => g.Key, g => g.Count());
+        var priorityBreakdown = Enum.GetValues<WorkItemPriority>()
+            .Select(p => new PriorityBreakdownItemDto(p.ToString(), countsByPriority.GetValueOrDefault(p)))
+            .ToList();
+
+        var workload = await BuildWorkloadAsync(rows);
+
+        return new ProjectSummaryDto(statCards, statusBreakdown, priorityBreakdown, workload);
+    }
+
+    private static StatCardsDto BuildStatCards(List<WorkItemSummaryRow> rows)
+    {
+        var total = rows.Count;
+        var completed = rows.Count(r => r.StatusCategory == nameof(WorkflowStatusCategory.Done));
+        // Zero when Total == 0 -- avoids a divide-by-zero for a brand-new project
+        // with no items yet (spec Edge Cases).
+        var completedPercent = total == 0 ? 0 : Math.Round(completed * 100.0 / total);
+        // "In Progress" means every Open-category item -- Total minus Completed,
+        // since the workflow model has only Open/Done categories, no third "not
+        // yet started" bucket to exclude (research.md #9, spec correction).
+        var inProgress = total - completed;
+
+        var today = DateTime.UtcNow.Date;
+        var dueSoonCutoff = today.AddDays(7);
+        var dueSoon = rows.Count(r =>
+            r.StatusCategory != nameof(WorkflowStatusCategory.Done) &&
+            r.DueDate.HasValue &&
+            r.DueDate.Value.Date >= today &&
+            r.DueDate.Value.Date <= dueSoonCutoff);
+
+        return new StatCardsDto(total, completed, completedPercent, inProgress, dueSoon);
+    }
+
+    // Feature 009 (US3, research.md #10) — two sets merged in memory: this
+    // project's open-item counts per assignee, and every system Manager/Admin
+    // (zero-count included) -- there is no project-membership concept in this
+    // codebase to scope the latter more narrowly. A null-assignee bucket with
+    // count > 0 becomes a synthetic "Unassigned" row. Sorted by count
+    // descending; ties break by name for a deterministic order (not a business
+    // requirement -- spec's own Assumptions section leaves the tie-break
+    // unspecified).
+    private async Task<List<WorkloadRowDto>> BuildWorkloadAsync(List<WorkItemSummaryRow> rows)
+    {
+        var openRows = rows.Where(r => r.StatusCategory == nameof(WorkflowStatusCategory.Open)).ToList();
+        var countsByAssignee = openRows
+            .Where(r => r.AssigneeUserId.HasValue)
+            .GroupBy(r => r.AssigneeUserId!.Value)
+            .ToDictionary(g => g.Key, g => g.Count());
+        var unassignedCount = openRows.Count(r => !r.AssigneeUserId.HasValue);
+
+        var assigneeIds = countsByAssignee.Keys.ToList();
+        var assignees = await dbContext.Users
+            .Where(u => assigneeIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.FullName })
+            .ToListAsync();
+
+        var managersAndAdmins = await dbContext.Users
+            .Where(u => u.Role == Role.Manager || u.Role == Role.Admin)
+            .Select(u => new { u.Id, u.FullName })
+            .ToListAsync();
+
+        var rowsByUserId = new Dictionary<int, WorkloadRowDto>();
+        foreach (var assignee in assignees)
+        {
+            rowsByUserId[assignee.Id] = new WorkloadRowDto(assignee.Id, assignee.FullName, countsByAssignee[assignee.Id]);
+        }
+        foreach (var manager in managersAndAdmins)
+        {
+            if (!rowsByUserId.ContainsKey(manager.Id))
+            {
+                rowsByUserId[manager.Id] = new WorkloadRowDto(manager.Id, manager.FullName, 0);
+            }
+        }
+
+        var result = rowsByUserId.Values.ToList();
+        if (unassignedCount > 0)
+        {
+            result.Add(new WorkloadRowDto(null, "Unassigned", unassignedCount));
+        }
+
+        return result
+            .OrderByDescending(r => r.OpenItemCount)
+            .ThenBy(r => r.DisplayName, StringComparer.Ordinal)
+            .ToList();
+    }
+
     public async Task<List<WorkItemLookupItemDto>> GetParentCandidatesAsync(int projectId, string type)
     {
         var projectExists = await dbContext.Projects.AnyAsync(p => p.Id == projectId);

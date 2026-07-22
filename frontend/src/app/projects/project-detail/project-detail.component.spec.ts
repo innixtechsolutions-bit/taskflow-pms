@@ -795,10 +795,10 @@ describe('ProjectDetailComponent board view', () => {
     expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeNull();
   });
 
-  // Feature 005 Polish: Board is now the default view — a project opened without an
-  // explicit `view` query param (e.g. a link that predates this change, or one typed by
-  // hand) should land on Board, not List.
-  it('defaults to the Board view when no `view` query param is present', async () => {
+  // Feature 009 US1: Summary is now the default view — a project opened without
+  // an explicit `view` query param (e.g. a link that predates this change, or one
+  // typed by hand) should land on Summary, not Board (FR-002).
+  it('defaults to the Summary view when no `view` query param is present', async () => {
     const notificationService = { success: vi.fn(), error: vi.fn() };
     TestBed.configureTestingModule({
       imports: [ProjectDetailComponent],
@@ -814,6 +814,12 @@ describe('ProjectDetailComponent board view', () => {
             getStatuses: vi.fn().mockResolvedValue(sampleStatuses()),
             getProjectLabels: vi.fn().mockResolvedValue([]),
             getBoard: vi.fn().mockResolvedValue({ columns: [], items: [] }),
+            getProjectSummary: vi.fn().mockResolvedValue({
+              statCards: { total: 0, completed: 0, completedPercent: 0, inProgress: 0, dueSoon: 0 },
+              statusBreakdown: [],
+              priorityBreakdown: [],
+              workload: [],
+            }),
           },
         },
         { provide: SprintsService, useValue: { getSprints: vi.fn().mockResolvedValue([]) } },
@@ -827,18 +833,19 @@ describe('ProjectDetailComponent board view', () => {
     });
     const fixture = await render();
 
-    expect(fixture.nativeElement.querySelector('app-board')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.board-view-toggle')?.classList).toContain('active');
+    expect(fixture.nativeElement.querySelector('app-summary')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.summary-view-toggle')?.classList).toContain('active');
+    expect(fixture.nativeElement.querySelector('app-board')).toBeNull();
     expect(fixture.nativeElement.querySelector('table[mat-table]')).toBeNull();
     expect(fixture.nativeElement.querySelector('.tree-view')).toBeNull();
   });
 
-  it('orders the view tabs Board, List, Tree, Backlog, with Board first', async () => {
+  it('orders the view tabs Summary, Board, Backlog, List, Tree, with Summary first (FR-001)', async () => {
     configure();
     const fixture = await render();
 
     const tabs = Array.from(fixture.nativeElement.querySelectorAll('.view-tab-nav a')) as HTMLAnchorElement[];
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Board', 'List', 'Tree', 'Backlog']);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Summary', 'Board', 'Backlog', 'List', 'Tree']);
   });
 
   it('labels the former "Flat" tab as "List"', async () => {

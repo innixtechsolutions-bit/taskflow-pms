@@ -55,7 +55,8 @@ public class WorkItemServiceTests : SqlServerTestDatabase
     private WorkItem AddWorkItem(
         int projectId, int creatorId, int? assigneeUserId = null,
         string status = "To Do", WorkItemPriority priority = WorkItemPriority.Medium,
-        WorkItemType type = WorkItemType.Task, string title = "Some work", DateTime? updatedAt = null)
+        WorkItemType type = WorkItemType.Task, string title = "Some work", DateTime? updatedAt = null,
+        DateTime? dueDate = null)
     {
         var workItem = new WorkItem
         {
@@ -65,6 +66,7 @@ public class WorkItemServiceTests : SqlServerTestDatabase
             WorkflowStatusId = StatusId(projectId, status),
             Priority = priority,
             AssigneeUserId = assigneeUserId,
+            DueDate = dueDate,
             CreatedByUserId = creatorId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = updatedAt ?? DateTime.UtcNow
@@ -1647,5 +1649,164 @@ public class WorkItemServiceTests : SqlServerTestDatabase
         var board = await sut.GetBoardAsync(project.Id);
 
         Assert.Equal(2, board.Items.Count);
+    }
+
+    // ---------------------------------------------------------------------
+    // Feature 009 US1 — GetSummaryAsync
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task GetSummaryAsync_computes_stat_card_totals_completed_percent_and_in_progress()
+    {
+        var user = AddUser("summary-statcards@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, status: "Done", title: "Done 1");
+        AddWorkItem(project.Id, user.Id, status: "Done", title: "Done 2");
+        AddWorkItem(project.Id, user.Id, status: "To Do", title: "Open 1");
+        AddWorkItem(project.Id, user.Id, status: "In Progress", title: "Open 2");
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(4, summary.StatCards.Total);
+        Assert.Equal(2, summary.StatCards.Completed);
+        Assert.Equal(50, summary.StatCards.CompletedPercent);
+        Assert.Equal(2, summary.StatCards.InProgress);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_counts_due_soon_items_within_7_days_excluding_done()
+    {
+        var user = AddUser("summary-duesoon@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Due in 5 days", dueDate: DateTime.UtcNow.Date.AddDays(5));
+        AddWorkItem(project.Id, user.Id, title: "Due in 10 days", dueDate: DateTime.UtcNow.Date.AddDays(10));
+        AddWorkItem(project.Id, user.Id, status: "Done", title: "Done but due in 2 days", dueDate: DateTime.UtcNow.Date.AddDays(2));
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(1, summary.StatCards.DueSoon);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_treats_a_due_date_exactly_7_days_out_as_due_soon_inclusive()
+    {
+        var user = AddUser("summary-dueboundary@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, title: "Due in exactly 7 days", dueDate: DateTime.UtcNow.Date.AddDays(7));
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(1, summary.StatCards.DueSoon);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_returns_zero_percent_not_a_divide_by_zero_error_for_an_empty_project()
+    {
+        var user = AddUser("summary-empty@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(0, summary.StatCards.Total);
+        Assert.Equal(0, summary.StatCards.Completed);
+        Assert.Equal(0, summary.StatCards.CompletedPercent);
+    }
+
+    // FR-006 — Epics are not filtered out of the stat cards, the one
+    // counter-intuitive rule here (/speckit-analyze F2).
+    [Fact]
+    public async Task GetSummaryAsync_includes_an_epic_in_the_total_and_its_category_bucket()
+    {
+        var user = AddUser("summary-epic@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, type: WorkItemType.Epic, status: "To Do", title: "Epic");
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(1, summary.StatCards.Total);
+        Assert.Equal(1, summary.StatCards.InProgress);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_status_breakdown_includes_every_project_column_including_zero_count_ones()
+    {
+        var user = AddUser("summary-statusbreakdown@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, status: "To Do");
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(4, summary.StatusBreakdown.Count);
+        Assert.Equal(["To Do", "In Progress", "In Review", "Done"], summary.StatusBreakdown.Select(s => s.Name).ToList());
+        Assert.Equal(1, summary.StatusBreakdown.Single(s => s.Name == "To Do").Count);
+        Assert.Equal(0, summary.StatusBreakdown.Single(s => s.Name == "Done").Count);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_priority_breakdown_always_includes_all_four_levels()
+    {
+        var user = AddUser("summary-prioritybreakdown@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, priority: WorkItemPriority.High);
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.Equal(4, summary.PriorityBreakdown.Count);
+        Assert.Equal(0, summary.PriorityBreakdown.Single(p => p.Priority == "Critical").Count);
+        Assert.Equal(1, summary.PriorityBreakdown.Single(p => p.Priority == "High").Count);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_workload_sorts_descending_and_includes_unassigned_and_zero_load_managers()
+    {
+        var user = AddUser("summary-workload-creator@example.com");
+        var userA = AddUser("summary-workload-a@example.com");
+        var userB = AddUser("summary-workload-b@example.com");
+        var manager = AddUser("summary-workload-manager@example.com", Role.Manager);
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, assigneeUserId: userA.Id, status: "To Do", title: "A1");
+        AddWorkItem(project.Id, user.Id, assigneeUserId: userA.Id, status: "To Do", title: "A2");
+        AddWorkItem(project.Id, user.Id, assigneeUserId: userA.Id, status: "To Do", title: "A3");
+        AddWorkItem(project.Id, user.Id, assigneeUserId: userB.Id, status: "To Do", title: "B1");
+        AddWorkItem(project.Id, user.Id, assigneeUserId: null, status: "To Do", title: "Unassigned1");
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        var rows = summary.Workload;
+        Assert.Equal(userA.Id, rows[0].UserId);
+        Assert.Equal(3, rows[0].OpenItemCount);
+        Assert.Contains(rows, r => r.UserId == userB.Id && r.OpenItemCount == 1);
+        Assert.Contains(rows, r => r.UserId == null && r.DisplayName == "Unassigned" && r.OpenItemCount == 1);
+        Assert.Contains(rows, r => r.UserId == manager.Id && r.OpenItemCount == 0);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_workload_omits_unassigned_row_when_every_open_item_has_an_assignee()
+    {
+        var user = AddUser("summary-workload-noneunassigned@example.com");
+        var userA = AddUser("summary-workload-noneunassigned-a@example.com");
+        var project = AddProject("Alpha", user.Id);
+        AddWorkItem(project.Id, user.Id, assigneeUserId: userA.Id, status: "To Do");
+        var sut = CreateSut();
+
+        var summary = await sut.GetSummaryAsync(project.Id);
+
+        Assert.DoesNotContain(summary.Workload, r => r.UserId == null);
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_throws_for_an_unknown_project()
+    {
+        var sut = CreateSut();
+
+        await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetSummaryAsync(999999));
     }
 }

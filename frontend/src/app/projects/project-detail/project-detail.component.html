@@ -26,12 +26,30 @@
     <nav mat-tab-nav-bar class="view-tab-nav" [tabPanel]="viewTabPanel" disableRipple>
       <a
         mat-tab-link
+        class="summary-view-toggle"
+        [class.active]="viewMode() === 'summary'"
+        [active]="viewMode() === 'summary'"
+        (click)="setViewMode('summary')"
+      >
+        Summary
+      </a>
+      <a
+        mat-tab-link
         class="board-view-toggle"
         [class.active]="viewMode() === 'board'"
         [active]="viewMode() === 'board'"
         (click)="setViewMode('board')"
       >
         Board
+      </a>
+      <a
+        mat-tab-link
+        class="backlog-view-toggle"
+        [class.active]="viewMode() === 'backlog'"
+        [active]="viewMode() === 'backlog'"
+        (click)="setViewMode('backlog')"
+      >
+        Backlog
       </a>
       <a
         mat-tab-link
@@ -51,15 +69,6 @@
       >
         Tree
       </a>
-      <a
-        mat-tab-link
-        class="backlog-view-toggle"
-        [class.active]="viewMode() === 'backlog'"
-        [active]="viewMode() === 'backlog'"
-        (click)="setViewMode('backlog')"
-      >
-        Backlog
-      </a>
     </nav>
     <button mat-flat-button color="primary" type="button" class="new-work-item-button" (click)="openCreateModal()">
       New work item
@@ -67,6 +76,10 @@
   </div>
 
   <mat-tab-nav-panel #viewTabPanel>
+  @if (viewMode() === 'summary') {
+    <app-summary [projectId]="p.id" />
+  }
+
   @if (viewMode() === 'board') {
     <app-board [projectId]="p.id" />
   }
