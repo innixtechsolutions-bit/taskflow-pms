@@ -8,7 +8,12 @@ namespace TaskFlow.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public class WorkItemsController(WorkItemService workItemService) : ControllerBase
+// CS9113 suppressed on activityLogService: wired now (Foundational phase, feature
+// 009) so no later user story collides over this constructor's signature; its
+// first real routes land once US4 is implemented (research.md #16).
+#pragma warning disable CS9113
+public class WorkItemsController(WorkItemService workItemService, ActivityLogService activityLogService) : ControllerBase
+#pragma warning restore CS9113
 {
     [HttpPost("api/projects/{projectId}/work-items")]
     public async Task<ActionResult<WorkItemDto>> Create(int projectId, WorkItemRequest request)

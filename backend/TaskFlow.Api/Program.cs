@@ -37,6 +37,7 @@ builder.Services.AddScoped<ProjectService>();
 builder.Services.AddScoped<WorkItemService>();
 builder.Services.AddScoped<ProjectStatusService>();
 builder.Services.AddScoped<SprintService>();
+builder.Services.AddScoped<ActivityLogService>();
 
 // AddMemoryCache registers the shared IMemoryCache that LoginAttemptTracker wraps.
 // The tracker itself is Singleton, not Scoped: it needs to accumulate failed attempts

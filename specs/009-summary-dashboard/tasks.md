@@ -29,9 +29,9 @@ Existing two-project layout: `backend/TaskFlow.Api/` + `backend/TaskFlow.Api.Tes
 
 **Purpose**: Schema foundation for the new Activity Log table
 
-- [ ] T001 Create `ActivityLogEntry` entity + `ActivityEventType` (`Created`, `FieldChanged`) and `ActivityField` (`Status`, `Priority`, `Assignee`, `Sprint`) enums in `backend/TaskFlow.Api/Data/Entities/ActivityLogEntry.cs` (data-model.md's field table; `WorkItemId` is a plain `int`, deliberately not a navigation property — research.md #1)
-- [ ] T002 Add `ActivityLogEntries` DbSet and entity configuration in `backend/TaskFlow.Api/Data/AppDbContext.cs`: `ProjectId` FK → `Project`, `Cascade` (research.md #2); `ActorUserId` FK → `User`, `Restrict` (research.md #3); **no** relationship configured for `WorkItemId` (research.md #1); indexes on `ProjectId` and `WorkItemId`; `EventType`/`Field` via `.HasConversion<string>()` (depends on T001)
-- [ ] T003 Generate the EF Core migration `AddActivityLog` (`dotnet ef migrations add AddActivityLog` from `backend/TaskFlow.Api/`) and commit the generated file under `backend/TaskFlow.Api/Data/Migrations/` (depends on T002)
+- [X] T001 Create `ActivityLogEntry` entity + `ActivityEventType` (`Created`, `FieldChanged`) and `ActivityField` (`Status`, `Priority`, `Assignee`, `Sprint`) enums in `backend/TaskFlow.Api/Data/Entities/ActivityLogEntry.cs` (data-model.md's field table; `WorkItemId` is a plain `int`, deliberately not a navigation property — research.md #1)
+- [X] T002 Add `ActivityLogEntries` DbSet and entity configuration in `backend/TaskFlow.Api/Data/AppDbContext.cs`: `ProjectId` FK → `Project`, `Cascade` (research.md #2); `ActorUserId` FK → `User`, `Restrict` (research.md #3); **no** relationship configured for `WorkItemId` (research.md #1); indexes on `ProjectId` and `WorkItemId`; `EventType`/`Field` via `.HasConversion<string>()` (depends on T001)
+- [X] T003 Generate the EF Core migration `AddActivityLog` (`dotnet ef migrations add AddActivityLog` from `backend/TaskFlow.Api/`) and commit the generated file under `backend/TaskFlow.Api/Data/Migrations/` (depends on T002)
 
 ---
 
@@ -41,11 +41,11 @@ Existing two-project layout: `backend/TaskFlow.Api/` + `backend/TaskFlow.Api.Tes
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 [P] Create `ActivityLogService` skeleton — constructor takes `AppDbContext`; stub `RecordCreated`/`RecordFieldChange` methods that only call `dbContext.ActivityLogEntries.Add(...)`, no `SaveChangesAsync()` of their own (research.md #6) — in `backend/TaskFlow.Api/Services/ActivityLogService.cs` (depends on T001)
-- [ ] T005 [P] Register `ActivityLogService` in the DI container (`builder.Services.AddScoped<ActivityLogService>();`) in `backend/TaskFlow.Api/Program.cs` (depends on T004)
-- [ ] T006 Add an `ActivityLogService` constructor dependency to `WorkItemService` (primary constructor, no behavior change yet) in `backend/TaskFlow.Api/Services/WorkItemService.cs` (depends on T004)
-- [ ] T007 Add an `ActivityLogService` constructor dependency to `WorkItemsController` (no new routes yet) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` (depends on T004)
-- [ ] T008 Update `WorkItemServiceTests.CreateSut()` to construct `WorkItemService` with a `new ActivityLogService(Db)` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs` (depends on T006) — this is the only test call site in the repo constructing `WorkItemService` directly
+- [X] T004 [P] Create `ActivityLogService` skeleton — constructor takes `AppDbContext`; stub `RecordCreated`/`RecordFieldChange` methods that only call `dbContext.ActivityLogEntries.Add(...)`, no `SaveChangesAsync()` of their own (research.md #6) — in `backend/TaskFlow.Api/Services/ActivityLogService.cs` (depends on T001)
+- [X] T005 [P] Register `ActivityLogService` in the DI container (`builder.Services.AddScoped<ActivityLogService>();`) in `backend/TaskFlow.Api/Program.cs` (depends on T004)
+- [X] T006 Add an `ActivityLogService` constructor dependency to `WorkItemService` (primary constructor, no behavior change yet) in `backend/TaskFlow.Api/Services/WorkItemService.cs` (depends on T004)
+- [X] T007 Add an `ActivityLogService` constructor dependency to `WorkItemsController` (no new routes yet) in `backend/TaskFlow.Api/Controllers/WorkItemsController.cs` (depends on T004)
+- [X] T008 Update `WorkItemServiceTests.CreateSut()` to construct `WorkItemService` with a `new ActivityLogService(Db)` in `backend/TaskFlow.Api.Tests/Services/WorkItemServiceTests.cs` (depends on T006) — this is the only test call site in the repo constructing `WorkItemService` directly
 
 **Checkpoint**: Schema exists; both services compile against the new dependency; full solution build is green; no observable behavior has changed yet.
 

@@ -22,6 +22,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Sprint> Sprints => Set<Sprint>();
 
+    public DbSet<ActivityLogEntry> ActivityLogEntries => Set<ActivityLogEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -218,6 +220,39 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             // Same readable-text-over-int rationale as User.Role/WorkItem.Type above.
             entity.Property(s => s.Status).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<ActivityLogEntry>(entity =>
+        {
+            // The project feed's primary access path (research.md #16) -- every
+            // "list this project's activity" query filters on ProjectId, ordered by
+            // CreatedAt DESC at query time.
+            entity.HasIndex(a => a.ProjectId);
+
+            // Deleting a project deletes its activity log too -- no "multiple cascade
+            // paths" conflict here (unlike WorkItem's Sprint/WorkflowStatus FKs)
+            // because WorkItemId below carries no database relationship at all, so
+            // this is the only path from Project to ActivityLogEntry (research.md #2).
+            entity.HasOne(a => a.Project)
+                .WithMany()
+                .HasForeignKey(a => a.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // The per-item history's primary access path. Deliberately not a real FK
+            // (research.md #1) -- a plain scalar index works regardless, and this
+            // column must be able to reference a WorkItem.Id that no longer exists.
+            entity.HasIndex(a => a.WorkItemId);
+
+            // Restrict, same convention as WorkItem.CreatedByUserId -- no
+            // user-deletion feature exists yet, so this never actually fires today.
+            entity.HasOne(a => a.Actor)
+                .WithMany()
+                .HasForeignKey(a => a.ActorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Same readable-text-over-int rationale as every other enum in this file.
+            entity.Property(a => a.EventType).HasConversion<string>();
+            entity.Property(a => a.Field).HasConversion<string>();
         });
     }
 }

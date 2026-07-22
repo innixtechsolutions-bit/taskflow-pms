@@ -7,7 +7,7 @@ namespace TaskFlow.Api.Tests.Services;
 
 public class WorkItemServiceTests : SqlServerTestDatabase
 {
-    private WorkItemService CreateSut() => new(Db);
+    private WorkItemService CreateSut() => new(Db, new ActivityLogService(Db));
 
     private User AddUser(string email, Role role = Role.Developer)
     {

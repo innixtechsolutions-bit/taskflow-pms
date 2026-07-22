@@ -5,7 +5,13 @@ using TaskFlow.Api.Dtos;
 
 namespace TaskFlow.Api.Services;
 
-public class WorkItemService(AppDbContext dbContext)
+// CS9113 suppressed on activityLogService: wired now (Foundational phase, feature
+// 009) so no later user story collides over this constructor's signature; its
+// first real call site lands in CreateAsync/UpdateAsync/UpdateStatusAsync/
+// UpdateSprintAsync once US4 is implemented (research.md #6).
+#pragma warning disable CS9113
+public class WorkItemService(AppDbContext dbContext, ActivityLogService activityLogService)
+#pragma warning restore CS9113
 {
     public async Task<WorkItemDto> CreateAsync(int creatorUserId, int projectId, WorkItemRequest request)
     {
