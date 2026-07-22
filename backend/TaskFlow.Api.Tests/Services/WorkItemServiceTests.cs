@@ -1809,4 +1809,165 @@ public class WorkItemServiceTests : SqlServerTestDatabase
 
         await Assert.ThrowsAsync<ProjectNotFoundException>(() => sut.GetSummaryAsync(999999));
     }
+
+    // ---------------------------------------------------------------------
+    // Feature 009 US4 — activity log write-hooks
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public async Task CreateAsync_writes_a_created_activity_entry()
+    {
+        var user = AddUser("activity-create@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sut = CreateSut();
+
+        var result = await sut.CreateAsync(user.Id, project.Id, ValidRequest("Fix the login bug"));
+
+        var entry = Db.ActivityLogEntries.Single();
+        Assert.Equal(ActivityEventType.Created, entry.EventType);
+        Assert.Equal(result.Id, entry.WorkItemId);
+        Assert.Equal("Fix the login bug", entry.WorkItemTitle);
+        Assert.Equal("Task", entry.WorkItemType);
+        Assert.Equal(user.Id, entry.ActorUserId);
+        Assert.Equal(project.Id, entry.ProjectId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_writes_a_field_changed_entry_for_a_status_change()
+    {
+        var user = AddUser("activity-update-status@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id, status: "To Do");
+        var sut = CreateSut();
+
+        var request = ValidRequest(item.Title);
+        request.StatusId = StatusId(project.Id, "In Progress");
+        await sut.UpdateAsync(user.Id, "Developer", item.Id, request);
+
+        var entry = Db.ActivityLogEntries.Single();
+        Assert.Equal(ActivityField.Status, entry.Field);
+        Assert.Equal("To Do", entry.OldValue);
+        Assert.Equal("In Progress", entry.NewValue);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_writes_one_entry_per_changed_tracked_field_when_several_change_at_once()
+    {
+        var user = AddUser("activity-update-multi@example.com");
+        var assignee = AddUser("activity-update-multi-assignee@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id, status: "To Do", priority: WorkItemPriority.Medium);
+        var sut = CreateSut();
+
+        var request = ValidRequest(item.Title);
+        request.StatusId = StatusId(project.Id, "Done");
+        request.Priority = "High";
+        request.AssigneeUserId = assignee.Id;
+        await sut.UpdateAsync(user.Id, "Developer", item.Id, request);
+
+        var entries = Db.ActivityLogEntries.ToList();
+        Assert.Equal(3, entries.Count);
+        Assert.Contains(entries, e => e.Field == ActivityField.Status && e.OldValue == "To Do" && e.NewValue == "Done");
+        Assert.Contains(entries, e => e.Field == ActivityField.Priority && e.OldValue == "Medium" && e.NewValue == "High");
+        Assert.Contains(entries, e => e.Field == ActivityField.Assignee && e.OldValue == "Unassigned" && e.NewValue == assignee.FullName);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_writes_no_entry_when_only_an_untracked_field_changes()
+    {
+        var user = AddUser("activity-update-untracked@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id);
+        var sut = CreateSut();
+
+        var request = ValidRequest("A brand new title");
+        request.StatusId = item.WorkflowStatusId;
+        request.Priority = item.Priority.ToString();
+        request.AssigneeUserId = item.AssigneeUserId;
+        request.SprintId = item.SprintId;
+        await sut.UpdateAsync(user.Id, "Developer", item.Id, request);
+
+        Assert.Empty(Db.ActivityLogEntries);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_records_sprint_removal_using_Backlog_as_the_new_value()
+    {
+        var user = AddUser("activity-update-sprint@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var item = AddWorkItem(project.Id, user.Id);
+        item.SprintId = sprint.Id;
+        Db.SaveChanges();
+        var sut = CreateSut();
+
+        var request = ValidRequest(item.Title);
+        request.StatusId = item.WorkflowStatusId;
+        request.SprintId = null;
+        await sut.UpdateAsync(user.Id, "Developer", item.Id, request);
+
+        var entry = Db.ActivityLogEntries.Single();
+        Assert.Equal(ActivityField.Sprint, entry.Field);
+        Assert.Equal("Sprint 1", entry.OldValue);
+        Assert.Equal("Backlog", entry.NewValue);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_writes_an_entry_when_the_status_changes()
+    {
+        var user = AddUser("activity-updatestatus@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id, status: "To Do");
+        var sut = CreateSut();
+
+        await sut.UpdateStatusAsync(user.Id, "Developer", item.Id, StatusId(project.Id, "Done"));
+
+        var entry = Db.ActivityLogEntries.Single();
+        Assert.Equal(ActivityField.Status, entry.Field);
+        Assert.Equal("To Do", entry.OldValue);
+        Assert.Equal("Done", entry.NewValue);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_writes_no_entry_when_the_status_is_unchanged()
+    {
+        var user = AddUser("activity-updatestatus-nochange@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id, status: "To Do");
+        var sut = CreateSut();
+
+        await sut.UpdateStatusAsync(user.Id, "Developer", item.Id, item.WorkflowStatusId);
+
+        Assert.Empty(Db.ActivityLogEntries);
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_writes_an_entry_when_the_sprint_changes()
+    {
+        var user = AddUser("activity-updatesprint@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var sprint = AddSprint(project.Id, "Sprint 1", DateTime.UtcNow.Date, DateTime.UtcNow.Date.AddDays(14));
+        var item = AddWorkItem(project.Id, user.Id);
+        var sut = CreateSut();
+
+        await sut.UpdateSprintAsync(user.Id, "Developer", item.Id, sprint.Id);
+
+        var entry = Db.ActivityLogEntries.Single();
+        Assert.Equal(ActivityField.Sprint, entry.Field);
+        Assert.Equal("Backlog", entry.OldValue);
+        Assert.Equal("Sprint 1", entry.NewValue);
+    }
+
+    [Fact]
+    public async Task UpdateSprintAsync_writes_no_entry_when_the_sprint_is_unchanged()
+    {
+        var user = AddUser("activity-updatesprint-nochange@example.com");
+        var project = AddProject("Alpha", user.Id);
+        var item = AddWorkItem(project.Id, user.Id);
+        var sut = CreateSut();
+
+        await sut.UpdateSprintAsync(user.Id, "Developer", item.Id, null);
+
+        Assert.Empty(Db.ActivityLogEntries);
+    }
 }

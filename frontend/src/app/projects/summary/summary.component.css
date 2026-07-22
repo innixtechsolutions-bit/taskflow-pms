@@ -25,3 +25,17 @@
   font-size: 0.85rem;
   color: #64748b;
 }
+
+.activity-heading {
+  font-size: 1.1rem;
+  margin: 0 0 var(--space-3);
+}
+
+.load-more-activity {
+  margin-top: var(--space-3);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}

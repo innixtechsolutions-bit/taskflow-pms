@@ -820,6 +820,7 @@ describe('ProjectDetailComponent board view', () => {
               priorityBreakdown: [],
               workload: [],
             }),
+            getProjectActivity: vi.fn().mockResolvedValue({ items: [], page: 1, pageSize: 20, totalCount: 0 }),
           },
         },
         { provide: SprintsService, useValue: { getSprints: vi.fn().mockResolvedValue([]) } },

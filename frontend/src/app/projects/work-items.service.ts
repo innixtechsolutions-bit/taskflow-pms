@@ -216,6 +216,26 @@ export interface ProjectSummary {
   workload: WorkloadRow[];
 }
 
+// Feature 009 (US4) — mirrors backend ActivityEntryDto 1:1. Field/oldValue/
+// newValue are null for a Created entry; EventType/Field travel as strings,
+// same convention as Type/Priority elsewhere in this file.
+export type ActivityEventType = 'Created' | 'FieldChanged';
+export type ActivityField = 'Status' | 'Priority' | 'Assignee' | 'Sprint';
+
+export interface ActivityEntry {
+  id: number;
+  workItemId: number;
+  workItemTitle: string;
+  workItemType: string;
+  eventType: ActivityEventType;
+  field: ActivityField | null;
+  oldValue: string | null;
+  newValue: string | null;
+  actorUserId: number;
+  actorName: string;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WorkItemsService {
   private readonly http = inject(HttpClient);
@@ -338,5 +358,19 @@ export class WorkItemsService {
   // Feature 009 (US1).
   async getProjectSummary(projectId: number): Promise<ProjectSummary> {
     return firstValueFrom(this.http.get<ProjectSummary>(`/api/projects/${projectId}/summary`));
+  }
+
+  // Feature 009 (US4) — the project Summary tab's paginated activity feed,
+  // newest first (same pagination convention as getWorkItems above).
+  async getProjectActivity(projectId: number, page = 1, pageSize = 20): Promise<PagedResult<ActivityEntry>> {
+    return firstValueFrom(
+      this.http.get<PagedResult<ActivityEntry>>(`/api/projects/${projectId}/activity`, { params: { page, pageSize } })
+    );
+  }
+
+  // Feature 009 (US5) — a single work item's full history, unpaginated by
+  // design (a single item's history is naturally small).
+  async getWorkItemActivity(workItemId: number): Promise<ActivityEntry[]> {
+    return firstValueFrom(this.http.get<ActivityEntry[]>(`/api/work-items/${workItemId}/activity`));
   }
 }

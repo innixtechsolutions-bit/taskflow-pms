@@ -1,0 +1,12 @@
+@if (entries().length === 0) {
+  <app-empty-state icon="history" message="No activity yet" />
+} @else {
+  <ul class="activity-feed">
+    @for (entry of entries(); track entry.id) {
+      <li class="activity-entry">
+        <span class="activity-sentence">{{ sentence(entry) }}</span>
+        <span class="activity-timestamp">{{ entry.createdAt | relativeTime }}</span>
+      </li>
+    }
+  </ul>
+}

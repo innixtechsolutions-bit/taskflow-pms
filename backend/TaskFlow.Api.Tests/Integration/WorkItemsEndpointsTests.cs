@@ -1132,4 +1132,67 @@ public class WorkItemsEndpointsTests(TaskFlowApiFactory factory) : IClassFixture
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
+
+    // Feature 009 US4 -- GET .../activity, GET api/work-items/{id}/activity
+
+    [Fact]
+    public async Task GetProjectActivity_returns_200_newest_first_and_scoped_to_the_project()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"activity-feed-{Guid.NewGuid():N}@example.com");
+        var first = await CreateWorkItemAsync(token, projectId, "First item");
+        var second = await CreateWorkItemAsync(token, projectId, "Second item");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/projects/{projectId}/activity", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<PagedResult<ActivityEntryDto>>();
+        Assert.Equal(2, body!.TotalCount);
+        Assert.Equal(second.Id, body.Items[0].WorkItemId);
+        Assert.Equal(first.Id, body.Items[1].WorkItemId);
+        Assert.Equal("Created", body.Items[0].EventType);
+    }
+
+    [Fact]
+    public async Task GetProjectActivity_returns_404_for_an_unknown_project()
+    {
+        var token = await RegisterAndGetTokenAsync($"activity-feed-404-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/projects/999999/activity", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWorkItemActivity_returns_200_filtered_to_one_item()
+    {
+        var adminToken = await LoginAsSeededAdminAsync();
+        var projectId = await CreateProjectAsync(adminToken, $"Project {Guid.NewGuid():N}");
+        var token = await RegisterAndGetTokenAsync($"activity-history-{Guid.NewGuid():N}@example.com");
+        var item = await CreateWorkItemAsync(token, projectId, "Tracked item");
+        var doneStatusId = await FindStatusIdAsync(token, projectId, "Done");
+        var patch = AuthedRequest(HttpMethod.Patch, $"/api/work-items/{item.Id}/status", token);
+        patch.Content = JsonContent.Create(new { statusId = doneStatusId });
+        await _client.SendAsync(patch);
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, $"/api/work-items/{item.Id}/activity", token));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<List<ActivityEntryDto>>();
+        Assert.Equal(2, body!.Count);
+        Assert.Equal("FieldChanged", body[0].EventType);
+        Assert.Equal("Created", body[1].EventType);
+        Assert.All(body, e => Assert.Equal(item.Id, e.WorkItemId));
+    }
+
+    [Fact]
+    public async Task GetWorkItemActivity_returns_404_for_an_unknown_work_item()
+    {
+        var token = await RegisterAndGetTokenAsync($"activity-history-404-{Guid.NewGuid():N}@example.com");
+
+        var response = await _client.SendAsync(AuthedRequest(HttpMethod.Get, "/api/work-items/999999/activity", token));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

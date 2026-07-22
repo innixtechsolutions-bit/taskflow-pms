@@ -5,13 +5,7 @@ using TaskFlow.Api.Dtos;
 
 namespace TaskFlow.Api.Services;
 
-// CS9113 suppressed on activityLogService: wired now (Foundational phase, feature
-// 009) so no later user story collides over this constructor's signature; its
-// first real call site lands in CreateAsync/UpdateAsync/UpdateStatusAsync/
-// UpdateSprintAsync once US4 is implemented (research.md #6).
-#pragma warning disable CS9113
 public class WorkItemService(AppDbContext dbContext, ActivityLogService activityLogService)
-#pragma warning restore CS9113
 {
     public async Task<WorkItemDto> CreateAsync(int creatorUserId, int projectId, WorkItemRequest request)
     {
@@ -70,8 +64,25 @@ public class WorkItemService(AppDbContext dbContext, ActivityLogService activity
             SprintId = sprintId
         };
 
+        // Feature 009 (US4, research.md #6) -- the creation entry needs the new
+        // WorkItem's real, database-generated Id, but ActivityLogEntry.WorkItemId
+        // is a plain int, not a navigation property EF Core can fix up
+        // automatically the way it already does for WorkItemLabels above. So this
+        // is the one write path in this class that needs an explicit transaction:
+        // the work item is saved first (assigning its real Id), then the creation
+        // entry is added and saved in a second SaveChangesAsync call, and both
+        // commit together. Every other write path below needs only the implicit,
+        // single-SaveChangesAsync transaction already in place, since their
+        // subject's Id is already known before any mutation happens.
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
         dbContext.WorkItems.Add(workItem);
         await dbContext.SaveChangesAsync();
+
+        activityLogService.RecordCreated(projectId, workItem.Id, workItem.Title, workItem.Type.ToString(), creatorUserId);
+        await dbContext.SaveChangesAsync();
+
+        await transaction.CommitAsync();
 
         return await ToDtoAsync(workItem.Id);
     }
@@ -83,6 +94,15 @@ public class WorkItemService(AppDbContext dbContext, ActivityLogService activity
     {
         var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
         EnsureCanEdit(workItem, callerId, callerRole);
+
+        // Feature 009 (US4, research.md #7) -- old display names are looked up
+        // here, against the item's current, pre-mutation field values, before any
+        // of them are overwritten below. Priority needs no lookup (a plain enum,
+        // not a foreign key) -- oldPriority.ToString() is the whole "lookup."
+        var oldStatusName = await GetStatusNameAsync(workItem.WorkflowStatusId);
+        var oldPriority = workItem.Priority;
+        var oldAssigneeName = await GetAssigneeNameAsync(workItem.AssigneeUserId);
+        var oldSprintName = await GetSprintNameAsync(workItem.SprintId);
 
         if (!Enum.TryParse<WorkItemType>(request.Type, ignoreCase: true, out var type))
         {
@@ -162,10 +182,58 @@ public class WorkItemService(AppDbContext dbContext, ActivityLogService activity
         }
         dbContext.WorkItemLabels.AddRange(newLabels);
 
+        // Feature 009 (US4) -- one entry per actually-changed tracked field
+        // (research.md #5), compared by display name, not by id (research.md #7).
+        // No SaveChangesAsync of its own (ActivityLogService.RecordFieldChange
+        // only Add()s) -- the single SaveChangesAsync call below persists the
+        // work item mutation and every new entry together, in one transaction.
+        var newStatusName = await GetStatusNameAsync(statusId);
+        if (newStatusName != oldStatusName)
+        {
+            activityLogService.RecordFieldChange(
+                workItem.ProjectId, workItem.Id, workItem.Title, workItem.Type.ToString(), callerId,
+                ActivityField.Status, oldStatusName, newStatusName);
+        }
+        if (priority != oldPriority)
+        {
+            activityLogService.RecordFieldChange(
+                workItem.ProjectId, workItem.Id, workItem.Title, workItem.Type.ToString(), callerId,
+                ActivityField.Priority, oldPriority.ToString(), priority.ToString());
+        }
+        var newAssigneeName = await GetAssigneeNameAsync(request.AssigneeUserId);
+        if (newAssigneeName != oldAssigneeName)
+        {
+            activityLogService.RecordFieldChange(
+                workItem.ProjectId, workItem.Id, workItem.Title, workItem.Type.ToString(), callerId,
+                ActivityField.Assignee, oldAssigneeName, newAssigneeName);
+        }
+        var newSprintName = await GetSprintNameAsync(sprintId);
+        if (newSprintName != oldSprintName)
+        {
+            activityLogService.RecordFieldChange(
+                workItem.ProjectId, workItem.Id, workItem.Title, workItem.Type.ToString(), callerId,
+                ActivityField.Sprint, oldSprintName, newSprintName);
+        }
+
         await dbContext.SaveChangesAsync();
 
         return await ToDtoAsync(workItem.Id);
     }
+
+    // Feature 009 (US4, research.md #7) -- small lookup queries for a field's
+    // current display name, used by UpdateAsync/UpdateStatusAsync/
+    // UpdateSprintAsync to capture the *old* value before it's overwritten, and
+    // again for the *new* value once resolved -- FindAsync(id) alone (used by all
+    // three methods) loads only the entity itself, not its WorkflowStatus/
+    // Assignee/Sprint navigation properties.
+    private async Task<string> GetStatusNameAsync(int statusId) =>
+        (await dbContext.WorkflowStatuses.FindAsync(statusId))!.Name;
+
+    private async Task<string> GetAssigneeNameAsync(int? assigneeUserId) =>
+        assigneeUserId.HasValue ? (await dbContext.Users.FindAsync(assigneeUserId.Value))!.FullName : "Unassigned";
+
+    private async Task<string> GetSprintNameAsync(int? sprintId) =>
+        sprintId.HasValue ? (await dbContext.Sprints.FindAsync(sprintId.Value))!.Name : "Backlog";
 
     // Feature 005 (Kanban Board). A field-scoped sibling to UpdateAsync above --
     // reuses the exact same authorization rule (EnsureCanEdit) but only ever
@@ -177,10 +245,23 @@ public class WorkItemService(AppDbContext dbContext, ActivityLogService activity
         var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
         EnsureCanEdit(workItem, callerId, callerRole);
 
+        var oldStatusName = await GetStatusNameAsync(workItem.WorkflowStatusId);
+
         // Rejects a statusId that doesn't belong to this item's own project -- an
         // explicit id, unlike Create/Update, so no "default when omitted" case here.
-        workItem.WorkflowStatusId = await ResolveStatusIdAsync(workItem.ProjectId, statusId);
+        var resolvedStatusId = await ResolveStatusIdAsync(workItem.ProjectId, statusId);
+        workItem.WorkflowStatusId = resolvedStatusId;
         workItem.UpdatedAt = DateTime.UtcNow;
+
+        // Feature 009 (US4) -- zero or one entry; none when the resolved status
+        // equals the current one.
+        var newStatusName = await GetStatusNameAsync(resolvedStatusId);
+        if (newStatusName != oldStatusName)
+        {
+            activityLogService.RecordFieldChange(
+                workItem.ProjectId, workItem.Id, workItem.Title, workItem.Type.ToString(), callerId,
+                ActivityField.Status, oldStatusName, newStatusName);
+        }
 
         await dbContext.SaveChangesAsync();
 
@@ -195,8 +276,21 @@ public class WorkItemService(AppDbContext dbContext, ActivityLogService activity
         var workItem = await dbContext.WorkItems.FindAsync(id) ?? throw new WorkItemNotFoundException();
         EnsureCanEdit(workItem, callerId, callerRole);
 
-        workItem.SprintId = await ResolveSprintIdAsync(workItem.ProjectId, workItem.Type, sprintId, workItem.SprintId);
+        var oldSprintName = await GetSprintNameAsync(workItem.SprintId);
+
+        var resolvedSprintId = await ResolveSprintIdAsync(workItem.ProjectId, workItem.Type, sprintId, workItem.SprintId);
+        workItem.SprintId = resolvedSprintId;
         workItem.UpdatedAt = DateTime.UtcNow;
+
+        // Feature 009 (US4) -- zero or one entry; none when the resolved sprint
+        // equals the current one.
+        var newSprintName = await GetSprintNameAsync(resolvedSprintId);
+        if (newSprintName != oldSprintName)
+        {
+            activityLogService.RecordFieldChange(
+                workItem.ProjectId, workItem.Id, workItem.Title, workItem.Type.ToString(), callerId,
+                ActivityField.Sprint, oldSprintName, newSprintName);
+        }
 
         await dbContext.SaveChangesAsync();
 

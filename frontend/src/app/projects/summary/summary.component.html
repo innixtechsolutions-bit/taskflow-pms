@@ -18,3 +18,11 @@
     </div>
   </div>
 }
+
+<div class="activity-section">
+  <h2 class="activity-heading">Recent Activity</h2>
+  <app-activity-feed [entries]="activityEntries()" />
+  @if (hasMoreActivity()) {
+    <button type="button" class="load-more-activity" (click)="loadMoreActivity()">Load more</button>
+  }
+</div>

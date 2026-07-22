@@ -8,12 +8,7 @@ namespace TaskFlow.Api.Controllers;
 
 [ApiController]
 [Authorize]
-// CS9113 suppressed on activityLogService: wired now (Foundational phase, feature
-// 009) so no later user story collides over this constructor's signature; its
-// first real routes land once US4 is implemented (research.md #16).
-#pragma warning disable CS9113
 public class WorkItemsController(WorkItemService workItemService, ActivityLogService activityLogService) : ControllerBase
-#pragma warning restore CS9113
 {
     [HttpPost("api/projects/{projectId}/work-items")]
     public async Task<ActionResult<WorkItemDto>> Create(int projectId, WorkItemRequest request)
@@ -180,6 +175,35 @@ public class WorkItemsController(WorkItemService workItemService, ActivityLogSer
             return Ok(await workItemService.GetSummaryAsync(projectId));
         }
         catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+    }
+
+    // Feature 009 (US4).
+    [HttpGet("api/projects/{projectId}/activity")]
+    public async Task<ActionResult<PagedResult<ActivityEntryDto>>> GetProjectActivity(
+        int projectId, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            return Ok(await activityLogService.GetProjectFeedAsync(projectId, page, pageSize));
+        }
+        catch (ProjectNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+    }
+
+    // Feature 009 (US5's data source, added here alongside GetProjectActivity above).
+    [HttpGet("api/work-items/{id}/activity")]
+    public async Task<ActionResult<List<ActivityEntryDto>>> GetWorkItemActivity(int id)
+    {
+        try
+        {
+            return Ok(await activityLogService.GetWorkItemHistoryAsync(id));
+        }
+        catch (WorkItemNotFoundException ex)
         {
             return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
         }
