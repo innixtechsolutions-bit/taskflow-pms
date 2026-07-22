@@ -341,3 +341,67 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   already cascade-deleted from a shared ancestor should expect the same
   conflict and plan for `Restrict` on one side up front, rather than
   discovering it from a failed migration.
+
+### Feature 008: Sprints & Backlog
+
+- **An in-process "no two of these" check is only honest under concurrency
+  if the database enforces it too.** `SprintService.StartAsync`'s "no other
+  Active sprint in this project" rule started as a plain check-then-act:
+  query for an existing Active sprint, reject if found, otherwise flip this
+  one to Active and save. That's correct for one request at a time, but two
+  *simultaneous* Start calls on different sprints can both pass the check
+  before either commits — a classic TOCTOU race a `/speckit-analyze` pass
+  caught before any code shipped. The real fix wasn't more application
+  logic; it was a SQL Server filtered unique index
+  (`CREATE UNIQUE INDEX ... ON Sprints(ProjectId) WHERE Status = 'Active'`),
+  expressed in EF Core as `HasIndex(s => s.ProjectId).IsUnique().HasFilter(...)`.
+  The database now physically cannot hold two Active rows for the same
+  project, and `StartAsync` catches the resulting `DbUpdateException`
+  (SQL error 2601/2627) and re-reports it as the same
+  `AnotherSprintActiveException` the non-racing path already threw — so
+  every caller sees one consistent error shape regardless of which layer
+  actually caught the conflict. Proven with two tests, not one: a genuine
+  two-`DbContext` race via `Task.WhenAll` (timing-dependent, but the
+  *outcome* — exactly one winner — never depends on which layer caught it),
+  and a direct dual-insert that fails purely on the constraint, with no
+  timing involved at all.
+- **EF Core can translate `new SomeRecord(...)` inside a `Select()`, but not
+  a call to a C# method that builds one.** `GetBacklogAsync` originally
+  tried to reuse `WorkItemService`'s existing DTO-construction logic by
+  calling a small `ToWorkItemDto(WorkItem w)` helper from inside a LINQ
+  `Select()` — every other projection in this file already writes the
+  `new WorkItemDto(w.Id, ...)` construction out in full, but that repetition
+  looked worth extracting. It isn't: EF Core's query provider walks the
+  expression tree of a `Select()` looking for patterns it can translate to
+  SQL, and a call to an arbitrary method isn't one of them. The fix was to
+  inline the same `new WorkItemDto(...)` construction EF Core already
+  translates correctly elsewhere in this file, even though it duplicates a
+  dozen field references. A LINQ-to-Entities projection is a case where
+  "extract the repeated code into a shared method" is actively wrong, not
+  just unnecessary.
+- **Faking the clock and awaiting a component fixture's own async settling
+  don't mix.** The days-remaining indicator's first component-level tests
+  used `vi.useFakeTimers()` + `vi.setSystemTime(...)` to pin "today," the
+  same pattern `overdue.spec.ts` already used successfully for a *pure
+  function* test. Applied around a full component `render()` that calls
+  `await fixture.whenStable()`, it intermittently hung until Vitest's
+  5-second timeout — freezing global timers freezes whatever Angular's
+  zone-based stability detection was waiting on internally, and nothing
+  advances it back. The pure-function test (`sprint-days-remaining.spec.ts`)
+  keeps the fake-timers approach, since it never touches a fixture; the
+  component tests switched to computing a real date a fixed number of days
+  from the actual current moment instead of faking "now" at all. Same
+  category of pitfall as Feature 005's UTC/local string-comparison lesson:
+  the right technique for representing "today" changes depending on what
+  else in the test needs to keep working correctly around it.
+- **A one-command architectural analysis pass earns its keep by catching
+  what a task list quietly assumed.** Running `/speckit-analyze` between
+  planning and implementation caught three real gaps in this feature's own
+  `tasks.md`: FR-025's empty-state hint for a zero-item sprint section had
+  no task at all (added before implementation reached that story); a stale
+  note claimed the sprint-scoped Board story was fully independent of the
+  lifecycle story, when the spec's own rationale already said otherwise
+  (reconciled into "code-independent, not demo-independent"); and the
+  Active-sprint race condition above. None of these were visible from
+  reading any single artifact in isolation — they only showed up from
+  checking spec.md, plan.md, and tasks.md against each other.

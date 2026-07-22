@@ -256,10 +256,10 @@ Success Check — quickstart.md section 6 passes.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T070 [P] Add a "Feature 008: Sprints & Backlog" entry to `README.md`'s "What I learned" log, matching Features 001–007's style, per the constitution's Definition of Done item 5
-- [ ] T071 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass
-- [ ] T072 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass
-- [ ] T073 Walk through `quickstart.md` sections 1–6 and its regression check manually in a running app (backend + `ng serve`), on a project untouched by this feature as well as one using it
+- [X] T070 [P] Add a "Feature 008: Sprints & Backlog" entry to `README.md`'s "What I learned" log, matching Features 001–007's style, per the constitution's Definition of Done item 5
+- [X] T071 Run the full backend suite (`cd backend/TaskFlow.Api.Tests && dotnet test`) and confirm 100% pass — confirmed **382/382**, no flakes observed
+- [X] T072 Run the full frontend suite (`cd frontend && npm test`) and confirm 100% pass — confirmed **251/251** on 3 of 4 runs this session; one run under concurrent load (immediately after a 4.5-minute backend suite) showed 2 unrelated failures that did not reproduce on immediate re-run — resource contention, not a regression. `ng build` (production) also verified clean, no bundle-budget warnings (Feature 007's lesson).
+- [ ] T073 Walk through `quickstart.md` sections 1–6 and its regression check manually in a running app (backend + `ng serve`), on a project untouched by this feature as well as one using it — **not performed by the agent**: no browser-automation tool is available in this session to drive a real UI walkthrough. Verified as far as tooling allows instead: full backend (382/382) and frontend (251/251) suites, a clean production frontend build, and a clean backend build. A manual pass through `quickstart.md` by the maintainer is recommended before considering this feature fully done (constitution Principle VIII — Human in the Loop already requires this review regardless).
 
 ---
 
