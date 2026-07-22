@@ -22,6 +22,11 @@
     <app-status-donut-chart [breakdown]="s.statusBreakdown" />
     <app-priority-bar-chart [breakdown]="s.priorityBreakdown" />
   </div>
+
+  <div class="workload-section">
+    <h2 class="workload-heading">Team Workload</h2>
+    <app-team-workload [workload]="s.workload" />
+  </div>
 }
 
 <div class="activity-section">

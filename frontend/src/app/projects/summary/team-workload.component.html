@@ -1,0 +1,15 @@
+@if (workload().length === 0) {
+  <app-empty-state icon="groups" message="No workload data yet" />
+} @else {
+  <ul class="team-workload">
+    @for (row of workload(); track row.userId ?? 'unassigned') {
+      <li class="workload-row">
+        <app-user-avatar [fullName]="row.displayName" [showName]="true" />
+        <div class="workload-bar-track">
+          <div class="workload-bar-fill" [style.width.%]="percent(row.openItemCount)"></div>
+        </div>
+        <span class="workload-count">{{ row.openItemCount }}</span>
+      </li>
+    }
+  </ul>
+}

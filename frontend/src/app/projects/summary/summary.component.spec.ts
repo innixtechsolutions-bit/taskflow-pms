@@ -16,7 +16,10 @@ function sampleSummary(overrides: Partial<ProjectSummary> = {}): ProjectSummary 
       { priority: 'High', count: 0 },
       { priority: 'Critical', count: 0 },
     ],
-    workload: [],
+    workload: [
+      { userId: 1, displayName: 'Jane Doe', openItemCount: 3 },
+      { userId: null, displayName: 'Unassigned', openItemCount: 1 },
+    ],
     ...overrides,
   };
 }
@@ -118,6 +121,14 @@ describe('SummaryComponent', () => {
     expect(fixture.nativeElement.querySelector('app-priority-bar-chart')).toBeTruthy();
     expect(fixture.nativeElement.querySelectorAll('.status-donut-legend-item').length).toBe(2);
     expect(fixture.nativeElement.querySelectorAll('.priority-bar-row').length).toBe(4);
+  });
+
+  it('renders the team workload panel from the fetched summary', async () => {
+    configure();
+    const fixture = await render();
+
+    expect(fixture.nativeElement.querySelector('app-team-workload')).toBeTruthy();
+    expect(fixture.nativeElement.querySelectorAll('.workload-row').length).toBe(2);
   });
 
   it('hides "Load more" once every entry has been loaded', async () => {

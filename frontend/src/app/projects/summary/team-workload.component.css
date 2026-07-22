@@ -1,0 +1,34 @@
+.team-workload {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.workload-row {
+  display: grid;
+  grid-template-columns: auto 1fr 32px;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.workload-bar-track {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-chip);
+  height: 8px;
+  overflow: hidden;
+}
+
+.workload-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-chip);
+  background: var(--color-primary);
+  transition: width 200ms ease;
+}
+
+.workload-count {
+  font-weight: 600;
+  text-align: right;
+}

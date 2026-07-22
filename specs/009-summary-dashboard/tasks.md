@@ -150,12 +150,12 @@ Existing two-project layout: `backend/TaskFlow.Api/` + `backend/TaskFlow.Api.Tes
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T044 [P] [US3] `team-workload.component.spec.ts`: rows sorted by count descending, an Unassigned row appears only when applicable, a zero-load Manager/Admin row still renders in `frontend/src/app/projects/summary/team-workload.component.spec.ts`
+- [X] T044 [P] [US3] `team-workload.component.spec.ts`: rows sorted by count descending, an Unassigned row appears only when applicable, a zero-load Manager/Admin row still renders in `frontend/src/app/projects/summary/team-workload.component.spec.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T045 [US3] Create `TeamWorkloadComponent` — row list with a proportion bar per row, reusing `UserAvatarComponent` in `frontend/src/app/projects/summary/team-workload.component.ts` / `.html` / `.css` (makes T044 pass)
-- [ ] T046 [US3] Wire `TeamWorkloadComponent` into `SummaryComponent`'s template in `frontend/src/app/projects/summary/summary.component.html` (depends on T045)
+- [X] T045 [US3] Create `TeamWorkloadComponent` — row list with a proportion bar per row, reusing `UserAvatarComponent` in `frontend/src/app/projects/summary/team-workload.component.ts` / `.html` / `.css` (makes T044 pass)
+- [X] T046 [US3] Wire `TeamWorkloadComponent` into `SummaryComponent`'s template in `frontend/src/app/projects/summary/summary.component.html` (depends on T045)
 
 **Checkpoint**: Team workload panel renders correctly, sorted, with Unassigned/zero-load rows as applicable.
 

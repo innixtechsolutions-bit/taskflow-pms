@@ -33,9 +33,14 @@
   margin-bottom: var(--space-5);
 }
 
+.workload-heading,
 .activity-heading {
   font-size: 1.1rem;
   margin: 0 0 var(--space-3);
+}
+
+.workload-section {
+  margin-bottom: var(--space-5);
 }
 
 .load-more-activity {

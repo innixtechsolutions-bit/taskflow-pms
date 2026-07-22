@@ -3,6 +3,7 @@ import { ActivityEntry, ProjectSummary, WorkItemsService } from '../work-items.s
 import { ActivityFeedComponent } from '../activity-feed/activity-feed.component';
 import { StatusDonutChartComponent } from './status-donut-chart.component';
 import { PriorityBarChartComponent } from './priority-bar-chart.component';
+import { TeamWorkloadComponent } from './team-workload.component';
 
 const ACTIVITY_PAGE_SIZE = 20;
 
@@ -16,7 +17,7 @@ const ACTIVITY_PAGE_SIZE = 20;
 @Component({
   selector: 'app-summary',
   standalone: true,
-  imports: [ActivityFeedComponent, StatusDonutChartComponent, PriorityBarChartComponent],
+  imports: [ActivityFeedComponent, StatusDonutChartComponent, PriorityBarChartComponent, TeamWorkloadComponent],
   templateUrl: './summary.component.html',
   styleUrl: './summary.component.css',
 })
