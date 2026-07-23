@@ -181,10 +181,10 @@ Existing two-project layout: `backend/TaskFlow.Api/` + `backend/TaskFlow.Api.Tes
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T049 [P] Run the full backend suite (`dotnet test` from `backend/`) and confirm all pre-existing tests plus every new test above pass
-- [ ] T050 [P] Run the full frontend suite (`npm test` from `frontend/`) and confirm all pre-existing tests plus every new test above pass
-- [ ] T051 Walk through every scenario in `quickstart.md` end-to-end against a running instance
-- [ ] T052 Add a "What I learned" entry for this feature to `README.md` (constitution Definition of Done, Principle VIII)
+- [X] T049 [P] Run the full backend suite (`dotnet test` from `backend/`) and confirm all pre-existing tests plus every new test above pass
+- [X] T050 [P] Run the full frontend suite (`npm test` from `frontend/`) and confirm all pre-existing tests plus every new test above pass
+- [X] T051 Walk through every scenario in `quickstart.md` end-to-end against a running instance
+- [X] T052 Add a "What I learned" entry for this feature to `README.md` (constitution Definition of Done, Principle VIII)
 
 ---
 

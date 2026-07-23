@@ -405,3 +405,61 @@ See `specs/001-user-auth/quickstart.md` for setup and validation steps.
   Active-sprint race condition above. None of these were visible from
   reading any single artifact in isolation — they only showed up from
   checking spec.md, plan.md, and tasks.md against each other.
+
+### Feature 009: Project Summary Dashboard & Activity Log
+
+- **A primary constructor parameter that's "wired now, used later" doesn't
+  compile as harmlessly as it sounds.** The Foundational phase's whole point
+  was adding `ActivityLogService` to `WorkItemService`/`WorkItemsController`'s
+  constructors *before* any user story called it — a deliberate choice so
+  US1 through US5 never had to touch the constructor signature mid-story and
+  collide with each other. C# 12's primary constructors don't allow that:
+  `CS9113` ("parameter is unread") fires the moment a constructor parameter
+  is never referenced anywhere in the class body, and this project's
+  `TreatWarningsAsErrors=true` turns that into a hard build failure, not a
+  lint note. Neither obvious fix works cleanly either — assigning it to a
+  private field just moves the same complaint to `CS0414` ("field is
+  assigned but never used"). The actual fix was a narrowly-scoped
+  `#pragma warning disable/restore CS9113` around the two class declarations,
+  with a comment explaining it's temporary bridging until US4 added the
+  first real call site — removed the moment that call site existed.
+- **The correct foreign key for `ActivityLogEntry.WorkItemId` was no foreign
+  key at all.** Every `OnDelete` behavior this codebase already uses failed
+  the actual requirement in a different way: `Restrict` would block deleting
+  a work item the instant it had ever been created (which is always, since
+  creation itself logs an entry); `Cascade` would delete the very history
+  entries FR-018 requires to survive; `SetNull` would erase the id the
+  history is about. The relationship needed to *outlive its target*, which
+  no FK delete behavior can express — so `WorkItemId` is a plain,
+  unconstrained `int`, and `WorkItemTitle`/`WorkItemType` are captured as
+  their own snapshot columns at write time instead of a live join. The same
+  "enforce it in code, not the schema" instinct this codebase already used
+  for `WorkItem.ParentWorkItemId`'s type-dependent required-ness, just
+  applied to sidestep a delete-behavior problem instead of a validation one.
+- **Only one write path in the whole feature needed an explicit database
+  transaction, and the reason was purely about id timing, not correctness in
+  general.** `ActivityLogService.RecordCreated`/`RecordFieldChange` only
+  `Add()` — they never call `SaveChangesAsync()` themselves, so every
+  *existing* item's write path (`UpdateAsync`, `UpdateStatusAsync`,
+  `UpdateSprintAsync`) gets the activity entry committed atomically with the
+  field mutation for free, from the one `SaveChangesAsync()` call each
+  already had. `CreateAsync` is the exception: the entry needs the new work
+  item's real, database-generated `Id`, which doesn't exist until the first
+  `SaveChangesAsync()` returns — so that one method wraps both saves in an
+  explicit `await using var transaction = await
+  dbContext.Database.BeginTransactionAsync()`. Needing a transaction wasn't
+  about "this write is more important," it was purely about which write path
+  has the id it needs before its own first save.
+- **A dependency-free SVG donut chart is arc math, not a component-level
+  concern — and testing it that way is what made the "always sums to 100%"
+  property actually checkable.** `donutSegments()` is a pure function
+  (counts in, `{colorVar, dashArray, dashOffset}` out) with its own Vitest
+  spec asserting the summed arc lengths always equal the circle's
+  circumference, completely independent of Angular, SVG, or a running
+  component — the same "pure calculation extracted so the template stays
+  declarative" pattern this codebase already used for
+  `sprintDaysRemaining()`. `stroke-dasharray`/`stroke-dashoffset` turned out
+  to be the whole trick: each segment is a full-circumference circle with a
+  dash pattern that shows only its own arc length, rotated into position by
+  offsetting where that dash pattern starts — no actual SVG path/arc-command
+  math needed at all.
