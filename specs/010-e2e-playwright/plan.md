@@ -13,13 +13,13 @@ real Angular app against the real ASP.NET Core backend and a dedicated
 `TaskFlowDb_E2E` SQL Server database (schema via the existing EF Core
 migrations), covering the seven curated risk journeys from the spec (auth,
 permission boundaries, navigation, project/work-item CRUD, board drag,
-sprint, role change). No production behavior changes; the only anticipated
-production-side change is one small `id` attribute added to the board card
-component to mirror the tree view's existing `id="tree-work-item-{id}"`
-convention, giving drag tests a stable per-card locator. Test accounts are
-provisioned each run via the app's own existing APIs (config-seeded Admin +
-public register/role-change endpoints for Manager and Developer), not a new
-seeding backdoor.
+sprint, role change). **Zero production code changes**: the codebase
+already exposes enough stable selectors (accessible labels on Material
+form fields, existing tree-view ids, and the board card's existing unique
+`#{{id}}` text) that FR-017's allowed selector-hook exception turns out not
+to be needed. Test accounts are provisioned each run via the app's own
+existing APIs (config-seeded Admin + public register/role-change endpoints
+for Manager and Developer), not a new seeding backdoor.
 
 ## Technical Context
 
@@ -54,11 +54,12 @@ structure). This feature adds a new `frontend/e2e/` directory and
 (SC-004); each of the 7 journeys is independently bounded so a single slow
 journey cannot stall the whole run.
 
-**Constraints**: No application/production behavior changes (FR-016); at
-most one minimal, documented selector-hook addition to existing markup
-(FR-017); suite must exercise the real backend/DB, never mocked APIs
-(FR-006); one automatic retry only, no silent skips (FR-010); suite is
-fully separate from `dotnet test` / `ng test` (FR-014).
+**Constraints**: No application/production behavior or markup changes
+(FR-016; FR-017's selector-hook exception is available but, per
+research.md Decision 5, turns out not to be needed); suite must exercise
+the real backend/DB, never mocked APIs (FR-006); one automatic retry only,
+no silent skips (FR-010); suite is fully separate from `dotnet test` /
+`ng test` (FR-014).
 
 **Scale/Scope**: 7 independently-runnable spec files, a curated smoke suite
 of the highest-risk journeys — not exhaustive per-feature coverage.
@@ -74,7 +75,7 @@ of the highest-risk journeys — not exhaustive per-feature coverage.
 | III. Clarity Over Cleverness | Yes | Plain Playwright Page Object files (one class per page/component), no custom test-framework abstraction layer, no retry/wait helpers beyond Playwright's built-ins. |
 | IV. Consistent Code Quality & Review Gates | Yes | `frontend/e2e/**` is TypeScript, strict mode, no `any`, linted the same as the rest of `frontend/`. |
 | V. API Contract Stability & Versioning | Yes — no changes | The suite only *consumes* existing endpoints (`/api/auth/register`, `/api/auth/login`, `/api/users/{id}/role`, `/api/projects/{id}`, etc., see [contracts/api-usage.md](./contracts/api-usage.md)); no request/response shape or migration is added or changed. |
-| VI. Teach While Building | N/A | Applies to generated C# files; this feature adds no C# files. The one anticipated markup change (a card `id` attribute) is one line and self-explanatory, consistent with the spirit of the principle without needing a comment. |
+| VI. Teach While Building | N/A | Applies to generated C# files; this feature adds no C# files, and adds no Angular markup changes either (see Summary). |
 | VII. Incremental, Feature-by-Feature Delivery | Flagged | The file *count* (7 spec files + ~8 page objects + config/fixtures + README updates) will likely exceed the "~15 files" guideline. This is a scope property of the requirement (FR-002: one independently-runnable file per journey), not accidental scaffolding — see Complexity Tracking below. |
 | VIII. Human in the Loop | Yes | No auto-chaining; maintainer reviews before Feature 011 begins, same as every prior feature. |
 
@@ -99,15 +100,14 @@ specs/010-e2e-playwright/
 ### Source Code (repository root)
 
 ```text
-# Existing web application structure (frontend + backend) — unmodified except
-# for the one anticipated board-card id attribute noted in Summary.
+# Existing web application structure (frontend + backend) — fully unmodified;
+# see research.md Decision 5 for why no selector-hook markup change is needed.
 backend/
 ├── TaskFlow.Api/                  # unchanged
 └── TaskFlow.Api.Tests/            # unchanged (xUnit, untouched by this feature)
 
 frontend/
-├── src/                           # unchanged, except one id attribute on
-│                                   # the board card component (see research.md)
+├── src/                           # completely unchanged
 ├── playwright.config.ts           # NEW — Chromium-only project, trace/
 │                                   # screenshot-on-failure, 1 retry
 ├── package.json                   # EDIT — add @playwright/test devDependency

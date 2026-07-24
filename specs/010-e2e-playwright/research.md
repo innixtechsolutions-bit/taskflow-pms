@@ -134,25 +134,36 @@ without the cost of a reset between every test.
 **Decision**: Prefer, in order: (a) Playwright's role/label locators
 (`getByRole`, `getByLabel`) — Angular Material's `mat-form-field` +
 `mat-label` already produce accessible labels, so login/register forms
-need no new markup; (b) existing stable, human-authored class names and
-ids already present in the codebase (e.g. `.tree-view-toggle`,
-`.flat-view-toggle`, `.active-sprint-toggle`, `id="tree-work-item-{id}"`);
-(c) one narrow new addition, per FR-017's allowance: an `id="board-card-{id}"`
-attribute on the board card component, mirroring the tree view's existing
-`id="tree-work-item-{id}"` convention, since the Board Drag journey needs a
-locator for a *specific* card among several that may share a title.
+need no new markup; (b) existing stable, human-authored class names, ids,
+and text content already present in the codebase (e.g. `.tree-view-toggle`,
+`.flat-view-toggle`, `.active-sprint-toggle`, `id="tree-work-item-{id}"`,
+and — confirmed by reading `board-card.component.html` — the `.card-key`
+element, which already renders a unique `#{{ card().id }}` per card).
+
+No new `data-testid` or `id` attribute is needed anywhere, including the
+board: a specific card for the drag journey can be targeted with
+`page.locator('.board-card').filter({ hasText: `#${workItemId}` })`, which
+is exactly as resilient as a dedicated id and requires zero production
+changes.
 
 **Rationale**: A grep of `frontend/src` found zero existing `data-testid`
-attributes but did find deliberately-named, stable CSS classes and
-per-row `id`s already used for the same purpose (distinguishing rows in
-the tree view) — reusing that existing convention is more consistent with
-the codebase than introducing a new `data-testid` convention alongside it,
-and satisfies FR-008 without a broader markup change than necessary.
+attributes, but reading the actual component templates (not just
+guessing) showed the codebase already exposes what's needed: deliberately
+named, stable CSS classes and ids for the tree view, and unique per-card
+text (`#{{id}}`) for the board. FR-017 frames a selector-hook addition as
+an *allowed exception if needed* — since it turns out not to be needed,
+the simpler, fully-zero-production-change path wins outright (Clarity Over
+Cleverness, Principle III, and FR-017's own preference for no production
+changes when avoidable).
 
 **Alternatives considered**:
+- *Add `id="board-card-{id}"` to `board-card.component.html`* — this was
+  the original plan-time assumption before the template was actually read;
+  superseded once the existing `.card-key` `#{{id}}` text was confirmed to
+  already serve the same purpose without touching production markup.
 - *`data-testid` on every interactive element* — rejected as broader than
-  the "kept minimal" instruction in FR-017; most elements already resolve
-  cleanly via role/label or an existing class/id.
+  the "kept minimal" instruction in FR-017; every element in scope already
+  resolves cleanly via role/label or an existing class/id/text.
 - *CSS structural selectors (nth-child, etc.)* — explicitly what FR-008
   rules out.
 
