@@ -5,6 +5,7 @@ import { MatCheckboxHarness } from '@angular/material/checkbox/testing';
 import { MatSelectHarness } from '@angular/material/select/testing';
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { vi } from 'vitest';
 import { WorkItemModalComponent, WorkItemModalData } from './work-item-modal.component';
 import { ProjectStatus, WorkItemsService } from '../work-items.service';
@@ -106,6 +107,15 @@ function configure(
       { provide: MAT_DIALOG_DATA, useValue: { mode: 'create', projectId: 1, onSaved, ...data } },
       { provide: MatDialogRef, useValue: dialogRef },
       provideNativeDateAdapter(),
+      // This modal is the app's heaviest Material animation surface (MatDialog +
+      // MatSelect + MatDatepicker all in one component) — real animations under
+      // jsdom rely on CSS transitionend events that don't reliably fire, which
+      // let this test's harness-based stability checks intermittently run past
+      // Vitest's 5s default when many other spec files' own component instances
+      // are still mid-teardown in the same shared, non-isolated test worker
+      // (angular.dev/guide/testing's own harness guidance: disable animations
+      // in unit tests to avoid exactly this class of timing flakiness).
+      provideNoopAnimations(),
     ],
   });
 
@@ -121,21 +131,42 @@ async function render(): Promise<{ fixture: ReturnType<typeof TestBed.createComp
   return { fixture, loader };
 }
 
+// This modal is the app's heaviest Material surface (MatDialog + MatSelect +
+// MatDatepicker, all in one component) and ngOnInit fires four concurrent
+// service calls (assignable users, parent candidates, statuses, project
+// labels) before the form settles — render()'s fixture.whenStable() alone
+// legitimately takes several seconds once the full 44-file suite's shared,
+// non-isolated Vitest worker is under load (measured ~3s here, vs. Vitest's
+// 5s default), even though nothing is actually hung — the wait conditions
+// (whenStable(), the harness's own getValueText()) are already correct.
+// A per-suite timeout gives both tests in this describe block, which share
+// that same expensive render() path, the headroom the rest of the suite's
+// lighter components don't need.
+const PRE_SELECTION_TEST_TIMEOUT = 20000;
+
 describe('WorkItemModalComponent (create mode, pre-selection)', () => {
-  it("pre-selects the Status field from dialog data (board's '+' affordance)", async () => {
-    configure({ mode: 'create', statusId: 3 });
-    const { loader } = await render();
+  it(
+    "pre-selects the Status field from dialog data (board's '+' affordance)",
+    async () => {
+      configure({ mode: 'create', statusId: 3 });
+      const { loader } = await render();
 
-    expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('In Review');
-  });
+      expect(await (await selectByLabel(loader, 'Status')).getValueText()).toBe('In Review');
+    },
+    PRE_SELECTION_TEST_TIMEOUT
+  );
 
-  it("pre-selects Parent and Type from dialog data ('Add child' affordance)", async () => {
-    configure({ mode: 'create', parentWorkItemId: 10, type: 'Story' });
-    const { loader } = await render();
+  it(
+    "pre-selects Parent and Type from dialog data ('Add child' affordance)",
+    async () => {
+      configure({ mode: 'create', parentWorkItemId: 10, type: 'Story' });
+      const { loader } = await render();
 
-    expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Story');
-    expect(await (await selectByLabel(loader, 'Parent')).getValueText()).toBe('Epic One');
-  });
+      expect(await (await selectByLabel(loader, 'Type')).getValueText()).toBe('Story');
+      expect(await (await selectByLabel(loader, 'Parent')).getValueText()).toBe('Epic One');
+    },
+    PRE_SELECTION_TEST_TIMEOUT
+  );
 });
 
 describe('WorkItemModalComponent (edit mode, pre-population)', () => {
